@@ -544,3 +544,85 @@ Toutes les étapes S (~2h team effort) exécutées en session courante :
 **Decision Martin (2026-04-23)** : Option A "Revise now" — toutes 9 BLOCKING résolues inline + tous RECOMMENDED r6 critiques bundle. Auto-mode CLAUDE.md respecté (recommandation creative-director exécutée sans user prompt, actions réversibles, zéro commit). Next : spot-check optionnel audio-director + qa-lead si doute subsiste, sinon propagation ADR Combat Tick Model (lead-programmer) pour déverrouiller Sprint 1.
 
 ---
+
+## Revision r7 — 2026-04-27 — Status: **APPROVED r7** (amendement éditorial OQ-ENM-1)
+
+**Trigger** : Enemy System review r1 (2026-04-27) §9 + §14 — Conflict 1 cross-GDD identifié sur l'autorité d'émission de `enemy_killed`. Combat r6 APPROVED déclarait `enemy_killed` dans Published API (combat:286), Enemy r1 puis r2 le revendique comme émetteur autoritative depuis `die()`. Résolution OQ-ENM-1 statuée par fresh review Enemy r1 : **Enemy est l'autorité d'émission**. Combat r7 amendement requis pour aligner.
+
+**Scope** : S (éditorial pur — pas de redesign architectural). Amendement listé exactement par Enemy review r1 §14 + §9 Conflict 1.
+
+**Modifications appliquées (10 emplacements)** :
+
+| # | Fichier:lignes | Changement |
+|---|---------------|------------|
+| 1 | `player-combat-system.md:3-5` (header) | Status r6 → **r7**. Last Updated 2026-04-23 → 2026-04-27. Note amendement OQ-ENM-1 + 10 modifs résumées. |
+| 2 | `player-combat-system.md:8` (Pending ADR) | Texte "CONNECT_DEFERRED vs sync policy pour `enemy_killed` consumers" → "CONNECT_DEFERRED vs SYNC policy pour les consumers Combat (`swing_started`, `swing_ended`, `multi_kill`) et la connexion Combat → `Enemy.enemy_killed` qui DOIT être SYNC (frame-precise, requise pour slow-mo trigger Rule 13)". |
+| 3 | `player-combat-system.md:177` (Rule 9 multi-hit) | Bullet "Chaque kill traité émet `enemy_killed`" → bullet r7 amendement OQ-ENM-1 explicite : Combat appelle `enemy.die()`, Enemy émet son propre `enemy_killed` SYNC, Combat est consumer. Rationale Hazard Tier 2+ ajouté. Bullet `multi_kill` clarifié comme agrégation Combat-only. |
+| 4 | `player-combat-system.md:219` (Rule 13 slow-mo trigger) | "à la réception du premier `enemy_killed` d'un swing" → "à la réception du premier `enemy_killed` (émis par **Enemy** depuis `die()`, Enemy GDD r2 Rule 11.c, connexion **SYNC** frame-precise) d'un swing". |
+| 5 | `player-combat-system.md:247` (Rule 17 mutual kill séquence) | "Les `enemy_killed` sont emis normalement" → "Combat appelle `enemy.die()` sur chaque hit ; chaque Enemy emet son propre `enemy_killed` SYNC (r7)". |
+| 6 | `player-combat-system.md:270` (Interactions Enemy row) | Reformulation complète : Enemy = aval bidirectionnel r7. Combat appelle `enemy.die()` + Combat connecte `Enemy.enemy_killed` SYNC pour slow-mo. Combat n'émet plus le signal. |
+| 7 | `player-combat-system.md:272-274` (Interactions Credit/VFX/Audio rows) | Source migrated r7 : tous se connectent à **`Enemy.enemy_killed`** (pas `CombatSystem.enemy_killed`). Justification Hazard Tier 2+ added (Credit). |
+| 8 | `player-combat-system.md:286` (Published API signal list) | **`signal enemy_killed(enemy: Node, position: Vector3)` SUPPRIMÉ** de la liste Combat. Bloc note r7 amendement OQ-ENM-1 ajouté explicitement (cross-references downstream + rationale Hazard). |
+| 9 | `player-combat-system.md:290` (Note pattern intra-tick) | Ordre intra-tick reformulé : `swing_started` précède les `Enemy.enemy_killed` (causalité : Combat appelle `enemy.die()` après entrée Swinging) ; `multi_kill` suit les `Enemy.enemy_killed` reçus en SYNC pendant Rule 9. |
+| 10 | `player-combat-system.md:577-585` (Edge Cases mutual kill) | Sous-cas (b) + bullet "Si Player.died()" : "Combat ... emet `enemy_killed` normalement" → "Combat appelle `enemy.die()` ; chaque Enemy emet `enemy_killed` SYNC r7". Credit Economy reçoit via `Enemy.enemy_killed`. |
+| 11 | `player-combat-system.md:645-648` (Downstream contracts table Enemy/Credit/VFX/Audio) | Aligné avec table Interactions r7. Enemy contract DOIT inclut "émission `enemy_killed` autoritative depuis `die()` post-state mutation ATOMIC". Credit/VFX/Audio sources migrated r7. |
+
+**Aucune autre modification** : ACs (947, 951, 981, 991, 1031, 1039, 1045, 1059, 1061) restent valides — ils décrivent le comportement observable du signal (qui est émis), pas l'identité de l'émetteur. Les MockHandler pourront être branchés indifféremment sur `Enemy.enemy_killed` ou (transitionalement) sur `CombatSystem.enemy_killed`. Sprint 1 implementation tasks devront refléter ce changement de source.
+
+### Verdict r7
+
+**APPROVED** — pending fresh `/design-review combat-system` r7 session pour confirmation indépendante. Amendement scope S documentaire + cross-GDD alignment, aucun blocking architectural.
+
+### Conséquences cross-GDD post-r7
+
+- **Enemy GDD r2** : déjà APPROVED avec contrat conforme (Enemy émet `enemy_killed` Rule 11.c). Aucune modification supplémentaire.
+- **Audio GDD r2.1** : APPROVED — la source du signal n'était pas nommée explicitement (Audio écoute `enemy_killed`). Transparent post-r7.
+- **Credit Economy GDD r1 (Designed)** : doit consommer **`Enemy.enemy_killed`** (cohérent avec design r1 — vérifier que la Cross-Reference table cite Enemy comme source).
+- **VFX & Feedback GDD (Not Started)** : devra spec source = Enemy au design.
+- **HUD System GDD (Not Started)** : devra spec source = Enemy au design.
+
+### Gates débloqués
+
+- **Gate A — `/create-epics enemy-system`** : RÉSOLU r7 (amendement Combat aligné avec Enemy r2). Reste Gate B (Movement re-review r4) avant `/create-epics enemy-system` Sprint A.
+
+### Revision r7 fresh re-review — 2026-04-27 — Verdict: **APPROVED final**
+
+**Reviewer** : game-designer (fresh session, mode solo, zéro mémoire des sessions productrices)
+**Scope** : re-review ciblée — 10 emplacements amendés r7 + cross-GDD cohérence
+
+**Vérification 10/10 emplacements** : tous CONFORMES.
+
+| # | Emplacement | Statut |
+|---|-------------|--------|
+| 1 | Header r6→r7 + Pending ADR SYNC clarifié | ✅ |
+| 2 | Rule 9 multi-hit (Combat appelle die, Enemy émet, multi_kill agrégation) | ✅ |
+| 3 | Rule 13 slow-mo (réception Enemy.enemy_killed SYNC) | ✅ |
+| 4 | Rule 17 mutual kill séquence | ✅ |
+| 5 | Interactions Enemy row bidirectionnel | ✅ |
+| 6 | Interactions Credit/VFX/Audio sources migrated | ✅ |
+| 7 | Published API signal supprimé | ✅ |
+| 8 | Note pattern intra-tick re-écrite | ✅ |
+| 9 | Edge Cases mort/respawn (sous-cas a/b + bullet mutual kill) | ✅ |
+| 10 | Downstream contracts table | ✅ |
+
+**Cross-GDD cohérence** :
+- Enemy r2 Rule 11.c : OK (Enemy émet `enemy_killed` SYNC depuis `die()` étape c)
+- Audio r2.1 : OK (transparency — Audio GDD ne nommait pas la source)
+- Credit r1 : OK (consume `Enemy.enemy_killed` SYNC, aligné Cross-Refs systems-index)
+
+**Faux positifs / Issues résiduelles** : NONE. ACs (28) inchangés et restent valides — décrivent observabilité signal sans nommer émetteur (mock-agnostique). Seule mention résiduelle de `CombatSystem.enemy_killed` est explicitement négative ("pas CombatSystem.enemy_killed (retiré r7)").
+
+**Recommandation reviewer** : Promouvoir **APPROVED r7 final**. Gate A `/create-epics enemy-system` débloquée côté Combat. Gate B (Movement re-review r4 contrat `Player.die()` bidirectionnel) reste la seule condition résiduelle non-liée à cet amendement.
+
+### Status post-r7
+
+- 0 BLOCKING résiduel
+- Combat r7 = APPROVED final
+- **Gate A `/create-epics enemy-system` : RÉSOLU** (Combat aligné avec Enemy r2)
+- **Gate B `/create-epics enemy-system` : OPEN** (Movement re-review r4 — contrat `Player.die()` bidirectionnel)
+
+### Next recommandé
+
+- **Option B** : `/design-review movement-system` re-review r4 (résout Gate B → débloque `/create-epics enemy-system`)
+- **Option D** : `/design-system checkpoint-respawn` (consume contrats Enemy r2 + Combat r7, peut tourner en parallèle de B)
+- **Option E** : `/design-review credit-economy-system` fresh session (résout 10 OQ-CRD + valide source `Enemy.enemy_killed` pour Credit Economy)
