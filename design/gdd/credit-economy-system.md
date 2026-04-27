@@ -1,16 +1,17 @@
 # Credit Economy System
 
-> **Status**: In Design (r1 — solo auto-approve)
+> **Status**: In Design (r2 — cosmetic amendment 2026-04-27 : OQ-CRD-1/OQ-CRD-2 RESOLVED, B-3 tween ownership delegation, dependency status refresh post Shop/HUD/Secret r1)
 > **Author**: economy-designer + creative-director + game-designer + qa-lead + Martin
-> **Last Updated**: 2026-04-27
+> **Last Updated**: 2026-04-27 (r2 cosmetic amendment after fresh /design-review)
 > **Last Verified**: 2026-04-27
 > **Implements Pillar**: Pillar 2 (LA PROGRESSION SE VOIT) primaire ; Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou (le crédit ne doit jamais interrompre)
+> **Review history** : `design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md` — NEEDS REVISION (7 ship-blocking + 10 pre-impl + 9 polish pending separate r2 design session ; this r2 amendment addresses B-3 + OQ promotions only)
 
 ## Summary
 
 Credit Economy est l'autoload qui maintient `total_credits` — l'unique compteur de monnaie permanente du joueur. Il crédite à chaque kill (+1 par grunt MVP) et chaque secret collecté (+5 / +10 / +15 selon tier 1/2/3), expose `try_spend(amount: int) -> bool` au Shop System, et émet `credits_changed(total, delta, source)` SYNC pour que le HUD voie le compteur monter dans le même `_physics_process` que le kill. Le système est stateless mécaniquement, persiste via Save/Load, et n'est jamais reset à la mort. Il sert **Pillar 2 (LA PROGRESSION SE VOIT)** comme contrat primaire — le `total_credits` est l'odomètre permanent qui matérialise la trajectoire personnelle du joueur — et **Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT)** via l'asymétrie 5:1 minimum entre crédit-secret et crédit-kill.
 
-> **Quick reference** — Layer: `Feature` · Priority: `MVP` · Key deps: `Enemy System (Designed r1), Secret System (Not Started — provisional contract), Shop System (Not Started — sink), Save/Load System (Not Started — persist), Game State Manager (APPROVED r1), HUD System (Not Started — display)`
+> **Quick reference** — Layer: `Feature` · Priority: `MVP` · Key deps: `Enemy System (Designed r1), Secret System (Designed r1 — locked secret_collected SYNC), Shop System (Designed r1 — locked try_spend SYNC atomique), Save/Load System (Not Started — persist), Game State Manager (APPROVED r1), HUD System (Designed r1 — listens credits_changed SYNC, owns visual presentation)`
 
 ## Overview
 
@@ -50,7 +51,7 @@ Ce que le système ne fait **jamais** : pas de drop chance, pas de rareté, pas 
 
 8. **Émission synchrone du signal `credits_changed`** — Le signal `credits_changed(total: int, delta: int, source: SourceKind)` est émis SYNC (non CONNECT_DEFERRED) immédiatement après la mise à jour de `total_credits`. Justification : le HUD doit voir le compteur monter dans le même `_physics_process` que le kill pour respecter Pillar 1 (zéro overhead perçu — le nombre change au moment où l'ennemi meurt, pas une frame plus tard). L'émission SYNC depuis un autoload connecté à un signal Enemy est safe — aucun risque de mutation de scène pendant le callback car Credit Economy ne modifie que son propre état interne. **Cas particulier `try_spend` réussi** : émission `credits_changed(new_total, -amount, SPEND_SHOP)` SYNC dans le même call stack que l'appel `try_spend`. **Cas particulier BOOT_HYDRATE** : `delta == 0`, `source == BOOT_HYDRATE`, émis 1 fois après lecture Save/Load.
 
-9. **[PROVISOIRE] Contrat Signal Secret System** — Credit Economy attend un signal `secret_collected(secret_node: Node, tier: int)` émis par Secret System quand un secret est collecté par le joueur. Ce signal est l'interface d'entrée canonique pour les crédits de type SECRET. `tier ∈ {1, 2, 3}` détermine le montant (voir F-CRD-2). Credit Economy n'impose aucune logique de détection — Secret System est l'autorité d'émission, Credit Economy est consumer pur. **Ce contrat est PROVISOIRE** : Secret System (Systems Index #15, Not Started) devra implémenter ce signal à l'identique lors de son GDD. Si Secret System choisit une interface différente (ex. payload enum au lieu de `tier: int`), un amendement de ce GDD sera requis. Marqueur : `OQ-CRD-1 — contrat secret_collected à confirmer lors du design du Secret System`. Comportement défensif sur tier invalide (`tier ∉ {1, 2, 3}`) : ignore le signal, `push_warning`, aucun crédit accordé (AC-CRD-15).
+9. **[RESOLVED r2] Contrat Signal Secret System** — Credit Economy reçoit le signal `secret_collected(secret_node: Node, tier: int)` SYNC émis par Secret System (Designed r1 — R-SEC-08) quand un secret est collecté par le joueur. Ce signal est l'interface d'entrée canonique pour les crédits de type SECRET. `tier ∈ {1, 2, 3}` détermine le montant (voir F-CRD-2). Credit Economy n'impose aucune logique de détection — Secret System est l'autorité d'émission, Credit Economy est consumer pur. **Ce contrat est CONFIRMÉ par Secret r1 (2026-04-27)** : signature exacte `secret_collected(secret_node: Node, tier: int)` SYNC validée. OQ-CRD-1 promu RESOLVED dans la section Open Questions. Comportement défensif sur tier invalide (`tier ∉ {1, 2, 3}`) : ignore le signal, `push_warning`, aucun crédit accordé (AC-CRD-15).
 
 10. **Comportement en pause** — Pendant `state_changed(PAUSED)` (GSM ADR-0007), Credit Economy ignore tout signal `enemy_killed` reçu. En pratique, Enemy System gèle son LaserCone et Combat System ne swing pas pendant la pause (Enemy GDD Rule : GSM state == PLAYING requis) — ce cas ne devrait pas se produire. Le contrat est documenté ici par défense : si un signal parvenait pendant PAUSED, le handler vérifie `GameStateManager.get_current_state() == State.PLAYING` avant de créditer.
 
@@ -76,9 +77,9 @@ La phase ACTIVE est permanente jusqu'à quit du processus. Il n'existe pas de tr
 | Système | Direction | Interface | Détails |
 |---------|-----------|-----------|---------|
 | **Enemy System** (Designed r1) | Amont — Credit reçoit | Signal `enemy_killed(enemy: Node, position: Vector3)` | Credit Economy se connecte au signal de chaque grunt au `level_active`. 1 signal = 1 crédit MVP grunt. Multi-kill (`MAX_KILLS_PER_SWING = 3`) = 3 signaux séquentiels le même tick → 3 crédits + 3 emits `credits_changed` séquentiels. Filtre idempotence via `get_instance_id()`. Contrat : Enemy GDD Rule 11 + registry entry `grunt.signals_emitted`. |
-| **Secret System** (Not Started — PROVISOIRE) | Amont — Credit reçoit | Signal `secret_collected(secret_node: Node, tier: int)` *(PROVISOIRE — OQ-CRD-1)* | Credit crédite `BASE_SECRET_CREDIT × tier` crédits et émet `credits_changed(total, delta, SECRET)`. Le tier est fourni par Secret System dans le payload du signal. Contrat provisoire à confirmer lors du design Secret System (Systems Index #15). |
-| **Shop System** (Not Started) | Aval — Shop appelle | `CreditEconomy.try_spend(amount: int) -> bool` | API publique atomique. Shop vérifie la réponse booléenne pour confirmer ou annuler l'achat. Pas d'appel `can_afford` séparé — l'atomicité de `try_spend` est la garantie contre les races. Émission `credits_changed(new_total, -amount, SPEND_SHOP)` SYNC à `try_spend()` réussi. |
-| **HUD System** (Not Started) | Aval — HUD écoute | Signal `credits_changed(total: int, delta: int, source: SourceKind)` | HUD met à jour le compteur et déclenche le VFX de gain (source `KILL` ou `SECRET`), affiche silencieusement la dépense (source `SPEND_SHOP`), ou initialise sans VFX (source `BOOT_HYDRATE`, delta = 0). Émission SYNC depuis `_physics_process` (Rule 8). |
+| **Secret System** (Designed r1) | Amont — Credit reçoit | Signal `secret_collected(secret_node: Node, tier: int)` SYNC *(LOCKED par Secret r1 R-SEC-08, OQ-CRD-1 RESOLVED)* | Credit crédite `BASE_SECRET_CREDIT × tier` crédits et émet `credits_changed(total, delta, SECRET)`. Le tier est fourni par Secret System dans le payload du signal. Contrat confirmé identique à la signature provisoire r1. |
+| **Shop System** (Designed r1) | Aval — Shop appelle | `CreditEconomy.try_spend(amount: int) -> bool` SYNC atomique *(LOCKED par Shop r1 R-SHP-6, OQ-CRD-2 RESOLVED)* | API publique atomique. Shop vérifie la réponse booléenne pour confirmer ou annuler l'achat. Pas d'appel `can_afford` séparé — l'atomicité de `try_spend` est la garantie contre les races. Émission `credits_changed(new_total, -amount, SPEND_SHOP)` SYNC à `try_spend()` réussi. Confirmé identique à la signature provisoire r1. |
+| **HUD System** (Designed r1) | Aval — HUD écoute | Signal `credits_changed(total: int, delta: int, source: SourceKind)` SYNC | HUD est **owner exclusif de la présentation visuelle** (HUD r1 R-6) — Credit Economy spec uniquement les **événements**, pas la durée des animations. HUD met à jour le compteur via tween SECRET / pulse KILL, ou hard-set silencieux pour SPEND_SHOP (Shop UI owns son propre tween de transaction). Émission SYNC depuis `_physics_process` (Rule 8). |
 | **Save/Load System** (Not Started) | Aval — Credit écrit/lit | `SaveLoad.load_int(key, default)` + `SaveLoad.save_int(key, value)` | Au boot PLAYING : lecture `"total_credits"`. Au state_changed MENU : écriture `"total_credits"`. Format : `int` simple, pas de struct. |
 | **Game State Manager** (APPROVED r1) | Amont — Credit observe | Signal `state_changed(new_state: State)` (ADR-0007 D-10) | PLAYING → hydration boot + activation. PAUSED → guard sur créditage (Rule 10). MENU → persistance save. RESPAWNING → aucune action (les crédits survivent). |
 
@@ -149,40 +150,42 @@ credits = BASE_SECRET_CREDIT × secret.tier
 
 ### F-CRD-3 : Courbe de coût des upgrades (upgrade_cost_n)
 
-Formule définissant le coût de la n-ième upgrade dans le shop.
+Formule définissant le coût de l'upgrade d'index n dans le shop.
+
+> **Amendement r2 (2026-04-27, design-review shop-system)** : convention `n` unifiée 0-based pour aligner avec F-SHP-1 (Shop). Avant amendement : `n ∈ [1, N_UPGRADES]` (1-based, rang). Après : `n ∈ [0, N_UPGRADES - 1]` (0-based, index). Arithmétiquement équivalent (rang 1 = index 0), mais évite le bug d'implémentation cross-GDD identifié en review.
 
 ```
-cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × (n - 1)
+cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × n
 ```
 
 | Variable | Symbol | Type | Valeur | Description |
 |----------|--------|------|--------|-------------|
-| `BASE_UPGRADE_COST` | B | int | 20 | Coût de la 1ère upgrade (la moins chère). Tuning Knob. |
-| `TIER_COST_STEP` | S | int | 20 | Incrément linéaire entre deux upgrades de tier consécutifs. Tuning Knob. |
-| `n` | n | int ∈ [1, N_UPGRADES] | — | Rang de l'upgrade par ordre croissant de prix. |
-| `cost_n` | c | int | — | Coût en crédits de l'upgrade de rang n. |
+| `BASE_UPGRADE_COST` | B | int | 20 | Coût de l'upgrade à n=0 (la moins chère). Tuning Knob. |
+| `TIER_COST_STEP` | S | int | 20 | Incrément linéaire entre deux upgrades consécutives. Tuning Knob. |
+| `n` | n | int ∈ [0, N_UPGRADES - 1] | — | Index 0-based de l'upgrade par ordre croissant de prix. |
+| `cost_n` | c | int | — | Coût en crédits de l'upgrade d'index n. |
 
 **Output range** : MVP = `[20, 40]` (2 upgrades). Full Vision = `[20, 160]` (8 upgrades).
 
-**Table MVP (2 upgrades)** :
+**Table MVP (2 upgrades, 0-based)** :
 
 | n | Upgrade | Coût | Justification |
 |---|---------|------|---------------|
-| 1 | Double jump | 20 cr | Atteignable en 1 session sans secrets (8 grunts × 1 + mix minimal). Pillar 2 : la progression se voit dès la première session. |
-| 2 | Dash horizontal | 40 cr | Nécessite secrets ou 2 sessions combat — incite à explorer avant d'acheter. |
+| 0 | Double jump | 20 cr | Atteignable en 1 session sans secrets (8 grunts × 1 + mix minimal). Pillar 2 : la progression se voit dès la première session. |
+| 1 | Dash horizontal | 40 cr | Nécessite secrets ou cumul cross-session — incite à explorer avant d'acheter. |
 
-**Table Full Vision indicative (5-8 upgrades)** :
+**Table Full Vision indicative (5-8 upgrades, 0-based)** :
 
 | n | Coût indicatif |
 |---|---------------|
-| 1 | 20 cr |
-| 2 | 40 cr |
-| 3 | 60 cr |
-| 4 | 80 cr |
-| 5 | 100 cr |
-| 6 | 120 cr |
-| 7 | 140 cr |
-| 8 | 160 cr |
+| 0 | 20 cr |
+| 1 | 40 cr |
+| 2 | 60 cr |
+| 3 | 80 cr |
+| 4 | 100 cr |
+| 5 | 120 cr |
+| 6 | 140 cr |
+| 7 | 160 cr |
 
 **Justification courbe linéaire vs exponentielle** : une courbe exponentielle (coût × 2 par rang) produirait un « wall final » (upgrade n=8 à 2 560 cr si base=20 × 2^7) qui transforme les dernières upgrades en grind de dizaines de sessions — contradiction directe avec Pillar 1 FLOW et l'anti-pillar « pas de grinding ». La courbe linéaire garantit que l'upgrade la plus chère (n=8 à 160 cr) reste atteignable en 3-4 sessions riches en secrets, et que chaque session offre un progrès perceptible. La progression « se voit » (Pillar 2) à chaque session, pas seulement en fin de game.
 
@@ -300,14 +303,14 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 | **Enemy System** (Designed r1) | ✅ Designed | Amont | Émet `enemy_killed(enemy: Node, position: Vector3)` SYNC depuis `die()`. Sans Enemy, aucune source KILL — Credit n'a aucun crédit à attribuer. Contrat : Enemy GDD Rule 11 + registry entry `grunt`. |
 | **Game State Manager** (APPROVED r1) | ✅ APPROVED | Amont | Émet `state_changed(new_state)` (ADR-0007 D-10). Credit observe pour : (1) hydratation au boot PLAYING ; (2) persistance à MENU ; (3) guard PAUSED. Sans GSM, Credit ne sait pas quand activer ni quand sauver. |
 | **Save/Load System** (Not Started) | ❌ Pas designed | Aval | API `SaveLoad.load_int(key, default)` + `SaveLoad.save_int(key, value)`. Sans Save/Load, `total_credits` revient à 0 à chaque session — Pillar 2 cassé. **Bloqueur MVP** : Save/Load doit être designé avant l'implémentation Credit. |
-| **Shop System** (Not Started) | ❌ Pas designed | Aval | Appelle `CreditEconomy.try_spend(amount: int) -> bool`. Sans Shop, Credit accumule mais ne dépense jamais — la moitié du loop est cassée (gain → dépense). **Bloqueur MVP** : Shop doit être designé après Credit (consommateur), mais Shop GDD doit confirmer le contrat `try_spend`. |
+| **Shop System** (Designed r1) | ✅ Designed r1 | Aval | Appelle `CreditEconomy.try_spend(amount: int) -> bool` SYNC atomique (R-SHP-6). Contrat `try_spend` **LOCKED** par Shop r1 — OQ-CRD-2 RESOLVED. Sans Shop, Credit accumule mais ne dépense jamais — la moitié du loop est cassée (gain → dépense). |
 
 ### Soft dependencies (système enrichi par mais fonctionne sans)
 
 | Système | Status | Direction | Nature |
 |---------|--------|-----------|--------|
-| **Secret System** (Not Started) | ❌ Pas designed | Amont | Émet `secret_collected(secret_node: Node, tier: int)` SYNC. Sans Secret System, seuls les kills crédite — économie déséquilibrée vers le combat (anti-Pillar 4). **Provisoire** : contrat de signal défini par Credit (OQ-CRD-1) ; à valider lors du design Secret. |
-| **HUD System** (Not Started) | ❌ Pas designed | Aval | Écoute `credits_changed(total, delta, source)`. Sans HUD, le compteur reste correct côté logique mais le joueur ne voit rien — Pillar 2 cassé visuellement. Pas un bloqueur fonctionnel mais critique UX. |
+| **Secret System** (Designed r1) | ✅ Designed r1 | Amont | Émet `secret_collected(secret_node: Node, tier: int)` SYNC (R-SEC-08). Contrat **LOCKED** par Secret r1 — OQ-CRD-1 RESOLVED. Sans Secret System, seuls les kills crédite — économie déséquilibrée vers le combat (anti-Pillar 4). |
+| **HUD System** (Designed r1) | ✅ Designed r1 | Aval | Écoute `credits_changed(total, delta, source)` SYNC + pull `get_total()` au boot. HUD r1 R-6 owns la présentation visuelle (durées tween, hard-set silencieux SPEND_SHOP). Sans HUD, le compteur reste correct côté logique mais le joueur ne voit rien — Pillar 2 cassé visuellement. Pas un bloqueur fonctionnel mais critique UX. |
 | **Audio System** (APPROVED r2.1) | ✅ APPROVED | Aval (latent) | Au MVP, Credit n'a pas de son propre — le clac kill est joué par Audio sur `enemy_killed` (Audio Rule 11). Tier 2+ pourra introduire un son distinct pour `credits_changed(source=SECRET)` (« riff secret » plus profond, voir Player Fantasy section 4). Aucun contrat Audio↔Credit MVP. |
 
 ### Cousins (latents — Tier 2+, pas MVP)
@@ -326,7 +329,11 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 - **Audio GDD r2.1 Rule 11** : Audio consomme `enemy_killed` pour bus `combat_kill`. Aucun couplage Audio↔Credit MVP. ✅
 - **Level GDD R-2.6** : `ARENA ≥ 3 EnemySlot` borne `N_KILLS_SESSION` dans F-CRD-4. ✅ référence cohérente.
 
-> **Bidirectional update requise** : quand Secret System sera designé, son GDD doit lister Credit Economy en aval consumer pour `secret_collected`. Quand Shop sera designé, son GDD doit lister Credit en amont sink (`try_spend`). Quand HUD sera designé, son GDD doit lister Credit en amont source (`credits_changed`). Quand Save/Load sera designé, son GDD doit lister Credit comme consumer des helpers `load_int` / `save_int`.
+> **Bidirectional update status (r2 amendment 2026-04-27)** :
+> - ✅ Secret System r1 — liste Credit Economy en aval consumer pour `secret_collected` (Secret §Dependencies + R-SEC-08).
+> - ✅ Shop System r1 — liste Credit en amont sink (`try_spend`) (Shop §Quick reference + R-SHP-6).
+> - ✅ HUD System r1 — liste Credit en amont source (`credits_changed` + `get_total()`) (HUD §Interactions + R-6).
+> - ❌ Save/Load System (Not Started) — quand designé, doit lister Credit Economy comme consumer des helpers `load_int` / `save_int`.
 
 ## Tuning Knobs
 
@@ -376,12 +383,14 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 
 ### Visual
 
-| Event Credit | Source signal | Owner du rendu | VFX requirement | Pillar contrat |
-|--------------|---------------|----------------|-----------------|----------------|
-| Gain crédit kill | `credits_changed(_, +1, KILL)` | HUD System | Compteur `total` mis à jour, **pulse cyan 150 ms** sur le chiffre. AUCUNE pause, AUCUNE animation full-screen. | Pillar 1 FLOW — durée < 200 ms, ne bloque pas le combat |
-| Gain crédit secret | `credits_changed(_, +5/+10/+15, SECRET)` | HUD System | Compteur mis à jour, **pulse cyan plus marqué (200-300 ms)** + flash icône secret. Reconnaissance ludique distincte du kill (Pillar 4 viscéral pas tabulaire). | Pillar 4 — l'asymétrie 1:5 doit être *vue* dans le feedback, pas seulement lue dans le chiffre |
+> **r2 amendment B-3** : Credit Economy spec uniquement les **événements** émis ; HUD r1 (Designed r1) est **owner exclusif** de la durée des animations, des courbes d'easing, et du choix hard-set vs tween. Les valeurs ci-dessous sont des **requirements pillar-driven** ; les durées exactes appartiennent à `design/gdd/hud-system.md` §J Visual Requirements.
+
+| Event Credit | Source signal | Owner du rendu | VFX requirement (pillar-driven) | Pillar contrat |
+|--------------|---------------|----------------|----------------------------------|----------------|
+| Gain crédit kill | `credits_changed(_, +1, KILL)` | HUD System | Compteur `total` mis à jour avec pulse visible mais court. AUCUNE pause, AUCUNE animation full-screen. Durée exacte → HUD GDD §J. | Pillar 1 FLOW — animation < 200 ms, ne bloque pas le combat |
+| Gain crédit secret | `credits_changed(_, +5/+10/+15, SECRET)` | HUD System | Compteur mis à jour avec feedback **différencié et plus marqué** que le kill (durée et/ou pulse plus long, flash icône secret optionnel). Reconnaissance ludique distincte du kill (Pillar 4 viscéral pas tabulaire). Durée exacte → HUD GDD §J. | Pillar 4 — l'asymétrie 5:1 doit être *vue* dans le feedback, pas seulement lue dans le chiffre |
 | Boot hydrate | `credits_changed(N, 0, BOOT_HYDRATE)` | HUD System | Compteur initialisé silencieusement (NO pulse, NO VFX) — c'est juste l'affichage initial. | Pillar 1 — pas de spam visuel à chaque load |
-| Dépense shop | `credits_changed(N, -amount, SPEND_SHOP)` | HUD System + Shop UI | Compteur diminue avec **animation de soustraction visible** (counter tween 200-400 ms). Pulse rouge bref optionnel. | UX — la dépense doit être visible et délibérée, pas une mise à jour silencieuse |
+| Dépense shop | `credits_changed(N, -amount, SPEND_SHOP)` | HUD System + Shop UI | HUD hard-set silencieux du compteur (HUD r1 R-6) ; Shop UI owns son propre tween de transaction (Shop r1 R-SHP J-tween 300 ms). Le compteur HUD doit être à jour avant que Shop UI commence son tween. | UX — la dépense est visible via Shop UI animation, pas via animation HUD double |
 
 **Couleur d'accent** : cyan (cohérent avec game-concept Visual Identity Anchor — « cyan = secret/interactif » — et le crédit est un objet d'interaction permanente). Le rouge (réservé au sang/hostile) n'est **jamais** utilisé pour un compteur positif.
 
@@ -583,8 +592,8 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 
 | ID | Question | Owner | Deadline / Resolution |
 |----|----------|-------|----------------------|
-| **OQ-CRD-1** | Contrat **`secret_collected(secret_node: Node, tier: int)`** est PROVISOIRE — défini par ce GDD avant que Secret System soit designé. À confirmer ou amender lors du `/design-system secret-system` (Sprint A planifié). Si Secret System choisit `payload: enum SecretKind` au lieu de `tier: int`, amendement Credit r2 requis. | game-designer + economy-designer | Sprint A — `/design-system secret-system` |
-| **OQ-CRD-2** | Contrat **`try_spend(amount: int) -> bool`** est défini ici comme API atomique. À confirmer lors du `/design-system shop-system` (Sprint A planifié). Si Shop préfère API séparée `can_afford(amount) + spend(amount)`, amendement Credit r2 requis (mais reco fortement contre — race condition). | economy-designer + Shop System owner | Sprint A — `/design-system shop-system` |
+| **OQ-CRD-1** | ✅ **RESOLVED 2026-04-27** par Secret System GDD r1 (`design/gdd/secret-system.md` R-SEC-08) confirmé par /design-review r1 (`design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md`). Secret r1 émet `secret_collected(secret_node: Node, tier: int)` SYNC à l'identique du contrat provisoire Credit r1 — aucun amendement de payload requis, `tier ∈ {1, 2, 3}` confirmé. Aucun amendement Credit r2 requis sur ce contrat — verrouillé. | game-designer + economy-designer | RESOLVED |
+| **OQ-CRD-2** | ✅ **RESOLVED 2026-04-27** par Shop System GDD r1 + design-review r2 (`design/gdd/reviews/shop-system-review-r1-2026-04-27.md`). Shop confirme l'API `try_spend(amount: int) -> bool` SYNC atomique à l'identique du contrat provisoire Credit r1 (R-SHP-6 cycle d'achat étape 4). Aucun amendement Credit r2 requis sur ce contrat — verrouillé. | economy-designer + Shop System owner | RESOLVED |
 | **OQ-CRD-3** | **Plafond `MAX_CREDITS`** : non capé MVP (Godot int 64-bit, débordement physiquement impossible). Faut-il introduire un cap symbolique 9 999 ou 99 999 pour contraindre l'UX HUD à 4-5 chiffres ? Décision dépend de l'analytics post-launch. | game-designer | Tier 2+ — basé sur playtest data |
 | **OQ-CRD-4** | **Réservation enum `SourceKind` Tier 2+** : `BOSS_BONUS = 4`, `ROOM_CLEAR_BONUS = 5` réservés mais inactifs MVP. À confirmer la liste exhaustive (faut-il `STREAK_MULTIPLIER` ? `TIME_BONUS` ?) — potentiellement anti-Pillar 4 si non maîtrisé. | creative-director + economy-designer | Tier 2+ — sera tranché lors du Boss System ou Speedrun System design |
 | **OQ-CRD-5** | **Multi-kill 3 emits séquentiels vs batch unique** : ce GDD tranche pour 3 emits séquentiels (Rule 7). Si playtest HUD révèle saturation visuelle (3 pulses en 1 frame imperceptibles), knob `BATCH_MULTI_KILL_EMIT = true` activable. À valider playtest. | game-designer + ux-designer | Sprint A playtest evidence |
