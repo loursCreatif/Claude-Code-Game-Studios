@@ -1,9 +1,10 @@
 # Secret System
 
-> **Status**: In Design
+> **Status**: In Design (r2 — full revision 2026-04-27 : 3 BLOCKING résolus B-1..B-3 ; 4 RECOMMENDED + 5 NICE-TO-HAVE déférés batch séparé)
 > **Author**: Martin + agents (game-designer, level-designer, systems-designer, qa-lead, creative-director)
-> **Last Updated**: 2026-04-27
+> **Last Updated**: 2026-04-27 (r2 full revision after fresh /design-review)
 > **Implements Pillar**: **Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT)** primaire ; Pillar 2 (LA PROGRESSION SE VOIT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou
+> **Review history** : `design/gdd/reviews/secret-system-review-r1-2026-04-27.md` — NEEDS REVISION → r2 résout les 3 BLOCKING (B-1 contrat Checkpoint renommé `inject_collected_secrets` + gate flag amendement Checkpoint r2 ; B-2 invariant instance_id stabilité via nouvelle Rule R-SEC-16 ; B-3 Tuning Knobs data-driven via `src/gameplay/secret/secret_constants.gd`). 4 RECOMMENDED + 5 NICE-TO-HAVE reportés séparément.
 
 ## Summary
 
@@ -121,17 +122,20 @@ par analogie). Level System garantit physiquement que le volume est inatteignabl
 `required_ability` via la géométrie de l'étage. Les cas de glitch sont acceptés — Pillar 3
 SECONDE CHANCE étend sa tolérance au skill gap, et punir un glitch réussi serait anti-Pillar 4.
 
-**R-SEC-10 — Persistance Pillar 3 : collecté reste collecté au respawn**
+**R-SEC-10 — Persistance Pillar 3 : collecté reste collecté au respawn (r2 B-1 — interface Checkpoint clarifiée)**
 `_collected_secret_ids` survit aux morts. À `level_active`, Secret System peuple le dictionnaire
 depuis le snapshot Checkpoint actif (liste d'instance_ids déjà collectés dans cet étage + les
 étages précédents du run). Les secrets collectés avant une mort ne sont pas re-collectables après
 respawn. Ce comportement est intentionnel — Pillar 3 SECONDE CHANCE garantit que le joueur ne
 perd pas ce qu'il a acquis par compétence. **MVP** : Checkpoint System maintient la liste
-`collected_secret_ids` en mémoire (session-scoped, pas de disque). Secret System injecte ce
-snapshot dans `_collected_secret_ids` via `checkpoint.get_collected_secrets() -> Array[int]`
-à `level_active`. **Post-MVP** : Checkpoint snapshot persiste via
-`SaveLoad.save_int_array("collected_secret_ids", ...)`. Reset **uniquement** à
-`request_new_run()` (signal GSM) — dictionnaire vidé et Checkpoint snapshot purgé.
+`collected_secret_ids` en mémoire (session-scoped, pas de disque). À `level_active` :
+
+- **Lecture (Secret hydrate depuis Checkpoint)** : Secret appelle `checkpoint.get_collected_secrets() -> Array[int]` pour peupler `_collected_secret_ids`.
+- **Écriture (Secret injecte son état dans Checkpoint au moment du checkpoint latch)** : Secret expose `Secret.get_collected_ids() -> Array[int]` que Checkpoint lit. Le verbe d'**appel de Checkpoint vers Secret** s'appelle **`inject_collected_secrets(ids: Array[int])`** (renommé r2 B-1 — ex `restore_collected_secrets`) — Secret reçoit cette injection comme alternative à la lecture pull. Le nom `inject_*` clarifie que c'est Secret qui *reçoit* l'injection, pas Checkpoint qui *restore* (ambiguïté nominale r1).
+
+**Post-MVP** : Checkpoint snapshot persiste via `SaveLoad.save_int_array("collected_secret_ids", ...)` — voir aussi R-SEC-16 pour l'invariant `instance_id` stabilité MVP. Reset **uniquement** à `request_new_run()` (signal GSM) — dictionnaire vidé et Checkpoint snapshot purgé.
+
+> **[GATE r2 B-1] amendement Checkpoint r2 requis avant `/create-epics secret-system`** : le Checkpoint GDD r1 (In Design) ne liste pas Secret dans §Interactions ni les verbes `get_collected_secrets()` / `inject_collected_secrets(ids)`. Amendement Checkpoint r2 doit ajouter une ligne §Interactions Secret System bidirectionnel + Published API ces deux verbes. Sans cet amendement, AC-SEC-12 + AC-SEC-33 sont non-testables et R-SEC-10 est non-implémentable.
 
 **R-SEC-11 — Cleanup à la transition de scène**
 À la réception d'un nouveau signal `level_active` (nouvel étage ou re-enter), Secret System
@@ -176,6 +180,26 @@ feature "room clear bonus" est designée en Tier 2+, elle sera émise via un sig
 via un `tier = 4`. Ce cloisonnement garantit que la sémantique de `tier` reste `{1, 2, 3}` sur
 toute la durée de vie du MVP, et que Credit Economy n'a pas à gérer un tier hors plage silencieux.
 
+**R-SEC-16 — Invariant instance_id stability (r2 B-2 — pré-contrat Level/VFX MVP)**
+La clé d'idempotence MVP `volume.get_instance_id()` (R-SEC-06) est **session-scoped et stable
+uniquement tant que le nœud `SecretCollectVolume_NN` existe sans interruption dans le scene
+tree** (Godot réassigne les `instance_id` à chaque instanciation de nœud). Pour que la persistance
+inter-respawn intra-étage fonctionne, **Level System, VFX System, et tout autre consommateur de
+`SecretCollectVolume_NN` s'interdisent de `queue_free()` ou de réinstancier ces nœuds pendant
+un run actif (`_is_active == true`)**. C'est un **pré-contrat externe** — Secret System n'est
+pas responsable de cette stabilité ; il l'assume comme garantie fournie par Level/VFX. Conséquence
+attendue d'une violation : secret potentiellement non-collecté (instance_id changé après respawn,
+ne match plus l'entrée dans `_collected_secret_ids`) ou double-collecté silencieusement (nouveau
+instance_id traité comme nouveau secret). Cas légitimes où les volumes sont supprimés :
+(a) `state_changed(MENU)` — fin de run, OK car `_collected_secret_ids` purgé au prochain
+`request_new_run()` ; (b) `request_scene_transition` (transition étage N→N+1) — OK car les
+volumes de l'étage N+1 sont nouveaux par construction (R-SEC-11 cleanup). **Cas interdit** : Level
+ou VFX ne doit jamais `queue_free()` un volume **pendant le run actif d'un même étage** (entre
+deux `level_active` du même `etage_id`). Cet invariant est documenté ici pour propagation Level
+GDD r5 §Anti-dependencies + VFX GDD futur §Anti-dependencies. Tier 2+ migration : voir OQ-SEC-2
+(`uuid_export` stable cross-version) — la migration `IDEMPOTENCE_KEY_STRATEGY` rend cet invariant
+caduc en Tier 2+ post-MVP.
+
 ---
 
 ### States and Transitions
@@ -207,7 +231,7 @@ toute la durée de vie du MVP, et que Credit Economy n'a pas à gérer un tier h
 | **VFX System** (Not Started) | Aval — VFX s'auto-connecte | Signal `secret_collected(secret_node: Node, tier: int)` | VFX System se connecte au signal depuis son propre `_ready()` (outbound-only — Secret ne connaît pas VFX). Sur réception : éteint le glow cyan du `SecretLureMarker_NN` référencé via `secret_node`. Secret System n'a aucune responsabilité visuelle. |
 | **Audio System** (APPROVED r2.1) | Aval — Audio s'auto-connecte | Signal `secret_collected(secret_node: Node, tier: int)` | Audio System joue le clac secret (signature distincte du clac combat — Audio GDD Rule). Connexion self-managed depuis Audio `_ready()`. Secret System ne connaît pas Audio. |
 | **Save/Load System** (Not Started) | Aval — persist post-MVP | `SaveLoad.save_int_array("collected_secret_ids", ids)` | MVP : état session-only via Checkpoint snapshot in-memory. Post-MVP : Secret System appelle Save/Load dans le handler `state_changed(MENU)` pour persister `collected_secret_ids` entre sessions. Format : `Array[int]` d'instance_ids. |
-| **Checkpoint System** (Not Started) | Bidirectionnel — snapshot | Getter `checkpoint.get_collected_secrets() -> Array[int]` (Secret lit) + `checkpoint.set_collected_secrets(ids)` (Secret écrit) | MVP path : Checkpoint System fournit la liste `collected_secret_ids` à Secret System à `level_active` (R-SEC-10). Secret System expose `get_collected_ids() -> Array[int]` pour que Checkpoint lise l'état courant au moment du checkpoint. Interface provisoire — à confirmer lors du design Checkpoint GDD (Systems Index #8). |
+| **Checkpoint System** (Not Started — **r2 B-1 [GATE] amendement Checkpoint r2 requis**) | Bidirectionnel — snapshot | Getter `checkpoint.get_collected_secrets() -> Array[int]` (Secret lit au `level_active`) + setter `Secret.inject_collected_secrets(ids: Array[int])` (Checkpoint pousse la liste vers Secret au moment du restore — verbe **renommé r2 B-1** depuis `restore_collected_secrets` pour clarifier la direction d'appel) + getter `Secret.get_collected_ids() -> Array[int]` (Checkpoint lit l'état courant au moment du checkpoint latch) | MVP path : Checkpoint fournit la liste `collected_secret_ids` à Secret à `level_active` (R-SEC-10). **Interface PROVISOIRE [GATE]** : Checkpoint GDD r1 (In Design) ne liste actuellement pas Secret dans §Interactions ni ces verbes — amendement Checkpoint r2 requis avant `/create-epics secret-system`. AC-SEC-12 + AC-SEC-33 sont conditionnés à cet amendement. |
 | **Movement System** (APPROVED r3) | Cousin — aucune interface directe | (aucune) | Movement gère implicitement la capability gate : le joueur ne peut pas physiquement atteindre un `SecretCollectVolume_NN` sans la `required_ability` encodée dans la géométrie de l'étage (R-SEC-09). Secret System ne dépend pas de Movement et ne l'interroge jamais. Absence de couplage intentionnelle. |
 
 ## Formulas
@@ -342,7 +366,7 @@ Ces cas ne sont pas des edge cases runtime mais des erreurs d'authoring Level Sy
 | **VFX System** | Not Started | Self-connect au signal `secret_collected` | Aval — passive listener |
 | **Audio System** | APPROVED r2.1 ✅ | Self-connect au signal `secret_collected` | Aval — passive listener |
 | **HUD System** | Not Started | Indirect via Credit `credits_changed(total, delta, SECRET)` | Aval — passive listener (chaîne) |
-| **Checkpoint System** | Not Started | Bidirectionnel : `get_collected_secrets()` (Secret expose) + `restore_collected_secrets(ids)` (Secret reçoit) | Bidirectionnel |
+| **Checkpoint System** | Not Started — **r2 B-1 [GATE] amendement Checkpoint r2 requis** | Bidirectionnel : `Secret.get_collected_ids() -> Array[int]` (Checkpoint lit) + `Secret.inject_collected_secrets(ids: Array[int])` (Checkpoint écrit, renommé r2 depuis `restore_*`) + `checkpoint.get_collected_secrets() -> Array[int]` (Secret lit au `level_active`) | Bidirectionnel — **PROVISOIRE pending Checkpoint r2** |
 | **Save/Load System** | Not Started | `save_int_array("collected_secret_ids", ...)` + `load_int_array(...)` post-MVP | Aval — passive write/read |
 
 ### Cousins (pas d'interface directe, contraintes implicites partagées)
@@ -363,10 +387,18 @@ Ces cas ne sont pas des edge cases runtime mais des erreurs d'authoring Level Sy
 
 ### Provisional contracts (à confirmer lors du design des systèmes Not Started)
 
-- **Checkpoint System** (#8) : interface `get_collected_secrets() / restore_collected_secrets(ids)` PROVISOIRE. Si Checkpoint choisit une autre forme (ex : snapshot opaque + struct typée), un amendement Secret r2 sera requis. Marqueur : `OQ-SEC-1`.
-- **Save/Load System** (#3) : signature `save_int_array(key, Array[int])` + `load_int_array(key, default: Array[int])` PROVISOIRE. Marqueur : `OQ-SEC-2`.
-- **VFX System** (#19) : self-connect au signal — pattern outbound-only confirmé. Aucune décision en attente.
+- **Checkpoint System** (#8) : interface `checkpoint.get_collected_secrets()` (Secret lit) + `Secret.inject_collected_secrets(ids: Array[int])` (Checkpoint écrit, **renommé r2 B-1** depuis `restore_collected_secrets` pour clarté direction) + `Secret.get_collected_ids()` (Checkpoint lit) PROVISOIRE. Si Checkpoint choisit une autre forme (ex : snapshot opaque + struct typée), un amendement Secret r3 sera requis. Marqueur : `OQ-SEC-1`. **[GATE r2 B-1]** — amendement Checkpoint r2 requis avant `/create-epics secret-system` pour ajouter Secret System dans Checkpoint §Interactions et Published API.
+- **Save/Load System** (#3) : signature `save_int_array(key, Array[int])` + `load_int_array(key, default: Array[int])` PROVISOIRE. Marqueur : `OQ-SEC-2`. Voir aussi R-SEC-16 invariant instance_id MVP — migration `uuid_export` Tier 2+ rend l'invariant caduc.
+- **VFX System** (#19) : self-connect au signal — pattern outbound-only confirmé. **Anti-dependency invariant R-SEC-16** : VFX ne doit jamais `queue_free()` un `SecretCollectVolume_NN` pendant `_is_active == true`.
 - **HUD System** (#17) : aval indirect via `credits_changed`. Aucune dépendance directe Secret↔HUD.
+
+### Gates pré-`/create-epics` (propagation cross-GDD requise)
+
+| Gate | GDD cible | Action requise | Bloque |
+|------|-----------|---------------|--------|
+| **B-1** | Checkpoint GDD r2 | Ajouter Secret dans §Interactions (3 verbes : `checkpoint.get_collected_secrets() / Secret.inject_collected_secrets(ids) / Secret.get_collected_ids()`) + §Published API. ~5 lignes. | `/create-epics secret-system` |
+| **R-SEC-16** | Level GDD r5 §Anti-dependencies | Documenter "Level interdit `queue_free()` sur `SecretCollectVolume_NN` pendant run actif". 2 lignes. | Implémentation Level r5 |
+| **R-SEC-16** | VFX GDD futur §Anti-dependencies | Documenter même invariant côté VFX. À spec lors de `/design-system vfx-system`. | `/create-epics vfx-system` |
 
 ### Anti-dependencies (interdites)
 
@@ -380,12 +412,35 @@ Ces cas ne sont pas des edge cases runtime mais des erreurs d'authoring Level Sy
 
 Secret System a peu de variables tunables — la plupart de la balance vit dans Credit Economy (BASE_SECRET_CREDIT) et Level System (SECRET_DENSITY_DIVISOR, cap par archetype). Les knobs ci-dessous sont **internes Secret** ou **authoring guidelines** pour Level Designers.
 
-### Knobs runtime (Secret System)
+### Knobs runtime (Secret System) — data-driven external (r2 B-3)
 
-| Knob | Valeur MVP | Type | Range sûr | Ce qu'il contrôle | Ce qui casse hors range |
-|------|------------|------|-----------|-------------------|--------------------------|
-| `IDEMPOTENCE_KEY_STRATEGY` | `"instance_id"` | StringName | `{"instance_id", "scene_path", "uuid_export"}` | Clé du `Dictionary[int, bool] _collected_secret_ids`. MVP : `instance_id` (R-SEC-06). Tier 2+ alternatives : `scene_path` (resilient à recompose Level), `uuid_export` (export sur LureMarker, le plus robuste cross-version). | Changer la stratégie en cours de version casse les saves Tier 2+. Plan : promote vers `uuid_export` au moment de Save/Load post-MVP (OQ-SEC-2). |
-| `IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE` | `true` | bool | `{true, false}` | R-SEC-02 garde de phase. Si `false`, signaux body_entered traités même en INACTIVE (utilisé pour debug uniquement). | `false` en prod = collection prématurée pendant transitions de scène, état incohérent. |
+> **r2 B-3 fix** — Conformément à CLAUDE.md « Gameplay values must be data-driven (external config), never hardcoded », les 2 knobs runtime ci-dessous sont définis dans **`src/gameplay/secret/secret_constants.gd`** (script GDScript autoload constants, pattern aligné avec `input_constants.gd`/`level_constants.gd` du studio). Le fichier expose des `const` typés strict avec safe range commenté. Tier 2+, ces constantes peuvent migrer vers `assets/data/secret_config.tres` (Resource Godot) si tuning playtest-driven sans recompilation devient nécessaire — la migration est transparente puisque les call sites lisent via API publique du module constants.
+
+**Fichier source de vérité** : `src/gameplay/secret/secret_constants.gd`
+
+```gdscript
+class_name SecretConstants extends RefCounted
+
+# r2 B-3 — Tuning Knobs runtime data-driven (CLAUDE.md compliance)
+# Safe ranges documentés ; modification > range = ADR amendment requis.
+
+## R-SEC-06 — clé d'idempotence Dictionary[int|StringName, bool] _collected_secret_ids.
+## MVP : "instance_id" (session-scoped, requires R-SEC-16 invariant Level/VFX).
+## Tier 2+ migration : "uuid_export" (stable cross-version, débloque Save/Load disque OQ-SEC-2).
+## Safe range : {"instance_id", "scene_path", "uuid_export"}.
+const IDEMPOTENCE_KEY_STRATEGY: StringName = &"instance_id"
+
+## R-SEC-02 — guard de phase. Si false, body_entered traités en INACTIVE (DEBUG ONLY).
+## Safe range : {true, false} mais false interdit en prod.
+const IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE: bool = true
+```
+
+| Knob | Valeur MVP | Type | Range sûr | Ce qu'il contrôle | Ce qui casse hors range | Source de vérité |
+|------|------------|------|-----------|-------------------|--------------------------|------------------|
+| `IDEMPOTENCE_KEY_STRATEGY` | `&"instance_id"` | StringName | `{&"instance_id", &"scene_path", &"uuid_export"}` | Clé du `Dictionary[int|StringName, bool] _collected_secret_ids`. MVP : `instance_id` (R-SEC-06 + R-SEC-16 invariant). Tier 2+ alternatives : `scene_path` (resilient à recompose Level), `uuid_export` (export sur LureMarker, le plus robuste cross-version). | Changer la stratégie en cours de version casse les saves Tier 2+. Plan : promote vers `uuid_export` au moment de Save/Load post-MVP (OQ-SEC-2). | `src/gameplay/secret/secret_constants.gd` |
+| `IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE` | `true` | bool | `{true, false}` | R-SEC-02 garde de phase. Si `false`, signaux body_entered traités même en INACTIVE (utilisé pour debug uniquement). | `false` en prod = collection prématurée pendant transitions de scène, état incohérent. | `src/gameplay/secret/secret_constants.gd` |
+
+> **AC-SEC-NEW (r2 B-3)** : grep statique `tests/static/secret_constants_lint_test.gd` vérifie qu'aucune valeur magique `"instance_id"` / `IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE` n'apparaît hardcodée dans `src/gameplay/secret/*.gd` hors du fichier `secret_constants.gd` lui-même. Tout call site doit lire `SecretConstants.IDEMPOTENCE_KEY_STRATEGY`. Voir Acceptance Criteria — nouveau AC dans groupe E (Static).
 
 ### Knobs d'authoring (guidelines Level Designer — appliqués via lint Level pré-build)
 
@@ -491,16 +546,23 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 
 ## Acceptance Criteria
 
-### Tableau récapitulatif
+### Tableau récapitulatif (r2)
 
 | Dimension | Compte |
 |-----------|--------|
-| **Total ACs** | 43 |
-| **BLOCKING** | 29 |
-| **ADVISORY** | 14 |
+| **Total ACs (r2)** | 53 (52 r1 + 1 nouveau AC-SEC-NEW r2 B-3 lint constants) |
+| **BLOCKING** | 30 (29 r1 + 1 nouveau B-3) |
+| **ADVISORY** | 23 (count r1 corrigé — voir review N-1 et recompte r2) |
 | **AUTO** (testable headless GUT) | 27 |
 | **MANUAL** (playtest requis) | 9 |
-| **STATIC** (lint pré-build) | 7 |
+| **STATIC** (lint pré-build / lint constants) | 8 (7 r1 + 1 r2 B-3) |
+
+> **r2 note** : le tableau récap r1 annonçait 43 ACs ; le contenu effectif r1 = 52 ACs (review N-1). r2 ajoute 1 AC Static (`AC-SEC-NEW` ci-dessous) pour le lint constants → 53 total. Décomptes BLOCKING/ADVISORY ajustés en conséquence.
+
+> **Nouveau AC r2 B-3** :
+>
+> **AC-SEC-NEW (r2 B-3 — Lints/Static lint constants externalization)** — GIVEN tous les fichiers `src/gameplay/secret/*.gd` sauf `secret_constants.gd` lui-même, WHEN un grep statique cherche les littéraux `"instance_id"` (StringName MVP de `IDEMPOTENCE_KEY_STRATEGY`) ou `"scene_path"` ou `"uuid_export"` ou la valeur booléenne hardcodée pour `IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE`, THEN aucun match ne doit être trouvé hors du fichier `secret_constants.gd` et hors des commentaires. Tout call site doit lire `SecretConstants.IDEMPOTENCE_KEY_STRATEGY` ou `SecretConstants.IGNORE_BODY_ENTERED_BEFORE_LEVEL_ACTIVE`.
+> `[BLOCKING | STATIC]` — `tests/static/secret_constants_lint_test.gd` GdUnit4 runner CI. Conformité CLAUDE.md « Gameplay values must be data-driven (external config), never hardcoded ».
 
 ---
 
@@ -543,8 +605,8 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 **AC-SEC-11** — GIVEN un joueur a collecté 2 secrets dans l'étage 1, WHEN le joueur meurt et un respawn est déclenché (simulation `state_changed(RESPAWNING)` puis `state_changed(PLAYING)`), THEN `_collected_secret_ids` contient toujours les 2 entrées à `true` après le respawn.
 `[BLOCKING | AUTO]` — assert dictionnaire size == 2 après cycle respawn simulé.
 
-**AC-SEC-12** — GIVEN un joueur a collecté 1 secret avant sa mort, et Checkpoint System retourne `[instance_id_secret_1]` via `get_collected_secrets()` à `level_active`, WHEN Secret System itère les slots au nouvel étage, THEN `_collected_secret_ids` est pré-peuplé avec cet id avant que le joueur n'ait fait quoi que ce soit.
-`[BLOCKING | AUTO]` — mock `checkpoint.get_collected_secrets()` retournant `[42]`, assert `_collected_secret_ids[42] == true` immédiatement après `level_active`.
+**AC-SEC-12 (r2 B-1 — conditioned to Checkpoint r2 amendment)** — GIVEN Checkpoint GDD r2 amendement B-1 est appliqué (Checkpoint expose `get_collected_secrets() -> Array[int]` dans sa Published API + §Interactions liste Secret System), GIVEN un joueur a collecté 1 secret avant sa mort, et Checkpoint mock retourne `[instance_id_secret_1]` via `get_collected_secrets()` à `level_active`, WHEN Secret System itère les slots au nouvel étage, THEN `_collected_secret_ids` est pré-peuplé avec cet id avant que le joueur n'ait fait quoi que ce soit.
+`[BLOCKING | AUTO — pending Checkpoint r2 amendment]` — mock `checkpoint.get_collected_secrets()` retournant `[42]`, assert `_collected_secret_ids[42] == true` immédiatement après `level_active`. **Pre-condition AC** : si Checkpoint r2 amendement non appliqué, AC reste PENDING (non-FAIL — bloqué sur dépendance externe documentée [GATE B-1]).
 
 **AC-SEC-13** — GIVEN Secret System est en phase ACTIVE avec 3 secrets collectés, WHEN `request_new_run()` est reçu du GSM, THEN `_collected_secret_ids` est vidé, `_slots_this_level` est vidé, `_is_active == false`, et le Checkpoint snapshot est purgé.
 `[BLOCKING | AUTO]` — assert dictionnaire size == 0 + assert `_is_active == false` après request_new_run.
@@ -622,7 +684,7 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 **AC-SEC-32** — GIVEN Secret System expose `get_collected_ids() -> Array[int]`, WHEN Checkpoint System appelle ce getter après que 2 secrets ont été collectés dans l'étage courant, THEN le retour est un `Array[int]` contenant exactement les 2 instance_ids des volumes collectés.
 `[BLOCKING | AUTO]` — assert return value = `[id1, id2]` avec les ids connus du mock.
 
-**AC-SEC-33** — GIVEN Checkpoint System appelle `restore_collected_secrets([id_vol_1, id_vol_2])` avant `level_active`, WHEN `level_active` est reçu avec des slots incluant les volumes `id_vol_1` et `id_vol_2`, THEN ces deux volumes sont itérés en "lecture seule" (non connectés à body_entered), les volumes non pré-collectés du même étage restent connectés normalement.
+**AC-SEC-33 (r2 B-1 — verbe renommé `inject_collected_secrets` + conditioned to Checkpoint r2)** — GIVEN Checkpoint GDD r2 amendement B-1 est appliqué (Checkpoint Published API expose `Secret.inject_collected_secrets(ids: Array[int])` callable), GIVEN Checkpoint System appelle `Secret.inject_collected_secrets([id_vol_1, id_vol_2])` avant `level_active`, WHEN `level_active` est reçu avec des slots incluant les volumes `id_vol_1` et `id_vol_2`, THEN ces deux volumes sont itérés en "lecture seule" (non connectés à body_entered), les volumes non pré-collectés du même étage restent connectés normalement.
 `[BLOCKING | AUTO]` — mock checkpoint restauration, assert connections == (slots_total - 2).
 
 **AC-SEC-34** — GIVEN VFX System et Audio System sont connectés à `secret_collected` via self-connect dans leur `_ready()`, WHEN un secret est collecté, THEN `secret_collected` est bien émis une seule fois et les deux listeners reçoivent le même payload `(secret_node, tier)`. Secret System n'initie aucune connexion vers ces systèmes.
@@ -704,10 +766,15 @@ Toutes les Open Questions sont catégorisées par owner et target resolution dat
 
 ### Contrats provisoires (PROVISOIRE — résolution lors du design des systèmes Not Started)
 
-**OQ-SEC-1 — Interface Checkpoint System** *(PROVISOIRE)*
-Secret System suppose que Checkpoint System exposera `get_collected_secrets() -> Array[int]` (lecture pour Secret hydration à `level_active`) et acceptera `set_collected_secrets(ids: Array[int])` ou un mécanisme équivalent (Secret écrit l'état au moment du checkpoint). Ce contrat est PROVISOIRE jusqu'au design du Checkpoint GDD (Systems Index #8). Si Checkpoint choisit une interface différente (ex : snapshot opaque + struct typée, pattern Memento), un amendement Secret r2 sera requis pour adapter la sérialisation. Résolution : `/design-system checkpoint-respawn-system`.
+**OQ-SEC-1 — Interface Checkpoint System** *(PROVISOIRE — r2 B-1 verbes clarifiés, [GATE] amendement Checkpoint r2 requis)*
+Secret System suppose que Checkpoint System exposera 3 verbes (renommés r2 B-1 pour clarté direction d'appel) :
+- `checkpoint.get_collected_secrets() -> Array[int]` — Secret lit au `level_active` pour hydratation initiale
+- `Secret.inject_collected_secrets(ids: Array[int])` — Checkpoint pousse la liste vers Secret au moment du restore (renommé r2 depuis `restore_collected_secrets` ; le préfixe `inject_*` clarifie que Secret *reçoit*, pas Checkpoint qui *restore*)
+- `Secret.get_collected_ids() -> Array[int]` — Checkpoint lit l'état courant Secret au moment du checkpoint latch
+
+Ce contrat est PROVISOIRE jusqu'au design du Checkpoint GDD (Systems Index #8) **et reste BLOCKING [GATE r2 B-1]** : Checkpoint GDD r1 (In Design) ne liste actuellement pas Secret dans §Interactions. **Amendement Checkpoint r2 requis** : ajouter ligne §Interactions Secret System bidirectionnel + 3 verbes ci-dessus dans Published API. Sans cet amendement, AC-SEC-12 + AC-SEC-33 restent PENDING (non-FAIL — bloqués sur dépendance externe documentée). Résolution : `/design-system checkpoint-respawn-system` puis amendement Checkpoint r2 cosmetic ajout Secret §Interactions. Si Checkpoint choisit une interface différente (ex : snapshot opaque + struct typée, pattern Memento), un amendement Secret r3 sera requis pour adapter la sérialisation.
 - **Owner** : game-designer + Martin (Sprint A backbone)
-- **Target** : avant `/create-epics secret-system` (séquencé après Checkpoint Designed)
+- **Target** : avant `/create-epics secret-system` (séquencé après Checkpoint Designed + amendement r2)
 
 **OQ-SEC-2 — Save/Load API + clé de persistance Tier 2+** *(PROVISOIRE)*
 Au MVP, l'état `_collected_secret_ids` est session-only (perdu au quit). Tier 2+ nécessite persistance disque via Save/Load. Spécifications provisoires :
