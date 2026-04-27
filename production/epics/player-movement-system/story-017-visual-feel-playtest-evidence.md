@@ -1,7 +1,7 @@
 # Story 017: Visual/Feel playtest evidence
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23

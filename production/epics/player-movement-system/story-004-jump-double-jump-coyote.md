@@ -1,7 +1,7 @@
 # Story 004: Jump + Double-jump + air_jumps_used + Coyote time
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

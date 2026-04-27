@@ -1,7 +1,7 @@
 # Story 006: Wall-run detection + state + raycasts latéraux
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

@@ -1,7 +1,7 @@
 # Story 010: Signal order determinism + idempotence par transition
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

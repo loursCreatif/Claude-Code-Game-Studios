@@ -1,7 +1,7 @@
 # Story 001: Project Settings + Scene skeleton + State enum
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

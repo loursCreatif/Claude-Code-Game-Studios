@@ -1,7 +1,7 @@
 # Story 003: Custom gravity + Airborne air control
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

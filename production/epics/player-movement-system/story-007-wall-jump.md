@@ -1,7 +1,7 @@
 # Story 007: Wall-jump + air_jumps_used = MAX (décision Martin r3 A)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

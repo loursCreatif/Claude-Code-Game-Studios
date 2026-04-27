@@ -1,7 +1,7 @@
 # Story 005: Dash state — burst + exit momentum + cooldown
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

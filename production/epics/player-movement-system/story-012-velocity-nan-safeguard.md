@@ -1,7 +1,7 @@
 # Story 012: Velocity NaN/Infinity safeguard
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

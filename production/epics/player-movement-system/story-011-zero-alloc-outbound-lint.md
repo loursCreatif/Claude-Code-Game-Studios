@@ -1,7 +1,7 @@
 # Story 011: Zero-alloc signals benchmark + outbound-only lint
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

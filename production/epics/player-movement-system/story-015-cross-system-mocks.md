@@ -1,7 +1,7 @@
 # Story 015: Cross-system integration mocks (Combat + Checkpoint)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

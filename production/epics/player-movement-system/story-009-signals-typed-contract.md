@@ -1,7 +1,7 @@
 # Story 009: Signals declaration + typed contract test (CI debug blocking)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

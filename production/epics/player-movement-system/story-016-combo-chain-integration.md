@@ -1,7 +1,7 @@
 # Story 016: Combo chain full integration (dash→wall-run→wall-jump)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

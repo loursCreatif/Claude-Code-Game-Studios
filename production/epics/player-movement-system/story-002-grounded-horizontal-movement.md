@@ -1,7 +1,7 @@
 # Story 002: Grounded horizontal movement (stop instantané)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

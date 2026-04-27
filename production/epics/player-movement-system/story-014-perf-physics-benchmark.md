@@ -1,7 +1,7 @@
 # Story 014: Perf physics tick rate + frame budget benchmark
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

@@ -1,7 +1,7 @@
 # Story 013: Capability gating (can_dash / can_air_jump / can_wall_run)
 
 > **Epic**: player-movement-system
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-23
