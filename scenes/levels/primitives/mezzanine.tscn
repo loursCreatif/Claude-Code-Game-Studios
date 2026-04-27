@@ -1,0 +1,42 @@
+; Convention authoring : instance de cette scène dans un Room_NN via
+; [node name="Mezzanine_01" instance=ExtResource("mezzanine")]
+; Le nom de l'instance peut être quelconque — aucun check mandatory sur ce préfixe.
+; Contenu : 1 platform + 2 walls + 1 ledge = 4 MeshInstance3D / 4 StaticBody3D.
+; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
+; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
+[gd_scene format=3 uid="uid://primitive_mezzanine"]
+
+[node name="Mezzanine" type="Node3D"]
+
+[node name="Platform" type="StaticBody3D" parent="."]
+collision_layer = 2
+
+[node name="PlatformMesh" type="MeshInstance3D" parent="Platform"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="PlatformShape" type="CollisionShape3D" parent="Platform"]
+
+[node name="WallLeft" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.9, 1.5, 0)
+collision_layer = 2
+
+[node name="WallLeftMesh" type="MeshInstance3D" parent="WallLeft"]
+
+[node name="WallLeftShape" type="CollisionShape3D" parent="WallLeft"]
+
+[node name="WallRight" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 1.5, 0)
+collision_layer = 2
+
+[node name="WallRightMesh" type="MeshInstance3D" parent="WallRight"]
+
+[node name="WallRightShape" type="CollisionShape3D" parent="WallRight"]
+
+[node name="Ledge" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -1.5)
+collision_layer = 2
+
+[node name="LedgeMesh" type="MeshInstance3D" parent="Ledge"]
+
+[node name="LedgeShape" type="CollisionShape3D" parent="Ledge"]

@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://test_etage_05"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_1"]
+size = Vector3(4, 4, 4)
+
+[node name="TestEtage05" type="Node3D"]
+
+[node name="PlayerStart" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="EtageExitTrigger" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 2, 20)
+collision_layer = 16
+collision_mask = 1
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="EtageExitTrigger"]
+shape = SubResource("BoxShape3D_1")

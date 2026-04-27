@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://fixture_consecutive_combat"]
+
+[ext_resource type="Script" path="res://src/gameplay/level/room.gd" id="1_room"]
+
+[node name="EtageArchetypeConsecutiveCombat" type="Node3D"]
+
+[node name="StaticEnvironment" type="Node3D" parent="."]
+
+[node name="Room_01" type="Node3D" parent="StaticEnvironment" node_paths=PackedStringArray()]
+script = ExtResource("1_room")
+archetype = 0
+
+[node name="Room_02" type="Node3D" parent="StaticEnvironment" node_paths=PackedStringArray()]
+script = ExtResource("1_room")
+archetype = 1
+
+[node name="Room_03" type="Node3D" parent="StaticEnvironment" node_paths=PackedStringArray()]
+script = ExtResource("1_room")
+archetype = 1
+
+[node name="Room_04" type="Node3D" parent="StaticEnvironment" node_paths=PackedStringArray()]
+script = ExtResource("1_room")
+archetype = 2
+
+[node name="Room_05" type="Node3D" parent="StaticEnvironment" node_paths=PackedStringArray()]
+script = ExtResource("1_room")
+archetype = 3
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+[node name="SpawnMarkers" type="Node3D" parent="."]
+
+[node name="EtageExitTrigger" type="Area3D" parent="."]

@@ -289,8 +289,82 @@ jobs:
           # Sur macOS local le pattern peut popper OS::alert() (incident
           # 2026-04-27, voir CLAUDE.md). Ne pas réutiliser ce pattern dans un
           # autre job sans justification équivalente (Node3D root requis).
-          godot --headless --path . tests/performance/level_ccd_sweep_runner.tscn
+          mkdir -p production/qa
+          log="production/qa/perf-level-ccd-sweep-$(date +%Y-%m-%d).log"
+          godot --headless --path . tests/performance/level_ccd_sweep_runner.tscn 2>&1 | tee "$log"
+          # Extraire le JSON_RESULT (ligne suivant le marker) pour la regression gate.
+          awk '/^JSON_RESULT:/{getline; print; exit}' "$log" > /tmp/ccd-sweep-current.json
+          test -s /tmp/ccd-sweep-current.json || { echo "FAIL: JSON_RESULT introuvable dans $log"; exit 2; }
           echo "perf-level-ccd PASS"
+
+      - name: Regression gate — sweep vs baseline (story-023 AC-LVL-44)
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --script tools/perf/compare_ccd_baseline.gd -- \
+            tests/baselines/level-ccd-baseline.json \
+            /tmp/ccd-sweep-current.json \
+            sweep
+          echo "regression-gate sweep PASS"
+
+      - name: Upload CCD sweep log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-ccd-sweep-log
+          path: production/qa/perf-level-ccd-sweep-*.log
+
+  perf-level-ccd-gameplay:
+    # story-023 AC-LVL-43 + AC-LVL-44 — EC-8 Jolt CCD gameplay scenario gate.
+    # 4 scenarios × 50 passes (dash 21 m/s, wall-run+wall-jump combo, dash+wall-run combo)
+    # contre walls 0.3m / 0.5m. Détection clip via Area3D plane behind wall + fallback
+    # global_position.z. Réutilise Player.tscn (real CharacterBody3D root) avec
+    # CollisionShape3D ajoutée programmatiquement (Movement story-001 ne l'a pas
+    # encore créée — voir DEV-1 dans le runner header).
+    # Regression gate : compare current run vs tests/baselines/level-ccd-baseline.json
+    # avec tolerance 1% — fail si clips_rate augmente au-delà de baseline + tolerance.
+    # Pattern --path + .tscn idem perf-level-ccd (Node3D root + Jolt physics).
+    # CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # Source : ADR-0001 EC-8 CLAIM-UNVERIFIED → VERIFIED via story-023, TR-lvl-039.
+    name: Perf — Level CCD Gameplay Scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run CCD gameplay scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-ccd-gameplay-$(date +%Y-%m-%d).log"
+          godot --headless --path . tests/performance/level_ccd_gameplay_runner.tscn 2>&1 | tee "$log"
+          awk '/^JSON_RESULT:/{getline; print; exit}' "$log" > /tmp/ccd-gameplay-current.json
+          test -s /tmp/ccd-gameplay-current.json || { echo "FAIL: JSON_RESULT introuvable dans $log"; exit 2; }
+          echo "perf-level-ccd-gameplay PASS"
+
+      - name: Regression gate — gameplay vs baseline (story-023 AC-LVL-44)
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --script tools/perf/compare_ccd_baseline.gd -- \
+            tests/baselines/level-ccd-baseline.json \
+            /tmp/ccd-gameplay-current.json \
+            gameplay
+          echo "regression-gate gameplay PASS"
+
+      - name: Upload CCD gameplay log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-ccd-gameplay-log
+          path: production/qa/perf-level-ccd-gameplay-*.log
 
   perf-level-draw-calls:
     # story-015 AC-LVL-31 + AC-LVL-31b — Draw call budget gate.
@@ -375,10 +449,67 @@ jobs:
           name: perf-level-memory-log
           path: production/qa/perf-level-memory-*.log
 
+  perf-level-frame-time:
+    # story-017 AC-LVL-3 + AC-LVL-34 + AC-LVL-35a — Frame time + load time gate.
+    # 3 gates séquentielles :
+    #   (a) AC-LVL-3   : load time fixture etage_full_mvp ≤ 1000 ms (F4 gate TR-lvl-035)
+    #   (b) AC-LVL-34  : frame time intra-room p50 ≤ 12.0 ms ET p99 ≤ 14.0 ms sur 500 frames
+    #   (c) AC-LVL-35a : frame time transition window 24 frames p99 ≤ 14.0 ms (TR-lvl-036)
+    # Runner extends Node3D + scène compagnon — même pattern que perf-level-draw-calls.
+    # EXCEPTION CLAUDE.md Safety rule #1 (--script) : extends Node3D requiert
+    # un SceneTree actif pour await get_tree().process_frame ; on lance via --path
+    # + .tscn positionnel. CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # En mode headless, Performance.TIME_PROCESS retourne 0.0 (pas de rendering loop
+    # GPU réel) → gate auto-PASS (pattern miroir story-016 VRAM=0). Idem pour
+    # AC-LVL-35a si Jolt body_entered ne fire pas en headless. Les gates sont
+    # significatives uniquement sur Tier 1 hardware réel ; le CI valide la structure
+    # (sampling + percentile logic) sans bloquer sur l'absence de GPU.
+    # Source : ADR-0001 (Physics Rate 60 Hz), ADR-0003 (Rendering Latency),
+    #          TR-lvl-035, TR-lvl-036, story-017 AC-LVL-3 / AC-LVL-34 / AC-LVL-35a.
+    name: Perf — Level Frame Time Budget
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run frame time budget benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-frame-time-$(date +%Y-%m-%d).log"
+          echo "# Frame time budget run — $(date -Iseconds)" > "$log"
+          echo "# story-017 AC-LVL-3 + AC-LVL-34 + AC-LVL-35a — TR-lvl-035 + TR-lvl-036" >> "$log"
+          # Capture explicite du PIPESTATUS du runner godot — découple de tee
+          # (defensive vs pipefail seul, review qa-tester story-017 BLOCKING-1).
+          set +e
+          godot --headless --path . tests/performance/level_frame_time_runner.tscn \
+            --json-out "$log" 2>&1 | tee -a "$log"
+          runner_exit=${PIPESTATUS[0]}
+          set -e
+          if [ "$runner_exit" -eq 0 ]; then
+            echo "perf-level-frame-time PASS (runner exit=0)"
+          else
+            echo "perf-level-frame-time FAIL (runner exit=$runner_exit)"
+            exit "$runner_exit"
+          fi
+
+      - name: Upload frame time benchmark log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-frame-time-log
+          path: production/qa/perf-level-frame-time-*.log
+
   test:
     name: Run GdUnit4 Tests
     runs-on: ubuntu-latest
-    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-level-invariants, perf-level-ccd, perf-level-draw-calls, perf-level-memory]
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-level-invariants, perf-level-ccd, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
 
     steps:
       - name: Checkout

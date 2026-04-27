@@ -1,0 +1,62 @@
+; Fixture story-012 — test_traversal_room_within_budget.
+; Room_01 archetype=TRAVERSAL (0), counts dans budget :
+;   15 MeshInstance3D (budget 22) / 12 StaticBody3D (budget 18)
+;   3 Area3D (budget 4) / 8 Marker3D (budget 10)
+; Résultat attendu : validate_room_archetype_invariants → [] (PASS).
+[gd_scene format=3 uid="uid://fixture_budget_traversal_ok"]
+
+[ext_resource type="Script" path="res://src/gameplay/level/room.gd" id="1_room"]
+
+[node name="EtageTraversalWithinBudget" type="Node3D"]
+
+[node name="StaticEnvironment" type="Node3D" parent="."]
+
+[node name="Room_01" type="Node3D" parent="StaticEnvironment"]
+script = ExtResource("1_room")
+archetype = 0
+
+[node name="MI3D_01" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_02" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_03" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_04" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_05" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_06" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_07" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_08" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_09" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_10" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_11" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_12" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_13" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_14" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+[node name="MI3D_15" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+
+[node name="SB3D_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_02" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_03" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_04" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_05" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_06" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_07" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_08" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_09" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_10" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_11" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+[node name="SB3D_12" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+
+[node name="A3D_01" type="Area3D" parent="StaticEnvironment/Room_01"]
+[node name="A3D_02" type="Area3D" parent="StaticEnvironment/Room_01"]
+[node name="A3D_03" type="Area3D" parent="StaticEnvironment/Room_01"]
+
+[node name="M3D_01" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_02" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_03" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_04" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_05" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_06" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_07" type="Marker3D" parent="StaticEnvironment/Room_01"]
+[node name="M3D_08" type="Marker3D" parent="StaticEnvironment/Room_01"]
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+[node name="SpawnMarkers" type="Node3D" parent="."]
+[node name="EtageExitTrigger" type="Area3D" parent="."]

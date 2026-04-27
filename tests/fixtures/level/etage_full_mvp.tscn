@@ -1,0 +1,178 @@
+; Fixture performance story-017 — étage complet MVP avec peers réalistes.
+;
+; Extension de etage_10_rooms.tscn (10 atriums espacés 10 m sur X) avec :
+;   (a) PlayerStart   : Marker3D à (5, 1, 0) centre Room_00
+;   (b) PlayerStub    : CharacterBody3D + CapsuleShape3D (h=1.8 r=0.4)
+;                       ajouté au groupe "player" pour que LevelSystem reconnaisse
+;                       le body dans les Room/WorldBounds triggers
+;   (c) 3 dummy enemies : MeshInstance3D aux centres Room_03 (35,1,0),
+;                         Room_05 (55,1,0), Room_08 (85,1,0) — sans script
+;   (d) CameraArm     : Node3D root-level + Camera3D current=true — active le renderer
+;   (e) InteractiveVolumes : parent des 10 RoomTrigger_NN Area3D + WorldBoundsVolume
+;
+; NOTE : le PlayerStub est un stub de mesure perf, pas de PlayerController réel.
+; Les Area3D des RoomTriggers utilisent @export room_index (0-indexed) conforme
+; à _extract_room_index dans level_system.gd (story-007).
+; Pour AC-LVL-35a (transition window room_entered index 2 = RoomTrigger_03),
+; le runner téléporte le PlayerStub vers le centre RoomTrigger_03 (25,1,0).
+; NB : RoomTrigger_03 (Area3D) est à (25,1.5,0) — distinct de Room_03 (atrium 30,0,0).
+;
+; Invocation CI (ubuntu-only) :
+;   godot --headless --path . tests/performance/level_frame_time_runner.tscn
+; Ne pas utiliser --main-scene sur cette fixture directement — passer par le runner.
+;
+; Source : story-017 AC-LVL-3 / AC-LVL-34 / AC-LVL-35a / AC-LVL-35b.
+; ADR-0001 (physics 60 Hz), ADR-0003 (rendering ≤ 8 ms/frame p99).
+[gd_scene load_steps=5 format=3 uid="uid://etage_full_mvp_fixture"]
+
+[ext_resource type="PackedScene" uid="uid://primitive_atrium" path="res://scenes/levels/primitives/atrium.tscn" id="1_atrium"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_playerstub"]
+height = 1.8
+radius = 0.4
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_roomtrigger"]
+size = Vector3(10, 3, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_worldbounds"]
+size = Vector3(120, 20, 20)
+
+[node name="EtageFullMVP" type="Node3D"]
+
+[node name="Room_00" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Room_01" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
+
+[node name="Room_02" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
+
+[node name="Room_03" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
+
+[node name="Room_04" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 0)
+
+[node name="Room_05" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 0)
+
+[node name="Room_06" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Room_07" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, 0)
+
+[node name="Room_08" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0, 0)
+
+[node name="Room_09" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0, 0)
+
+; --- (a) PlayerStart marker : centre Room_00 ---
+[node name="PlayerStart" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 0)
+
+; --- (b) PlayerStub : CharacterBody3D groupe "player" + CapsuleShape3D ---
+; Ajouté au groupe "player" pour que _on_room_trigger_body_entered le reconnaisse.
+; Sans script — stub de mesure perf uniquement (story-017).
+[node name="PlayerStub" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1, 0)
+groups = ["player"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PlayerStub"]
+shape = SubResource("CapsuleShape3D_playerstub")
+
+; --- (c) Dummy enemies : MeshInstance3D placeholders sans script ---
+[node name="DummyEnemy_03" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1, 0)
+
+[node name="DummyEnemy_05" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 1, 0)
+
+[node name="DummyEnemy_08" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 1, 0)
+
+; --- (d) CameraArm : active le renderer Forward+ (requis pour TIME_PROCESS réel) ---
+[node name="CameraArm" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 2, 0)
+
+[node name="Camera3D" type="Camera3D" parent="CameraArm"]
+current = true
+
+; --- (e) InteractiveVolumes : parent des triggers (pattern level_system.gd) ---
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+; RoomTrigger_01..10 : suffixes 1-indexed dans node names. Aucun @export
+; room_index n'est défini sur ces Area3D — _extract_room_index dans
+; level_system.gd parse le suffix (split "_") et soustrait 1 → payload
+; room_index 0-indexed (cohérent niveau story-007).
+; Mapping : RoomTrigger_01 → room_index=0, ..., RoomTrigger_10 → room_index=9
+; Pour AC-LVL-35a : room_entered(room_index=2, ...) = RoomTrigger_03
+
+[node name="RoomTrigger_01" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_01"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_02" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_02"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_03" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_03"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_04" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 35, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_04"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_05" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_05"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_06" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 55, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_06"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_07" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 65, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_07"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_08" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 75, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_08"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_09" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 85, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_09"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+[node name="RoomTrigger_10" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 95, 1.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_10"]
+shape = SubResource("BoxShape3D_roomtrigger")
+
+; WorldBoundsVolume : couvre tout l'étage (120 m × 20 m × 20 m centré)
+[node name="WorldBoundsVolume" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 45, 0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/WorldBoundsVolume"]
+shape = SubResource("BoxShape3D_worldbounds")

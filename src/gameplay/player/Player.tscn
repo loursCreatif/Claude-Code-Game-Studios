@@ -1,0 +1,61 @@
+[gd_scene load_steps=5 format=3 uid="uid://camera_player_001"]
+
+[ext_resource type="Script" path="res://src/gameplay/camera/camera_system.gd" id="1_camscript"]
+[ext_resource type="PackedScene" path="res://src/gameplay/combat/combat_system.tscn" id="2_combatscene"]
+[ext_resource type="Script" path="res://src/gameplay/player/movement_controller.gd" id="3_movescript"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.35
+height = 1.8
+
+[node name="Player" type="CharacterBody3D"]
+; CharacterBody3D root — yaw written to rotation.y by movement system (story 002+).
+; Script: MovementController (story-001). ADR-0001 + ADR-0002 + ADR-0005.
+; physics_interpolation_mode=OFF (Node.PHYSICS_INTERPOLATION_MODE_OFF=1) — ADR-0002 VC.
+script = ExtResource("3_movescript")
+physics_interpolation_mode = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+; Capsule: radius=0.35 m, height=1.8 m. Added story-001 (TR-mov-001).
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="WallRayLeft" type="RayCast3D" parent="."]
+; Detects wall to the left. Length = capsule_radius + WALL_DETECT_MARGIN = 0.8 m (TR-mov-002).
+unique_name_in_owner = true
+target_position = Vector3(-0.8, 0, 0)
+enabled = true
+
+[node name="WallRayRight" type="RayCast3D" parent="."]
+; Detects wall to the right. Length = capsule_radius + WALL_DETECT_MARGIN = 0.8 m (TR-mov-002).
+unique_name_in_owner = true
+target_position = Vector3(0.8, 0, 0)
+enabled = true
+
+[node name="CameraArm" type="Node3D" parent="." groups=["camera_system"]]
+; Owns pitch (rotation.x). Eye height: 1.6 m above CharacterBody3D origin (body 1.8 m).
+; ADR-0002: CameraArm position.y = 1.6
+position = Vector3(0, 1.6, 0)
+unique_name_in_owner = true
+script = ExtResource("1_camscript")
+
+[node name="CameraEffects" type="Node3D" parent="CameraArm"]
+; Owns tilt (rotation.z). Position ZERO — no offset from CameraArm.
+; ADR-0002: CameraEffects position = Vector3.ZERO
+unique_name_in_owner = true
+
+[node name="Camera3D" type="Camera3D" parent="CameraArm/CameraEffects"]
+; Owns FOV + shake. Position ZERO — no offset from CameraEffects.
+; ADR-0002: Camera3D position = Vector3.ZERO
+; Forbidden: SpringArm3D, use_taa, manual viewport post-process chains.
+unique_name_in_owner = true
+
+[node name="AudioListener3D" type="AudioListener3D" parent="CameraArm/CameraEffects/Camera3D"]
+; Single audio listener. Auto-current when Player is the active scene.
+; AC-CAM-TREE-4: AudioListener3D is auto-current — make_current() must NOT be called.
+; Manual validation: place AudioStreamPlayer3D at (10, 0, 0), verify right-ear panning
+; when player.rotation.y = 0. Evidence: production/qa/evidence/camera-audiolistener-2026-04-22.md
+
+[node name="CombatSystem" parent="." instance=ExtResource("2_combatscene")]
+; ADR-0006 D-1 : direct child du CharacterBody3D Player.
+; DFS preorder garantit Player._physics_process → CombatSystem._physics_process (Rule 17).
+; Story 001 scaffold — config complète déléguée aux stories 002, 006, 014.

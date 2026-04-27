@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bj4xmvt2nqk7c"]
+
+[ext_resource type="Shader" path="res://assets/shaders/chrome_zen_flat.gdshader" id="1_chromezen"]
+
+[resource]
+shader = ExtResource("1_chromezen")
+shader_parameter/albedo = Color(0.35, 0.38, 0.42, 1.0)
+shader_parameter/atlas_offset = Vector2(0, 0)
+shader_parameter/atlas_scale = Vector2(1, 1)

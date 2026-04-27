@@ -1,0 +1,51 @@
+; Fixture draw-call budget — étage 10 salles (N=10).
+; Utilisée par story-015 AC-LVL-31 : gate p99 draw_calls_level ≤ 350.
+;
+; Structure : 10 instances de la primitive Atrium (8 MeshInstance3D + 6 StaticBody3D
+; chacune), espacées de 10 m sur l'axe X pour éviter toute superposition.
+; Objectif : charger le renderer Forward+ avec une densité représentative
+; d'une scène d'étage MVP sans peers ni VFX.
+;
+; NOTE technique (story-015) : les primitives (atrium.tscn) sont des stubs
+; sans mesh explicite défini dans le .tscn (MeshInstance3D sans mesh assigné).
+; Par conséquent, le draw call count réel mesuré sur le premier run CI peut être
+; inférieur à 350 (pas de géométrie rendue). C'est normal — le budget gate sert
+; de ceilin g empirique sur le hardware CI ubuntu. Si la p99 mesurée dépasse 350
+; en Sprint 1 une fois les shaders Chrome Zen et meshes assignés (story-022),
+; le budget doit être rouvert via ADR-0003 amendment.
+; Source : ADR-0003 (Rendering Latency), TR-lvl-004.
+[gd_scene load_steps=2 format=3 uid="uid://etage_10_rooms_fixture"]
+
+[ext_resource type="PackedScene" uid="uid://primitive_atrium" path="res://scenes/levels/primitives/atrium.tscn" id="1_atrium"]
+
+[node name="Etage10Rooms" type="Node3D"]
+
+[node name="Room_00" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Room_01" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
+
+[node name="Room_02" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
+
+[node name="Room_03" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
+
+[node name="Room_04" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 0)
+
+[node name="Room_05" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 0)
+
+[node name="Room_06" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Room_07" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, 0)
+
+[node name="Room_08" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 80, 0, 0)
+
+[node name="Room_09" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90, 0, 0)

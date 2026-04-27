@@ -1,0 +1,36 @@
+[gd_scene format=3 uid="uid://test_etage_08"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_exit"]
+size = Vector3(4, 4, 4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bounds"]
+size = Vector3(30, 25, 10)
+
+[node name="TestEtage08" type="Node3D"]
+
+[node name="PlayerStart" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="StaticEnvironment" type="Node3D" parent="."]
+
+[node name="EtageExitTrigger" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, -100)
+collision_layer = 16
+collision_mask = 1
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="EtageExitTrigger"]
+shape = SubResource("BoxShape3D_exit")
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+[node name="WorldBoundsVolume" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+collision_layer = 16
+collision_mask = 1
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/WorldBoundsVolume"]
+shape = SubResource("BoxShape3D_bounds")

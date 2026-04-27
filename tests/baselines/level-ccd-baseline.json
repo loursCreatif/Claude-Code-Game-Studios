@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "captured": "2026-04-27",
+  "captured_by": "story-023",
+  "godot_version": "4.6",
+  "jolt_version": "4.6 default",
+  "tolerance_pct": 1.0,
+  "comments": "Baseline locked by story-023. Sweep: from story-014 local empirical run 2026-04-27 (Godot 4.6.2.stable, Darwin 25.4.0). Gameplay: from story-023 first run, expected ALL clips=0 if Jolt CCD claim VERIFIED. Regression detected if current clips_rate_pct > baseline + tolerance_pct. Update baseline only via ADR-0001 amendment.",
+  "sweep": {
+    "0.2": {"clips_rate_pct": 0.0, "note": "control group — local run showed unexpected 0 clips (see benchmark doc Note section)"},
+    "0.3": {"clips_rate_pct": 0.0},
+    "0.5": {"clips_rate_pct": 0.0}
+  },
+  "gameplay": {
+    "dash_into_wall_03m": {"clips": 0, "passes": 50, "clips_rate_pct": 0.0},
+    "dash_into_wall_05m": {"clips": 0, "passes": 50, "clips_rate_pct": 0.0},
+    "wallrun_into_corner_03m": {"clips": 0, "passes": 50, "clips_rate_pct": 0.0},
+    "dash_wallrun_combo_03m": {"clips": 0, "passes": 50, "clips_rate_pct": 0.0}
+  }
+}

@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://etage_wrong_type_fixture"]
+
+[node name="EtageWrongType" type="Node3D"]
+
+[node name="StaticEnvironment" type="Node3D" parent="."]
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+[node name="SpawnMarkers" type="Node3D" parent="."]
+
+[node name="EtageExitTrigger" type="Node3D" parent="."]
