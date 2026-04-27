@@ -1,7 +1,7 @@
 # Story 007: Shake additif + wall_jump kick (sign_with_fallback, limit_length)
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Estimate**: 1h30
@@ -30,9 +30,9 @@
 
 *From GDD `design/gdd/camera-system.md`, scoped to this story :*
 
-- [ ] **AC-CAM-30** : `GIVEN` `CameraSystem.add_shake_roll(0.05)` appelé frame 0, `THEN` frame 1 : `shake_offset.z ≈ +0.05` ± décroissance 1 tick ; à `t=250 ms` : `|shake_offset.z| < 0.005 rad`.
-- [ ] **AC-CAM-31** : `GIVEN` Movement émet `wall_jumped(wall_normal=Vector3(1,0,0), launch_velocity=Vector3(10,10,0))`, `THEN` Camera consume le signal (signature canon ADR-0005), appelle `add_shake_roll` avec signe dérivé de `sign_with_fallback(wall_normal.dot(-camera_arm.global_transform.basis.x))`, et `camera3d.rotation` final = `shake_offset` (pas d'addition `+=` sur la transform existante).
-- [ ] **AC-CAM-32** : `GIVEN` 3 `add_shake_roll(0.05)` concurrents dans le même tick, `THEN` `shake_offset.length() ≤ MAX_SHAKE_MAGNITUDE == 0.2 rad` post-`limit_length()` — pas de cumul nauséeux non borné.
+- [x] **AC-CAM-30** : `GIVEN` `CameraSystem.add_shake_roll(0.05)` appelé frame 0, `THEN` frame 1 : `shake_offset.z ≈ +0.05` ± décroissance 1 tick ; à `t=250 ms` : `|shake_offset.z| < 0.005 rad`.
+- [x] **AC-CAM-31** : `GIVEN` Movement émet `wall_jumped(wall_normal=Vector3(1,0,0), launch_velocity=Vector3(10,10,0))`, `THEN` Camera consume le signal (signature canon ADR-0005), appelle `add_shake_roll` avec signe dérivé de `sign_with_fallback(wall_normal.dot(-camera_arm.global_transform.basis.x))`, et `camera3d.rotation` final = `shake_offset` (pas d'addition `+=` sur la transform existante).
+- [x] **AC-CAM-32** : `GIVEN` 3 `add_shake_roll(0.05)` concurrents dans le même tick, `THEN` `shake_offset.length() ≤ MAX_SHAKE_MAGNITUDE == 0.2 rad` post-`limit_length()` — pas de cumul nauséeux non borné.
 
 ---
 
@@ -143,9 +143,9 @@ func _update_shake(delta: float) -> void:
 ## Test Evidence
 
 **Story Type** : Integration
-**Required evidence** : `tests/integration/camera/story-007-shake-wall-jump_test.gd` — AC-CAM-30/31/32 via émission `player.wall_jumped` + `add_shake_roll` + loop `_process` + assertions `_shake_offset` et `_camera3d.rotation`
+**Required evidence** : `tests/integration/camera/story_007_shake_wall_jump_test.gd` — AC-CAM-30/31/32 via émission `player.wall_jumped` + `add_shake_roll` + loop `_update_shake` + assertions `_shake_offset` et `_camera3d.rotation`
 
-**Status** : [ ] Not yet created
+**Status** : [x] Created — 9 fonctions de test GdUnit4 couvrent les 3 ACs + edge cases (delta zero, mur gauche/droite/perpendiculaire, assignation overwrite, cap 10×, sous-cap 3×, axes mixtes, état initial)
 
 ---
 
@@ -153,3 +153,18 @@ func _update_shake(delta: float) -> void:
 
 - Depends on : Story 001 (scene tree Camera3D + CameraArm pour basis.x reference), Story 002 (_process + _ready setup)
 - Unlocks : Story 008 (reset shake dans respawned), Story 010 (reduce_motion gate), Story 011 (_exit_tree disconnect wall_jumped), Future VFX epic (consumer API add_shake)
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-04-27
+**Criteria** : 3/3 passing (AC-CAM-30, AC-CAM-31, AC-CAM-32)
+**Test Evidence** : Integration — `tests/integration/camera/story_007_shake_wall_jump_test.gd` (9 fonctions de test GdUnit4)
+**Code Review** : Complete — APPROVED. ADR-0002 Risk 3 (assignation rotation) + ADR-0005 D-2/D-5/D-7/D-8 respectés. VC-7 lint clean (pas de polling player.is_dashing/state). Manifest 2026-04-23 conforme.
+**Deviations** : Aucune bloquante.
+**Tech debt advisory** :
+- `_update_shake:286` — `limit_length()` redondant après `*= exp(...)` (cap déjà appliqué à l'entrée). Bruit de lecture, pas un bug. À nettoyer post-MVP.
+- `camera_system.gd` à 399 lignes (au-dessus du soft limit 300). Split à envisager après story-013.
+- Couverture test : delta freeze 100 ms et CameraArm rotation non-identitaire non testés isolément (gap 1+3 du qa-tester). Risque mathématique nul / à revoir si une story future tourne la caméra avant un wall_jump.
+**Specialist reviews** : godot-gdscript-specialist (MINOR ISSUES — non-bloquantes) + qa-tester (GAPS — non-bloquantes).

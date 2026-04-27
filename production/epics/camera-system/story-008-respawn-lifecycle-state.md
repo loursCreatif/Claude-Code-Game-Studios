@@ -5,6 +5,7 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (4-6 heures) — 2 handlers + state enum + pré-création overlay au `_ready()` + patch story-003 mouse_motion gate + suite de 3 tests Integration GdUnit4
 
 ## Context
 
@@ -113,6 +114,7 @@ func _on_mouse_motion(delta: Vector2) -> void:
 - **Connection synchrone `CONNECT_0`** : possible après pré-création overlay (handler léger = toggle bool + color reset + scalar assigns). Zero-alloc respecté.
 - **Fade alpha + flash blanc** : **PAS DANS CETTE STORY** — Story 009 ajoute la trajectoire alpha `0.6 → 0` 100 ms avec `Color(1,1,1,0.9)` intercalé 50 ms.
 - **Paused state (menu open)** : handler `_on_died` inchangé (mouse_motion déjà gated par enabled story 003). Respawning pendant Paused → comportement naturel du state `RESPAWNING` qui n'interagit pas avec `enabled`.
+- **Performance budget** : impact négligeable. `_on_died` (toggle bool + color assign + visible=true) ≤ 0.05 ms par appel ; `_on_respawned` (4 scalar resets + visible=false) ≤ 0.05 ms par appel ; tous deux émis 1× par cycle die→respawn (~50 ms d'écart, fréquence non hot-path). Reste largement sous le budget caméra ADR-0002 VC-6 (`_process` ≤ 0.2 ms p99). Zero-alloc respecté (overlay pré-créé au `_ready()`, color reuse `RESPAWN_OVERLAY_COLOR` const). Pas de mesure dédiée requise MVP — perf vérifiée en aval par Story 012.
 
 ---
 

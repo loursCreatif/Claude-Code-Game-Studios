@@ -8,7 +8,7 @@ extends Node3D
 ##   - Pitch : CameraArm.rotation.x    (written by this system, story 002+)
 ##   - Tilt  : CameraEffects.rotation.z (written by this system, story 005+)
 ##   - FOV   : Camera3D.fov            (written by this system, story 005+)
-##   - Shake : Camera3D.h_offset / v_offset (story 007+)
+##   - Shake : Camera3D.rotation       (assignation, story 007+)
 ##
 ## TR-cam-001 : ownership séparé par étage scene tree.
 ## TR-cam-003 : logique caméra en _process (frame rate affichage) — pas de _physics_process.
@@ -17,6 +17,7 @@ extends Node3D
 ## Story 002 : yaw + pitch raw apply via InputManager.mouse_motion signal.
 ## Story 005 : tilt wall-run — derive wall_side from player.wall_normal + lerp camera_effects.rotation.z.
 ## Story 006 : FOV dash pulse — signal-driven flag + lerp camera3d.fov.
+## Story 007 : shake additif + wall_jump kick — assignation camera3d.rotation, exp decay, limit_length cap.
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +66,24 @@ const TILT_LERP_SPEED: float = 12.0
 
 
 # ---------------------------------------------------------------------------
+# Constants — shake additif + wall_jump kick (story 007, TR-cam-001, ADR-0002 Risk 3 + ADR-0005)
+# ---------------------------------------------------------------------------
+
+## Decay rate (1/s) — exp(-SHAKE_DECAY * delta) → retour < 5% en ~250 ms.
+## Stable GDScript, pas de post-cutoff API.
+const SHAKE_DECAY: float = 12.0
+
+## Magnitude du kick wall-jump (rad ≈ 3°). Direction dérivée par _sign_with_fallback
+## sur dot(wall_normal, -camera_arm.basis.x) — GDD Rule 7.
+## Reduce_motion multiplier (shake_mult = 0.0) PAS dans cette story — ajouté par story 010.
+const WALL_JUMP_KICK_MAGNITUDE: float = 0.05
+
+## Cap absolu sur la magnitude cumulée du shake (rad ≈ 11.5°).
+## Empêche cumul nauséeux quand plusieurs sources appellent add_shake() même tick.
+const MAX_SHAKE_MAGNITUDE: float = 0.2
+
+
+# ---------------------------------------------------------------------------
 # Node references — resolved via unique-name accessors (%NodeName).
 # CameraArm IS self (script is attached to CameraArm node).
 # ---------------------------------------------------------------------------
@@ -87,6 +106,13 @@ const TILT_LERP_SPEED: float = 12.0
 ## Manifest 2026-04-23 ligne 161 : interdit de lire player.is_dashing en _process.
 ## Ne jamais écrire ce flag depuis _update_fov_dash — lecture seule dans _process.
 var _is_dashing: bool = false
+
+## Offset shake (rad, axes Euler YXZ Camera3D) — appliqué via assignation
+## camera3d.rotation = _shake_offset chaque frame (pas +=, ADR-0002 Risk 3).
+## L'assignation garantit le reset implicite quand _shake_offset → 0 et évite
+## le drift visuel par cumul de transformations.
+## Mis à jour par add_shake / add_shake_roll (entrée), exp decay + limit_length (sortie _update_shake).
+var _shake_offset: Vector3 = Vector3.ZERO
 
 
 # ---------------------------------------------------------------------------
@@ -117,16 +143,24 @@ func _ready() -> void:
 	_player.dash_started.connect(_on_dash_started)
 	_player.dash_ended.connect(_on_dash_ended)
 
+	# Story 007 : connexion wall_jumped — payload (wall_normal, launch_velocity).
+	# Mode SYNC (D-5 consumer léger : 1 dot product + 1 sign + 1 add scalaire +
+	# 1 limit_length < 0.05 ms, zéro alloc, pas d'instanciation Node).
+	# Story 011 ajoutera le _exit_tree disconnect symétrique.
+	_player.wall_jumped.connect(_on_wall_jumped)
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle — process (cosmetic, story 005+)
 # ---------------------------------------------------------------------------
 
 ## Frame update — cosmetic-only camera effects (ADR-0001 Rule 12, Control Manifest
-## Presentation layer). Tilt wall-run et FOV dash exécutés ici, pas dans _physics_process.
+## Presentation layer). Tilt wall-run, FOV dash et shake exécutés ici, pas dans _physics_process.
+## Ordre : tilt → fov → shake. Indépendants (noeuds distincts), ordre cosmétique seulement.
 func _process(delta: float) -> void:
 	_update_tilt_wall_run(delta)
 	_update_fov_dash(delta)
+	_update_shake(delta)
 
 
 # ---------------------------------------------------------------------------
@@ -203,6 +237,74 @@ func _on_dash_started(_dash_dir: Vector3, _dash_speed: float) -> void:
 ## Sets _is_dashing=false. ADR-0005 D-7 (no Movement mutation) + D-8 (idempotent).
 func _on_dash_ended() -> void:
 	_is_dashing = false
+
+
+# ---------------------------------------------------------------------------
+# Public API — shake (story 007, TR-cam-001, ADR-0002 Risk 3)
+# Préparée pour consumers VFX hit katana / boss impact (post-MVP, hors scope MVP).
+# MVP : seul _on_wall_jumped l'appelle.
+# ---------------------------------------------------------------------------
+
+## Ajoute un offset additif au shake courant. Borne via limit_length au cap MAX_SHAKE_MAGNITUDE.
+## Zero-alloc : Vector3 value type, += et limit_length() retournent stack.
+## AC-CAM-32 : 3× add_shake_roll(0.05) même tick → length() ≤ 0.2 (cap).
+func add_shake(offset_radians: Vector3) -> void:
+	_shake_offset += offset_radians
+	_shake_offset = _shake_offset.limit_length(MAX_SHAKE_MAGNITUDE)
+
+
+## Helper raccourci — applique magnitude sur l'axe Z (roll caméra) uniquement.
+func add_shake_roll(magnitude: float) -> void:
+	add_shake(Vector3(0.0, 0.0, magnitude))
+
+
+# ---------------------------------------------------------------------------
+# Private — shake update + sign helper (story 007)
+# ---------------------------------------------------------------------------
+
+## Alternative à sign() qui retourne 0 pour input 0. GDD Rule 7 :
+## wall_normal ⊥ -basis.x (cas dégénéré exact, ex : mur en avant) → fallback +1
+## évite kick nul silencieux (kick toujours visible côté joueur).
+func _sign_with_fallback(x: float) -> float:
+	if x > 0.0:
+		return 1.0
+	elif x < 0.0:
+		return -1.0
+	else:
+		return 1.0
+
+
+## Décroissance exponentielle + cap + ASSIGNATION sur camera3d.rotation.
+## ADR-0002 Risk 3 : assignation (`=`, pas `+=`) garantit reset implicite quand
+## _shake_offset → 0 — évite drift visuel par cumul de transformations.
+## Reduce_motion (story 010) gatera shake_mult = 0.0 avant add_shake_roll côté
+## handler, désactivant l'entrée — pas besoin de gate ici. Respawn reset (story 008)
+## remettra _shake_offset = Vector3.ZERO + _camera3d.rotation = Vector3.ZERO.
+## AC-CAM-30 : retour < 5% magnitude initiale en ~250 ms (15 frames @ 60 fps).
+func _update_shake(delta: float) -> void:
+	_shake_offset *= exp(-SHAKE_DECAY * delta)
+	_shake_offset = _shake_offset.limit_length(MAX_SHAKE_MAGNITUDE)
+	_camera3d.rotation = _shake_offset
+
+
+# ---------------------------------------------------------------------------
+# Signal handlers — Movement wall_jumped (story 007, ADR-0005 D-2 / D-7 / D-8)
+# ---------------------------------------------------------------------------
+
+## Consomme wall_jumped(wall_normal, launch_velocity) — signature canonique ADR-0005 D-2.
+## GDD Rule 7 : direction du kick dérivée par dot(wall_normal, -camera_arm.basis.x) :
+##   - mur à gauche (normal=+x, caméra forward=-z) → dot=-1 → kick négatif (penche gauche)
+##   - mur à droite (normal=-x)                    → dot=+1 → kick positif (penche droite)
+##   - mur en avant (normal=+z, dot=0 exact)       → fallback +1 → kick positif
+##
+## launch_velocity ignorée volontairement (préfixe _) — magnitude shake constante MVP,
+## non calibrée à la vélocité d'éjection. Tier 2+ pourrait moduler.
+##
+## SYNC connection (D-5 consumer léger), no Movement mutation (D-7), idempotent (D-8 :
+## emits multiples additionnent via limit_length, pas de side-effect cumulatif non borné).
+func _on_wall_jumped(wall_normal: Vector3, _launch_velocity: Vector3) -> void:
+	var dir: float = _sign_with_fallback(wall_normal.dot(-_camera_arm.global_transform.basis.x))
+	add_shake_roll(WALL_JUMP_KICK_MAGNITUDE * dir)
 
 
 # ---------------------------------------------------------------------------
