@@ -1,0 +1,78 @@
+# Level System Tuning Knobs — MVP
+# Source  : design/gdd/level-system.md §Tuning Knobs
+# Story   : story-022 AC-LVL-44 / TR-lvl-043
+# Schema  : version 1 (validated by validate_tuning_knobs_present lint)
+#
+# Usage   : Authoring reference uniquement (pas de runtime parse au MVP).
+#           Les valeurs sont reprises dans les constantes GDScript (LevelLint,
+#           LevelSystemScript) et les tests unitaires y référencent les defaults.
+#           Colonne "safe range" = plage de tuning sans risque de casser un pilier.
+schema_version: 1
+
+constants:
+  # Formule F1 — min_opening_width = 2 × KATANA_REACH.
+  # Impacte : doorway width lint (validate_door_widths) → MIN_DOOR_WIDTH_M = 3.6 m.
+  # Safe range : [1.4, 2.2]
+  KATANA_REACH: 1.8
+
+  # Formule F3 — floor(N_rooms / K_checkpoints) ∈ [2, 3].
+  # Safe range : [2, 3]
+  CHECKPOINT_SPACING: 3
+
+  # Formule F5 — hauteur d'étage (|PlayerStart.y - ExitTrigger.y|).
+  # Safe range : [12.0, 80.0]
+  ETAGE_HEIGHT_MIN: 15.0
+  ETAGE_HEIGHT_MAX: 60.0
+
+  # Formule F2 — nombre de RoomTrigger_* par étage.
+  # Safe range : [6, 12]
+  ROOM_COUNT_MIN: 8
+  ROOM_COUNT_MAX: 10
+
+  # Formule F7 — nombre de secrets par étage (SecretCollectVolume_*).
+  # Floor enforced : < 3 = lint failure.
+  # Cap enforced   : > 5 = lint failure.
+  # Safe range : [3, 5]
+  SECRET_COUNT_MIN: 3
+  SECRET_COUNT_MAX: 5
+
+  # Formule F2 — budget de draw calls p99 par frame (source GDD R-4 r2).
+  # Inclut LEVEL_OVERHEAD (20 DC fixes) + Σ DC_salle.
+  # Safe range : [200, 350]
+  DRAW_CALL_BUDGET: 350
+
+  # Formule F6 — budget VRAM total niveau chargé (MB).
+  # Safe range : [20, 100]
+  VRAM_BUDGET_MB: 50
+
+  # Formule F6 — budget RAM total niveau chargé (MB).
+  # Safe range : [10, 60]
+  RAM_BUDGET_MB: 20
+
+  # Formule F4 — budget de temps de chargement (gate hard, ms).
+  # Gate hard story-017 ; advisory = LOAD_SLOW_THRESHOLD_MS.
+  # Safe range : [500, 2000]
+  LOAD_TIME_BUDGET_MS: 1000
+
+  # Advisory de charge lente (ms) — level_load_slow emitted si dépassé.
+  # Distinct du gate hard. Safe range : [300, 1000]
+  LOAD_SLOW_THRESHOLD_MS: 600
+
+layers:
+  # Collision layers ADR-0008 D-1 — index 1-based (Godot convention).
+  # Modifié conjointement avec src/core/collision_layers.gd (LAYER_* constants).
+  LAYER_PLAYER: 1
+  LAYER_ENEMY: 2
+  LAYER_ENEMY_HITBOX: 3
+  LAYER_ENVIRONMENT: 4
+  LAYER_INTERACTIVE: 5
+
+wall_run:
+  # Formule F8 — surface wall-runnable (TR-lvl-011).
+  # MIN_HEIGHT_M  : jump_apex (1.68) + wall_run_vertical_reach (2.3) = 3.98 → 4.0 m.
+  # MIN_LENGTH_M  : distance minimale de run viable.
+  # MAX_TILT_DEG  : déviation d'orientation acceptable (normale horizontale ± 5°).
+  # Safe ranges : MIN_HEIGHT_M [3.5, 5.0], MIN_LENGTH_M [2.0, 5.0], MAX_TILT_DEG [3.0, 10.0]
+  MIN_HEIGHT_M: 4.0
+  MIN_LENGTH_M: 3.0
+  MAX_TILT_DEG: 5.0

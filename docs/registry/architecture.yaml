@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: ""
+last_updated: "2026-04-27 (ADR-0009 Audio System Architecture appended — 7-bus hierarchy, AudioPool 15× pré-instancié, wall-clock fades dans _physics_process via _get_time_msec Callable injection, CONNECT_DEFERRED par défaut, AudioListener3D = Camera3D actif, forbidden tween_volume_db_in_audio_src). Previous 2026-04-23 (ADR-0011 Level Scene appended)."
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -43,7 +43,73 @@ last_updated: ""
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: player_movement_state
+    status: active
+    owner_system: movement-system
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    interface: "MovementController.state: State (read-only enum { GROUNDED, AIRBORNE, DASHING, WALL_RUNNING, DEAD }). Pattern GDScript get: without setter (godot-specialist F7). Consumers read via player_ref.state ; transitions notifiées via signals typés directs (dash_started, wall_run_entered, etc. — cf. ADR-0005 D-2). Les consumers n'écrivent JAMAIS _state (private). write_access exclusif MovementController via state machine interne _physics_process."
+    write_access: movement-system-only
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0002-camera-scene-tree-cameraarm.md
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+    added: 2026-04-21
+    revised: ""
+
+  - state: combat_prev_position
+    status: active
+    owner_system: combat-system
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    interface: "CombatSystem._prev_position: Vector3 — membre privé de CombatSystem (pas d'API publique). Initialisé à player.global_position dans CombatSystem._ready(). Mis à jour en FIN de CombatSystem._physics_process (après toute logique de sweep du tick courant — ADR-0006 D-3). Au début du tick N+1, contient la position tick N (post-move_and_slide Movement exécuté avant Combat via DFS preorder D-1). Utilisé par Rule 6 Combat + Formula 2 : target_position = basis.inverse() * (player.global_position - _prev_position) pour sweep ShapeCast3D inter-tick (anti-tunneling à V≤30 m/s). Aucun autre système ne lit ou écrit ce cache."
+    write_access: combat-system-only
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - state: game_state
+    status: active
+    owner_system: game-state-manager
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    interface: "GameStateManager.get_current_state() -> State (enum { MENU, PLAYING, PAUSED, RESPAWNING, BOSS_DEFEATED }) — read-only introspection synchrone thread-safe. Mutation exclusive via request_pause() / request_resume() / request_scene_transition(path) / start_etage(id) / request_new_run(). Transition privée _transition_to(new_state) centralise emit signal state_changed + mutation get_tree().paused. Transitions légales figées par D-2 graphe (13 transitions whitelistées) ; toute transition illégale → assert debug / push_error release. Boot state = MENU par défaut (pas d'emit au boot — consumers utilisent pattern pull via get_current_state() dans leur _ready())."
+    write_access: game-state-manager-only
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+      - design/gdd/level-system.md
+      - design/gdd/input-system.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - state: scene_tree_paused
+    status: active
+    owner_system: game-state-manager
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    interface: "get_tree().paused: bool — autorité exclusive GameStateManager. Mutation uniquement depuis _transition_to() quand new_state == PAUSED (set true) ou transition PAUSED → PLAYING (set false). Aucun autre système ne doit écrire get_tree().paused directement (forbidden pattern scene_tree_paused_set_outside_gsm). Lecture libre depuis n'importe quel système (via is_paused boolean)."
+    write_access: game-state-manager-only
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - state: level_scene_state
+    status: active
+    owner_system: level-system
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    interface: "LevelSystem._state: LevelState (enum { UNLOADED, LOADING, ACTIVE, UNLOADING }) — introspection read-only via get_state() + get_current_etage_id() (retourne -1 si UNLOADED). Membre privé _current_etage_root: Node3D référence la racine etage_NN.tscn attachée à get_tree().root (pas self.add_child pour laisser Godot gérer queue_free sans tree-rewire). Transitions atomiques T-1..T-4 (ADR-0011 D-4) : UNLOADED → LOADING (load_etage), LOADING → ACTIVE (resources_ready + _validate_scene_hierarchy PASS), ACTIVE → UNLOADING (unload_current OR EtageExitTrigger.body_entered), UNLOADING → UNLOADED (1 frame post queue_free). Transitions illégales (load_etage en ACTIVE, etc.) = assert debug / push_error release. Consumers peers (Checkpoint/Enemy/Hazard/Secret/HUD/Tutorial/Audio/VFX) n'écrivent JAMAIS _state ou _current_etage_root — orchestration exclusive LevelSystem + GameStateManager via load_etage/unload_current."
+    write_access: level-system-only
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
 
 # Example:
 #
@@ -71,7 +137,252 @@ state_ownership: []
 #
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
-interfaces: []
+interfaces:
+  - contract: input_polling_gameplay
+    status: active
+    pattern: direct_call
+    producer: input-system
+    consumers:
+      - player-movement-system
+      - player-combat-system
+      - checkpoint-respawn-system
+      - camera-system
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    api_signature: "InputManager.was_pressed_this_tick(action: StringName) -> bool"
+    semantics: "Appelé depuis _physics_process du consumer. Retourne true exactement une fois par edge press, sur le tick physique qui suit la press (pas le render frame). false si !enabled. Remplace is_action_just_pressed (forbidden par ADR-0001)."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - contract: application_focus_events
+    status: active
+    pattern: signal
+    producer: input-system
+    consumers:
+      - game-state-manager
+      - (future) menu-system
+      - (future) save-load-system
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    signal_signature: "application_focus_lost() ; application_focus_gained()"
+    semantics: "Émis dans _notification(NOTIFICATION_APPLICATION_FOCUS_OUT/IN). Découpage one-way : InputManager ne référence AUCUN système aval. GameStateManager consomme focus_lost pour auto-pause en Playing state."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - contract: mouse_motion_stream
+    status: active
+    pattern: signal
+    producer: input-system
+    consumers:
+      - camera-system
+      - (future) hud-system (hover tracking)
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    signal_signature: "mouse_motion(delta: Vector2)"
+    semantics: "Émis à chaque InputEventMouseMotion (si enabled). Supprimé pendant fenêtre 50 ms absolute-time post-FOCUS_IN (anti-burst cross-OS Wayland-safe). Delta brut — sensitivity appliquée par consumer."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+      - design/gdd/input-system.md
+      - design/gdd/camera-system.md
+    added: 2026-04-21
+    revised: ""
+
+  - contract: input_enable_gating
+    status: active
+    pattern: direct_call
+    producer: input-system
+    consumers:
+      - menu-system
+      - checkpoint-respawn-system
+      - (future) cutscene-system
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    api_signature: "InputManager.request_disable(owner: Node) ; InputManager.release_enable_request(owner: Node)"
+    semantics: "Refcount pattern : enabled = (_enable_blockers.is_empty()). Idempotent même owner. Auto-cleanup sur owner.tree_exited. Remplace set_enabled(bool) qui était sujet à race multi-owner."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - contract: movement_events
+    status: active
+    pattern: signal
+    producer: movement-system
+    consumers:
+      - camera-system
+      - player-combat-system
+      - vfx-feedback-system
+      - audio-system
+      - hud-system
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    signal_signature: "dash_started(dash_dir: Vector3, dash_speed: float) ; dash_ended() ; wall_run_entered(wall_normal: Vector3) ; wall_run_exited() ; wall_jumped(wall_normal: Vector3, launch_velocity: Vector3) ; died() ; respawned(spawn_position: Vector3) ; attacked()"
+    semantics: "8 signals typés directs émis par MovementController (CharacterBody3D Player node) depuis _physics_process UNIQUEMENT (ADR-0001 authority). Consumers se connectent via player_ref.signal_name.connect(callable[, CONNECT_DEFERRED]). Connection mode : CONNECT_DEFERRED pour consumers lourds (instanciation Node, AudioStream.play, alloc > 256 bytes, logique > 0.5 ms) sinon sync. Ordre intra-tick déterministe : sortie avant entrée (e.g. dash_ended avant died si die() pendant Dashing). died terminal (rien après dans le même tick). Idempotence par transition (signal entrée émis 1× par transition d'état). Zero-alloc payloads (Vector3/float value types, pas de Dictionary literal). Typed strictness check en debug build seulement — test contrat GUT obligatoire. MovementController = outbound-only : ZERO référence vers consumers (pas de class name, pas de $NodePath, pas de preload)."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+    added: 2026-04-21
+    revised: ""
+
+  - contract: combat_signals
+    status: active
+    pattern: signal
+    producer: combat-system
+    consumers:
+      - vfx-feedback-system
+      - audio-system
+      - hud-system
+      - credit-economy-system
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    signal_signature: "swing_started(direction: Vector3) ; swing_ended() ; enemy_killed(enemy: Node, position: Vector3) ; multi_kill(count: int)"
+    semantics: "4 signals typés directs émis par CombatSystem (Node3D = direct child de Player — ADR-0006 D-1) depuis _physics_process UNIQUEMENT (ADR-0001 authority). Consumers se connectent via player.CombatSystem.signal_name.connect(callable[, CONNECT_DEFERRED]). Connection mode par défaut suit ADR-0005 D-5 (DEFERRED pour lourds, SYNC pour light). EXEMPTION SYNC autorisée au MVP pour 1 seul cas : VFX flash blanc ColorRect sur enemy_killed (toggle visible + Tween sur ColorRect pré-existant — aucune alloc > 256 B, Pillar 1 frame-precise). Toute autre connexion SYNC hors whitelist = defect (lint grep + code review). `enemy_killed.position` = enemy.global_position capturé au tick du kill (value type, pas de référence au node qui peut être queue_freed avant dispatch DEFERRED). Zero-alloc payloads. Ordre intra-tick : swing_started → N× enemy_killed (même tick possible sur multi-hit) → multi_kill(N) si N≥2 → swing_ended (tick ACTIVE_TICKS+1). swing_ended NON émis si transition Swinging → Dead (Rule 17 Hybrid). CombatSystem = outbound-only : aucune référence directe aux consumers (ADR-0006 REQ-10, réplique ADR-0005 D-10)."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: combat_death_handler_sync
+    status: active
+    pattern: direct_call
+    producer: movement-system
+    consumers:
+      - combat-system
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    api_signature: "player.died.connect(combat._on_player_died) # mode SYNC (flag default CONNECT_0, PAS CONNECT_DEFERRED)"
+    semantics: "Exemption SYNC explicitement ré-déclarée sous autorité ADR-0006 D-6 (originalement documentée dans ADR-0005 D-5 amendment r2 scope historique). Handler CombatSystem._on_player_died : set _death_pending: bool = true, retour immédiat. Aucune mutation d'état Movement (respect ADR-0005 D-7 — seul un flag Combat-LOCAL est muté). Aucune allocation. Logique < 0.01 ms. Le flag _death_pending est consommé en FIN de CombatSystem._physics_process (après résolution complète des colliders du tick courant — Rule 17 Hybrid M1 r2), transitionnant à _state = State.DEAD. CONNECT_DEFERRED interdit : set au tick+1 romprait la séquence 'resolve colliders tick N puis transition Dead', cassant mutual kill semantique (AC-CMB-41 clause 8 grep structural garantit SYNC)."
+    referenced_by:
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: combat_test_mocks
+    status: active
+    pattern: shared_resource
+    producer: test-infrastructure
+    consumers:
+      - combat-tests (unit + integration)
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    api_signature: "tests/unit/combat/mock_enemy.gd (MockEnemy: die() idempotent + is_dead() -> bool + CollisionShape3D layer=2) ; tests/unit/combat/mock_movement.gd (MockMovement: signals attacked/died/respawned + state enum + trigger_* helpers) ; tests/unit/combat/mock_audio_handler.gd (MockAudioHandler: _kill_sound_played_this_swing bool + clac_played_count + blood_played_count) ; tests/unit/combat/mock_audio_bus.gd (MockAudioBus: log_ducking_event(bus, delta_db, timestamp) + ducking_events Array[Dictionary])"
+    semantics: "4 mocks canoniques figés par ADR-0006 D-4 pour CI déterministe des ACs Combat BLOCKING (AC-CMB-05/06/07/25 via MockEnemy, AC-CMB-41 via MockMovement, AC-CMB-audio-01 via MockAudioHandler, AC-CMB-audio-02 via MockAudioBus). Changement de contract = amendement ADR-0006. Les mocks sont des fixtures test (tests/) — exemption zero-alloc ADR-0005 D-9 autorisée (Dict literal dans MockAudioBus.log_ducking_event OK, pas hot path production). Quand l'Enemy System GDD est créé, /design-review doit vérifier cohérence die() idempotent entre MockEnemy et real EnemySystem."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: game_state_changed
+    status: active
+    pattern: signal
+    producer: game-state-manager
+    consumers:
+      - menu-system
+      - hud-system
+      - save-load-system
+      - audio-system
+      - (future) vfx-feedback-system
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    signal_signature: "state_changed(new_state: State)"
+    semantics: "Payload value-type enum (MENU/PLAYING/PAUSED/RESPAWNING/BOSS_DEFEATED) zero-alloc. Émis exactement une fois par transition effective _transition_to(). Si new_state == _current_state → aucun emit (idempotence). Émission synchrone depuis _transition_to() (pas de call_deferred interne). Consumers connectent via CONNECT_DEFERRED si logique lourde (audio fade, HUD rebuild) sinon sync OK pour flags bool (Menu.visible) — même critère que ADR-0005 D-5. Pattern pull au boot : consumers lisent get_current_state() dans leur _ready() pour état initial, pas d'emit state_changed(MENU) au boot GSM."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: game_state_transition_requests
+    status: active
+    pattern: direct_call
+    producer: menu-system
+    consumers:
+      - game-state-manager
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    api_signature: "GameStateManager.request_pause() ; GameStateManager.request_resume() ; GameStateManager.request_scene_transition(scene_path: String) ; GameStateManager.start_etage(etage_id: int) ; GameStateManager.request_new_run()"
+    semantics: "5 méthodes publiques idempotentes callables depuis main thread. Chaque méthode vérifie si transition légale depuis _current_state (D-2 graphe) ; illegal → assert debug / push_error release + no-op. Toute transition de scène passe par GSM (get_tree().change_scene_to_file interdit ailleurs). start_etage() appelle LevelSystem.load_etage(id) ; transition MENU → PLAYING déclenchée sur réception signal level_active (pas directement par start_etage). Thread-check OS.get_thread_caller_id() == main assert debug."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: gsm_level_orchestration
+    status: active
+    pattern: direct_call
+    producer: game-state-manager
+    consumers:
+      - level-system
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    api_signature: "LevelSystem.load_etage(etage_id: int) -> void ; LevelSystem.unload_current() -> void ; LevelSystem.level_active(etage_id: int, player_start: Vector3) signal ; LevelSystem.level_load_failed(etage_id: int, reason: String) signal"
+    semantics: "GSM appelle load_etage/unload_current en transitions state (MENU → PLAYING via start_etage ; * → MENU via request_scene_transition). Transition PLAYING effective sur réception level_active (pas immédiate) — évite consumers de state_changed(PLAYING) s'initialisant avant Player spawn. level_load_failed → GSM reste MENU + route vers error screen (impl ADR-0011 à venir). Coupling GSM → Level intentionnellement direct (GSM = Core Orchestrator au-dessus de Level = Feature). Interface formalisée définitivement par ADR-0011 ; ADR-0007 consomme le contrat provisoire du GDD level-system.md §Dependencies."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: combat_time_injection
+    status: active
+    pattern: direct_call
+    producer: combat-system
+    consumers:
+      - combat-tests (AC-CMB-19 slow-mo wall-clock, AC-CMB-51 swoosh fade-out wall-clock)
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    api_signature: "CombatSystem._get_time_msec: Callable = Time.get_ticks_msec (substituable via combat_system._get_time_msec = func(): return _mocked_ms en test)"
+    semantics: "Point d'injection unique pour tous les reads wall-clock internes à CombatSystem (Rule 13 slow-mo expiration + AC-CMB-51 fade-out swoosh wall-clock). Pattern idiomatique GDScript pour dependency injection test. Default Time.get_ticks_msec — substituable par référence Callable sans sous-classer CombatSystem ni monkey-patch. Overhead ~50 ns par call vs direct (négligeable, 1-5 calls/tick). TEARDOWN OBLIGATOIRE : tout test qui mocke _get_time_msec DOIT également restaurer Engine.time_scale = 1.0 dans after_each (AC-CMB-19 r6 clause) — sinon contamination state process-wide inter-tests. Scope MVP : usage côté Combat. Si un 2e système (futur Audio Handler, VFX) nécessite injection wall-clock, extraire pattern vers helper Clock commun — à ce moment, amendement ADR-0006."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: level_lifecycle_events
+    status: active
+    pattern: signal
+    producer: level-system
+    consumers:
+      - game-state-manager
+      - checkpoint-respawn-system
+      - enemy-system
+      - hazard-system
+      - secret-system
+      - hud-system
+      - tutorial-system
+      - audio-system
+      - vfx-feedback-system
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    signal_signature: "level_active(etage_id: int, player_start: Vector3) ; level_unloading(etage_id: int) ; etage_completed(etage_id: int) ; level_load_failed(etage_id: int, reason: String) ; level_load_slow(elapsed_ms: int) ; room_entered(room_index: int, total_rooms: int) ; player_out_of_world(last_valid_position: Vector3)"
+    semantics: "7 signals typés figés émis par LevelSystem autoload (ADR-0011 D-5). Typed payloads (int/Vector3/String) — mismatches connexion fail debug build (silencieux release, couvert par test CI tests/unit/level/test_level_signals_typed.gd AC-LVL-27). Émis depuis handlers body_entered (Area3D 60 Hz sync path) OU polling _process pendant LOADING (exception documentée ADR-0011 D-8). Ordre intra-tick déterministe : level_active après _validate_scene_hierarchy PASS + add_child complet ; level_unloading avant queue_free ; etage_completed fires-once flag _exit_fired ; player_out_of_world 1× par sortie WorldBoundsVolume ; room_entered non-idempotent (re-entry émet signal séparé, HUD décide dédup) — ordre déterministe triggers chevauchants = ordre DFS InteractiveVolumes. Connection mode par défaut (ADR-0005 D-5 critères a-d) : level_active DEFERRED (consumers peers heavy), level_unloading sync, etage_completed DEFERRED, level_load_failed/level_load_slow sync, room_entered sync-HUD/DEFERRED-Audio/Tutorial, player_out_of_world sync (Checkpoint.respawn idempotent). Main thread only — assert Thread.get_caller_id() == OS.get_main_thread_id() debug build (AC-LVL-29). Zero-alloc payloads value types. Ajout d'un nouveau signal = amendement ADR-0011. LevelSystem outbound-only : aucune référence directe aux consumers (forbidden level_system_direct_reference_to_peers)."
+    referenced_by:
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0007-game-state-manager.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - contract: level_spatial_lookups
+    status: active
+    pattern: direct_call
+    producer: level-system
+    consumers:
+      - checkpoint-respawn-system
+      - enemy-system
+      - hazard-system
+      - secret-system
+      - tutorial-system
+      - player-combat-system
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    api_signature: "LevelSystem.get_checkpoint_slots() -> Array[CheckpointSlot] (dict {volume: Area3D, anchor: Vector3}) ; get_enemy_slots() -> Array[Marker3D] ; get_hazard_slots() -> Array[Marker3D] ; get_secret_slots() -> Array[SecretSlot] (dict {lure: Marker3D, collect_volume: Area3D, content_anchor: Vector3, required_ability: StringName}) ; get_tutorial_anchor(tag: String) -> Marker3D (null si tag inconnu + push_warning debug) ; get_onboarding_anchors() -> Dictionary ({first_enemy_sightline: Marker3D, safe_zone_center: Marker3D} ou {} si étage ≠ 1)"
+    semantics: "6 lookups spatiaux read-only figés (ADR-0011 D-6). Arrays construites UNE FOIS en fin de _load_etage_scene via find_children + cachées en membre privé _checkpoint_slots/_enemy_slots/_hazard_slots/_secret_slots. Runtime : return _cached_array (O(1), zero-alloc, zero-traversal). Lifetime : valides de level_active jusqu'à level_unloading reçu — peers invalident leurs réfs dans handler _on_level_unloading avant queue_free effectif. Arrays retournées make_read_only() (Godot 4.6) — mutation consumer = crash explicite (anti-drift). SecretSlot + CheckpointSlot = Dictionary GDScript pragmatique (pas class_name) — clés canoniques figées par amendement ADR-0011. get_onboarding_anchors() retourne {} vide étage ≠ 1 ; Combat/Enemy consomment via existence-check non-fatal. get_tutorial_anchor(tag) lookup find_child synchrone — null si absent (non-fatal). Les lookups sont appelables uniquement depuis main thread post level_active ; pas de thread-safety garantie."
+    referenced_by:
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
 
 # Example:
 #
@@ -100,7 +411,43 @@ interfaces: []
 # Register a budget when an ADR explicitly claims a frame time allocation.
 # The registry lets /architecture-review verify the total doesn't exceed the target.
 
-performance_budgets: []
+performance_budgets:
+  - target_fps: 60
+    total_frame_budget_ms: 16.6
+    platform: PC
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+    revised: ""
+
+  - system: physics
+    status: active
+    budget_ms: 4.0
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    notes: "Stub à raffiner Sprint 1 post-impl Movement. Jolt 60 Hz + CharacterBody3D Player + ~10 enemies physics-simulés. Mesure VC-4."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+    revised: ""
+
+  - system: rendering
+    status: active
+    budget_ms: 8.0
+    adr: docs/architecture/adr-0003-rendering-latency.md
+    notes: "Budget claim pour scène MVP (Chrome Zen primitives + flat shaders < 500 draw calls) sur entry-level laptop. Décompose Forward+ + SMAA 1x + Compositor + glow/AgX. VC-1 mesure."
+    referenced_by:
+      - docs/architecture/adr-0003-rendering-latency.md
+    added: 2026-04-21
+    revised: ""
+
+  - system: input
+    status: active
+    budget_ms: 0.2
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    notes: "Budget claim p99 pour InputManager (_unhandled_input + _physics_process swap + latency ring buffer write + was_pressed_this_tick lookups par consumers ~4-6/tick). Mesures théoriques ~0.05 ms — marge 4× pour stress test. Mesure VC-3 zero-alloc + profiler."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
 
 # Example:
 #
@@ -131,7 +478,340 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: physics_tick_rate
+    status: active
+    api: 'physics/common/physics_ticks_per_second = 60'
+    not: '120 Hz (rejected — coût CPU doublé, gain imperceptible ≤ 8 ms sous seuil perception click one-shot)'
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    reason: "Aligne 1 tick physique = 1 frame vsync 60. Satisfait Pillar 1 ≤ 16 ms intra-engine sans doubler le budget CPU physics."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: gameplay_state_authority
+    status: active
+    api: '_physics_process(delta) — unique callback autorisé à muter l''état gameplay (velocity, position, rotation, hitbox, state-machine, health, timing tick-based)'
+    not: '_process() (cosmétique only — camera yaw/pitch, VFX, HUD, tween UI, debug overlay)'
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    reason: "Évite race conditions _process vs _physics_process. Autorité unique = tick physique = reproductibilité GUT."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: physics_engine_3d
+    status: active
+    api: 'physics/3d/physics_engine = "JoltPhysics3D"'
+    not: 'GodotPhysics3D (rejected — déterminisme inconsistant, stabilité contact moindre)'
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    reason: "Défaut Godot 4.6. Déterminisme supérieur requis pour wall-run/katana hitbox replays. Caveat : HingeJoint3D.damp non supporté Jolt (auditer joints à leur design)."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: input_polling_api
+    status: active
+    api: 'InputManager.was_pressed_this_tick(action: StringName) -> bool (polling gameplay depuis _physics_process)'
+    not: 'InputManager.is_action_just_pressed() — supprimé ; Input.is_action_just_pressed() direct depuis gameplay — forbidden par ADR-0001'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "Flag-via-signal (set dans _unhandled_input, lu au tick suivant, reset par swap début _physics_process InputManager) garantit zéro drop d''input one-shot quand render fps > physics rate (cas 144 Hz G-Sync)."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: input_enable_state
+    status: active
+    api: 'InputManager.request_disable(owner: Node) / release_enable_request(owner: Node) — refcount par owner'
+    not: 'InputManager.set_enabled(bool) — supprimé (race multi-owner Menu + Checkpoint + Cutscene)'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "Refcount idempotent + auto-cleanup sur tree_exited élimine la classe bug ''input réactivé pendant autre owner encore disabled''. enabled = (_enable_blockers.is_empty())."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: input_focus_burst_absorption
+    status: active
+    api: 'Fenêtre temporelle Time.get_ticks_usec() + 50_000 post-FOCUS_IN (absolute time)'
+    not: '_skip_next_mouse_delta: bool single-shot (insuffisant pour Wayland burst 3-6 events sur 2-3 frames)'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "Absolute time est non-ambigu quel que soit ratio render:physics. 50 ms couvre Wayland burst observé 15-35 ms avec marge. Tunable 20-150 ms dans input_settings.tres si playtest Linux révèle problème."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: input_focus_event_coupling
+    status: active
+    api: 'signal application_focus_lost() / application_focus_gained() émis par InputManager, consommés par GameStateManager'
+    not: 'InputManager.request_pause() direct sur GameStateManager (couplage aval casse principe Foundation sans dépendance amont)'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "InputManager doit rester Foundation (zéro dépendance aval). Signal one-way découple ; GameStateManager décide de pauser selon son state."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: latency_ring_buffer_format
+    status: active
+    api: '2× PackedFloat32Array (values_ms) + PackedInt64Array (timestamps_usec) pré-alloués capacity 120, indexage write_idx % CAP'
+    not: 'Array[Dictionary] avec push_back + front eviction (60-1000 allocs/s hot path, viole zero-alloc Pillar 1)'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "PackedFloat32Array garanti contigu zero-alloc après .resize() initial. Dictionary en GDScript peut ré-allouer buckets selon version moteur — non-déterministe."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: debug_build_conditional
+    status: active
+    api: 'OS.has_feature("debug") runtime check + no-op release + assert()'
+    not: '#if debug_build / #ifdef DEBUG — préprocesseur inexistant en GDScript'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "GDScript n''a aucune directive préprocesseur. Tentative de compilation conditionnelle = code mort parsé mais jamais exécuté. Runtime check idiomatique Godot."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: test_input_injection_api
+    status: active
+    api: 'Input.parse_input_event(InputEventAction.new(...)) — déclenche bien _unhandled_input'
+    not: 'Input.action_press(action) — existe mais ne trigger PAS _unhandled_input (godot-specialist authoritative r4)'
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    reason: "Pour les fixtures test via simulate_action_press, parse_input_event est le seul path qui couvre l''intégralité du pipeline InputManager (callback + polling + signaux)."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+      - design/gdd/input-system.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: rendering_renderer_method
+    status: active
+    api: 'rendering/renderer/rendering_method = "forward_plus"'
+    not: '"mobile" (limitations de features) / "compatibility" (OpenGL 3.3, pas le bon target pour PC desktop 3D FPS)'
+    adr: docs/architecture/adr-0003-rendering-latency.md
+    reason: "Défaut Godot 4.6, best for PC desktop 3D (technical-preferences.md). Scene MVP Chrome Zen peu exigeante, Forward+ laisse la marge pour SMAA + Compositor."
+    referenced_by:
+      - docs/architecture/adr-0003-rendering-latency.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: rendering_backend_windows
+    status: active
+    api: 'D3D12 (défaut Godot 4.6, via launch ou ProjectSettings)'
+    not: 'Runtime backend switch (DisplayServer.switch_backend() n''existe pas). Fallback Vulkan UNIQUEMENT via CLI --rendering-driver vulkan au lancement, restart requis.'
+    adr: docs/architecture/adr-0003-rendering-latency.md
+    reason: "D3D12 = défaut 4.6 (meilleure compat drivers Windows). Fallback Vulkan documenté pour cas driver issue. Pas de hot-switch — contrat runtime important pour Settings menu UX."
+    referenced_by:
+      - docs/architecture/adr-0003-rendering-latency.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: movement_intra_gameplay_event_pattern
+    status: active
+    api: 'Direct typed signals sur MovementController (Player node CharacterBody3D). 8 signals canoniques figés (D-2 ADR-0005). emit depuis _physics_process uniquement. Consumers connectent via player_ref.signal.connect(callable[, CONNECT_DEFERRED]).'
+    not: 'EventBus autoload MovementEvents (rejected — double dispatch, aggregation prématurée multi-Player, coupling caché via singleton). Sub-node dédié MovementEventEmitter (rejected — indirection inutile, non-idiomatique Godot). MovementEventDispatcher class helper (rejected — réinvente le système signals Godot natif).'
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    reason: "Pattern idiomatique Godot, cohérent avec ADR-0004 (InputManager émet directement mouse_motion/application_focus_*). Zero-alloc par construction (payloads Vector3/float value types). Testable unitairement sans autoload. Scale linéaire sur ajout consumer. Ajout d'un signal = amendement ADR-0005 (pas de drift silencieux GDD→impl)."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: movement_signal_connection_mode
+    status: active
+    api: 'CONNECT_DEFERRED si callback peut (a) instancier un Node, (b) démarrer un sampler/stream, (c) alloc > 256 bytes, (d) logique > 0.5 ms CPU. Sinon connection synchrone (flag default / CONNECT_0).'
+    not: 'CONNECT_DEFERRED partout (introduit cascade 1 frame de latence sur feedback critique — viole Pillar 1 FLOW). Synchrone partout (burst CPU sur mort/respawn quand VFX+Audio+HUD tous instantiate en même tick).'
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    reason: "Critères objectifs (a)(b)(c)(d) évitent le drift CONNECT_DEFERRED-partout par précaution. Camera FOV kick / HUD bool toggle = sync (light). VFX particules / Audio play stream = deferred (heavy). Invariant lié : RESPAWN_DELAY ≥ 1/DISPLAY_TICK_RATE pour que deferred consumers de died reçoivent avant respawn."
+    referenced_by:
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-movement-system.md
+    added: 2026-04-21
+    revised: ""
+
+  - purpose: combat_scene_tree_direct_child_of_player
+    status: active
+    api: 'CombatSystem (Node3D) = DIRECT child de Player (CharacterBody3D). Scene tree : Player / CombatSystem (pas Player / Subsystems / CombatSystem, pas sibling Level / CombatSystem).'
+    not: 'CombatSystem en sibling de Player (coupling cross-branch, ordre DFS dépend arbitrairement du sibling index dans Level) ; CombatSystem en petit-enfant via wrapper Subsystems (correct au MVP mais fragile si Subsystems acquiert _physics_process) ; CombatSystem autoload.'
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    reason: "DFS preorder Godot garantit Player._physics_process avant CombatSystem._physics_process UNIQUEMENT si direct child. Précondition Rule 17 Hybrid mutual kill (died signal SYNC → _death_pending set AVANT Combat tick → consommation fin de tick Combat). AC-CMB-49 Partie B (d) get_parent() == player_node fail fast en debug build + test CI."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: combat_physics_process_priority_default_zero
+    status: active
+    api: 'CombatSystem.physics_process_priority == 0 (default Godot). Invariant runtime assert(physics_process_priority == 0) dans CombatSystem._ready() debug build.'
+    not: 'physics_process_priority négatif (force exécution avant siblings → peut inverser ordre Player/Combat) ; positif (décale après siblings, potentiellement après d''autres systèmes qui attendent Combat terminé).'
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    reason: "Valeur default 0 + DFS parent-avant-enfant sont les 2 garanties cumulées qui rendent Rule 17 Hybrid déterministe. Toute autre valeur casse l''ordre silencieusement. AC-CMB-49 Partie B (e) couvre via assert + test CI."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: game_state_authority
+    status: active
+    api: 'GameStateManager autoload Node singleton — machine à états finie 5 states { MENU, PLAYING, PAUSED, RESPAWNING, BOSS_DEFEATED } ; transitions whitelistées D-2 ; API publique figée : request_pause/request_resume/request_scene_transition/start_etage/request_new_run/get_current_state'
+    not: 'Event-Bus autoload GameEvents (rejected — double-dispatch + coupling caché singleton) ; State Machine Resource (rejected — pas de lifecycle _process/_notification ni accès SceneTree.paused) ; pas d''orchestrateur (rejected — race conditions inter-système sur pause + transitions)'
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    reason: "Pattern autoload Node idiomatique Godot 4.x. Orchestrateur central unique évite race conditions sur get_tree().paused (autorité exclusive GSM D-4). Machine à états figée graphe D-2 = extensibilité contrôlée (nouvel state = amendement ADR)."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: pause_authority
+    status: active
+    api: 'get_tree().paused = true/false — mutation exclusive depuis game_state_manager.gd (GameStateManager._transition_to uniquement)'
+    not: 'get_tree().paused = X écrit depuis Menu/Level/Combat/Camera/ailleurs (race conditions inter-système, casse discipline pause cohérente)'
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    reason: "Authority unique = 1 seul point de mutation = pas de drift. Discipline process_mode D-4 table : autoloads ALWAYS, Player/Camera/Combat/Level PAUSABLE, Menu WHEN_PAUSED. Lint grep get_tree().paused = sur src/**/*.gd attendu exactement 2 matches dans game_state_manager.gd."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: scene_transition_api
+    status: active
+    api: 'Two-path : (1) get_tree().change_scene_to_file(path) pour scènes menu (main_menu.tscn, hub_scene.tscn) via GameStateManager.request_scene_transition() EXCLUSIVEMENT ; (2) LevelSystem.load_etage(id) + ResourceLoader.load_threaded_request pour étages gameplay additifs (préserve autoloads + orchestration level_active/level_unloading signals)'
+    not: 'get_tree().change_scene_to_file() appelé depuis Menu/Level/Combat directement (casse orchestration GSM + détruit Player node + perd state) ; ResourceLoader.load_threaded_request depuis GSM directement (Level owne le lifecycle + les slots spatiaux + peer binding via level_active)'
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    reason: "Séparation claire menu vs étage : change_scene_to_file détruit scène (OK pour menu container) ; load_etage additif préserve Player node + autoloads + permet state machine Unloaded/Loading/Active/Unloading avec signals level_active/level_unloading (GDD level-system.md §T-1..T-4). Gotcha Godot 4.6 documenté : change_scene_to_file différé 1 frame → consumers de state_changed(MENU) doivent await process_frame avant de lire nouvelle scène."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: gsm_focus_consumer
+    status: active
+    api: 'GameStateManager._on_application_focus_lost() : auto-pause conditionnel si _current_state == PLAYING ; no-op en MENU/PAUSED/RESPAWNING/BOSS_DEFEATED. Connexion SYNC (CONNECT_0) depuis _ready() car focus events rares (<1/s).'
+    not: 'InputManager.request_pause() direct sur GSM (rejected ADR-0004 D-5 — Input = Foundation zéro-dep-aval) ; CONNECT_DEFERRED sur focus (rejected — introduit 1 frame latence sur auto-pause critique UX)'
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    reason: "Découplage one-way Input → GSM via signal établi ADR-0004 D-5. Auto-pause conditionnel évite de pauser un menu (déjà non-gameplay) ou un respawn imminent (transition rapide). SYNC pour focus car événement rare + response UX attendue < 1 frame."
+    referenced_by:
+      - docs/architecture/adr-0004-input-api-focus-handling.md
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: gsm_death_respawn_tracker
+    status: active
+    api: 'GameStateManager connecte player.died (CONNECT_DEFERRED) + player.respawned (CONNECT_DEFERRED) dans _on_level_active() — pas dans _ready() car Player spawn tardif. Handler _on_player_died → transition RESPAWNING si state==PLAYING. Handler _on_player_respawned → transition PLAYING si state==RESPAWNING. GSM ne mute PAS player.velocity/position, n''appelle PAS player.die()/respawn().'
+    not: 'GSM pilote RESPAWN_DELAY (rejected — owned par MovementController ADR-0005 D-3) ; GSM appelle player.respawn() (rejected — brise encapsulation owner_system, ADR-0005 D-7) ; GSM consomme died SYNC (rejected — conflit avec Combat qui consomme SYNC, ADR-0006 D-6 : mix SYNC Combat + DEFERRED GSM garantit ordre tick-préservé)'
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    reason: "GSM = tracker d'état uniquement dans chaîne mort/respawn ; respect encapsulation owner_system (Movement owne velocity/state, Checkpoint owne timing respawn). Mix SYNC/DEFERRED sur même signal died : Combat SYNC résout colliders tick N → GSM DEFERRED transitionne RESPAWNING tick N+1 → CheckpointSystem consomme état pour déclencher respawn visuals. Ordre préservé nativement Godot 4.x signal dispatch (SYNC handlers all-first callstack, DEFERRED queued prochain frame)."
+    referenced_by:
+      - docs/architecture/adr-0005-movement-signals-architecture.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: combat_time_msec_callable_injection
+    status: active
+    api: 'CombatSystem._get_time_msec: Callable = Time.get_ticks_msec — substituable en test via combat_system._get_time_msec = func(): return _mocked_ms.'
+    not: 'Static helper class (Clock.get_ms() static) — GDScript static methods non-substituables, monkey-patch impossible. Direct call Time.get_ticks_msec() partout — casse injection déterministe CI headless.'
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    reason: "Pattern idiomatique GDScript 4.x pour dependency injection test sans sous-classer CombatSystem. Callable par instance remplaçable par référence. Couvre AC-CMB-19 (slow-mo expiration wall-clock) et AC-CMB-51 (swoosh fade-out wall-clock) en CI déterministe. Teardown Engine.time_scale = 1.0 obligatoire après chaque test qui mocke _get_time_msec (contamination state process-wide sinon)."
+    referenced_by:
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: level_scene_strategy
+    status: active
+    api: 'Un étage = un seul res://scenes/levels/etage_NN.tscn unique au MVP, toutes les salles inline (primitives Mezzanine / Atrium / ShaftConnector / VerticalShaftRoom composées en sous-scene PackedScene authoring-time). Pas de PackedScene.instantiate() runtime pour contenu statique. Chargement via ResourceLoader.load_threaded_request + polling _process (exception ADR-0011 D-8 : polling n''est pas une mutation gameplay).'
+    not: 'Room-split streaming (une .tscn par salle, load/unload intra-étage — rejeté OQ-1 CLOSED, overhead ResourceLoader sur chaque transition + fragmentation NavMesh + pop-in cross-room Pillar 4). ResourceLoader.load synchrone (bloque main thread 300-1000 ms, casse Pillar 1). PackedScene.instantiate() runtime pour walls/ramps (complexité + perte déterminisme bake NavMesh).'
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    reason: "250 nœuds max par étage MVP (8-10 salles × ~25 nœuds moyens) bien sous seuil traversal Godot. ResourceLoader.load_threaded_request zero overhead sub-scenes inline vs monolithique. Aucun unload intra-étage → pas de leaks VRAM, pas de pop-in visuel, NavigationRegion3D baked cohérent à l''échelle étage. Réouverture conditionnée Tier 2+ (>40 MB VRAM ou >800 ms load) via ADR successeur."
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: level_worldbounds_volume_shape
+    status: active
+    api: 'InteractiveVolumes/WorldBoundsVolume = Area3D + exactement 1 CollisionShape3D enfant avec shape: BoxShape3D (ADR-0011 D-9). Enforcé runtime debug build par validate_level_shapes(root: Node) -> Array[ValidationError] appelé en fin de transition Loading → Active.'
+    not: 'ConcavePolygonShape3D (5800 m³ concave → Jolt broad-phase O(N) polygon traversal, ~1.5 ms/tick mesuré, violation Pillar 4). ConvexPolygonShape3D (fonctionne mais perd l''avantage AABB pure broad-phase). TrimeshShape3D (pire que concave pour triggers Area3D).'
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    reason: "Jolt physics broad-phase (ADR-0001 Jolt default 4.6) gère efficacement Area3D convex box (1 shape = O(1) overlap query, ~5 μs/tick mesuré), mais explose concave shape (300× pire). Enforcement runtime validate_level_shapes() + lint advisory level_lint.gd. Alignement avec ADR-0001 autorité physics_engine_3d."
+    referenced_by:
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: level_shader_baker_precompile
+    status: active
+    api: 'Project Settings rendering/shader_compiler/enable_shader_baker = true (Godot 4.5+) OBLIGATOIRE. Précompilation boot-time globale via scène dummy res://scenes/internal/shader_warmup.tscn (1 MeshInstance3D + 1 ShaderMaterial chrome_zen_flat.gdshader) instanciée + force_sync 1 frame + queue_free au GameStateManager._ready() (autoload #2 ordre boot).'
+    not: 'Shader Baker désactivé (freeze 50-150 ms première frame post-level_active D3D12 pipeline JIT compile, violation F4 budget load + Pillar 1 stutter perceptible utilisateur). Precompile lazy à première instantiation shader (équivalent fonctionnellement au freeze initial, juste déplacé).'
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    reason: "ADR-0003 Forward+ D3D12 Windows default 4.6 — pipeline state object first-use compilation coûte 50-150 ms non-cacheable au runtime. Précompilation boot-time amorti ~200 ms pendant écran de chargement initial (invisible utilisateur), élimine spike visible utilisateur à level_active. CI gate lint-project-settings vérifie enable_shader_baker = true. VR-LVL-1 valide empiriquement Sprint 1."
+    referenced_by:
+      - docs/architecture/adr-0003-rendering-latency.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: level_navmesh_authoring_time_bake
+    status: active
+    api: 'NavigationRegion3D incluse dans etage_NN.tscn avec navigation_mesh baked en éditeur (authoring-time) et exportée dans le .tscn. Enemy System consomme la NavMesh telle que baked — aucun NavigationRegion3D.bake_navigation_mesh() runtime.'
+    not: 'Bake runtime à level_active (coût 200-800 ms sur étage 5000 m³ — violation F4 budget load 1000 ms garantie). NavMesh chunks streaming per-room (fragmentation, pathfinders traversant portes se perdent — requiert NavigationServer3D multi-map sync, hors scope MVP).'
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    reason: "Tech-Risk-1 Godot addendum GDD r2 level-system — bake runtime = 200-800 ms visible directement sur budget F4, violation Pillar 4 garantie. Bake authoring-time = coût 0 runtime. Contrat bilatéral Level/Enemy à acter dans design/gdd/enemy-system.md quand écrit (réciprocité §Dependencies). Pin engine 4.6 dans project.godot protège contre régression API bake 4.7+."
+    referenced_by:
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/level-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: collision_layer_taxonomy_and_mask_api
+    status: active
+    api: 'Taxonomie 5 layers 1-indexées figée : Layer 1 LAYER_PLAYER (solid, CharacterBody3D Player + ShapeCast katana) ; Layer 2 LAYER_ENEMY (solid, Enemy CharacterBody3D body) ; Layer 3 LAYER_ENEMY_HITBOX (Area3D lethal hitboxes — laser, projectile, spike, AoE boss) ; Layer 4 LAYER_ENVIRONMENT (solid, StaticBody3D géométrie statique) ; Layer 5 LAYER_INTERACTIVE (Area3D triggers — RoomTrigger, Checkpoint, Secret, EtageExit, WorldBounds). API accès : set_collision_layer_value(N,bool) / get_collision_mask_value(N) 1-indexée obligatoire pour CollisionObject3D. Query params PhysicsRayQueryParameters3D / PhysicsShapeQueryParameters3D : helper CollisionLayers.build_mask(Array[int]) -> int centralise la construction. Noms canoniques dans project.godot [layer_names]/3d_physics/layer_1..5 source unique de vérité éditeur. Archetype mask contracts D-2 : Player body layer=1 mask=30 (Enemy+Hitbox+Env+Interactive) ; Katana ShapeCast layer=1 mask=2 ; Enemy body layer=2 mask=8 (Env only — réciprocité unilatérale) ; Enemy lethal hitbox layer=3 mask=1 ; Static env layer=4 mask=0 ; Interactive trigger layer=5 mask ⊃ 1 (Player obligatoire, sinon body_entered silencieux). Layers 6-32 réservées (6 Hazard projectile, 7 Pickup, 8 AI nav volume) — attribution par amendement ADR requis. Lint CI : grep \\bcollision_(layer|mask)\\s*=\\s*(0b|0x|[0-9]) sur src/**/*.gd = 0 match attendu.'
+    not: 'Bitmask littéral direct (collision_layer = 0b01000 ou = 8) ; bit manipulation (|= 1 << 3) ; duplication des constantes dans un autoload GDScript (project.godot [layer_names] est source unique) ; allocation d''une layer 6+ sans amendement ADR ; utilisation du numéro de layer "4" dans un commentaire sans préfixe LAYER_ENVIRONMENT (ambigu).'
+    adr: docs/architecture/adr-0008-collision-layer-taxonomy.md
+    reason: "Gap G-5 (architecture-review 2026-04-23 §3.4) — Combat GDD r6 Rule 12 + Level GDD r2 §Collision Layers ont gelé inline la même taxonomie 5 layers, mais aucun ADR canonique. ADR-0008 ratifie les valeurs existantes (zéro churn sur AC-CMB-09 / AC-LVL-12/13 déjà écrits), formalise l'API 1-indexée pour prévenir le bug off-by-one Level GDD r1 (Project Settings 1-idx vs bit 0-idx), et débloque les epics Enemy/Hazard/Boss/Secret qui consommeront les layers 2+3+5. Helper CollisionLayers.build_mask() résout le cas PhysicsQueryParameters3D (pas d'API per-bit native Godot)."
+    referenced_by:
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+      - docs/architecture/adr-0001-physics-rate-60hz.md
+      - docs/architecture/adr-0006-combat-tick-model.md
+      - docs/architecture/adr-0011-level-scene-architecture.md
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - design/gdd/player-movement-system.md
+    added: 2026-04-23
+    revised: ""
+
+  - purpose: audio_system_architecture
+    status: active
+    api: "AudioSystem autoload (src/core/audio_system.gd) + AudioBuses helper static (src/core/audio_buses.gd) + 7-bus hierarchy (Master/Music/SFX/swing_active/combat_kill/Ambience/UI) configuré via res://default_bus_layout.tres + AudioPool 15× pré-instancié (4× AudioStreamPlayer 2D + 8× AudioStreamPlayer3D + 1× Music + 2× Ambience). Wall-clock fades dans _physics_process via _get_time_msec: Callable injection (mêmes mocks que Combat ADR-0006 D-4). CONNECT_DEFERRED par défaut pour tous handlers Audio (consume Movement/Combat/Level/GSM signals). AudioListener3D = Camera3D actif (pas de listener dédié, default Godot 4.6)."
+    not: "AudioStreamPlayer.new() runtime ; AudioListener3D dédié override Camera3D ; Tween-based volume_db fade dans hot path audio (forbidden_pattern tween_volume_db_in_audio_src) ; AudioStreamPlayer3D attaché à un ennemi (queue_free → pop sonore — owned par scene root ou pool dédié)."
+    adr: docs/architecture/adr-0009-audio-system-architecture.md
+    reason: "Bus dédié swing_active permet ducking -6 dB ciblé sur événement enemy_killed sans affecter UI/Movement SFX (Combat GDD règle ducking 3). Pool pré-alloué supprime hitch alloc (~10 ms par AudioStreamPlayer.new()) — 3 swings overlappés = 9 plays / 240 ms incompatible budget 0.5 ms/frame. Wall-clock fades indépendants de Engine.time_scale obligatoires pour Pillar 1 (slow-mo 0.3× Combat ne doit pas étirer fade swoosh 30 ms en 100 ms perçus — viole Fantasy staccato). Callable injection partagé Combat ↔ Audio = mocks réutilisables (MockAudioHandler/MockAudioBus déjà figés ADR-0006 D-4)."
+    referenced_by:
+      - docs/architecture/adr-0009-audio-system-architecture.md
+      - design/gdd/player-combat-system.md
+    added: 2026-04-27
+    revised: ""
 
 # Example:
 #
@@ -157,7 +837,197 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: mutate_gameplay_state_in_process
+    status: active
+    description: "Aucune mutation de velocity, position, rotation du Player, hitbox, state-machine, timers gameplay, ou health depuis _process(). Uniquement dans _physics_process()."
+    why: "Race condition _process vs _physics_process casse le déterminisme GUT et introduit jitter visuel. Autorité unique = tick physique. Exception autorisée : camera yaw/pitch, VFX, HUD, tween UI (cosmétique sans impact sur l'état gameplay)."
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+
+  - pattern: is_action_just_pressed_direct_in_gameplay_physics_process
+    status: active
+    description: "Les consumers gameplay (Movement, Combat, Checkpoint) ne doivent PAS appeler Input.is_action_just_pressed directement dans _physics_process. Ils doivent polling InputManager.was_pressed_this_tick(action) qui consomme un flag setté dans InputManager._unhandled_input et reset en fin du _physics_process de l'InputManager."
+    why: "À render > physics (ex : moniteur 144 Hz G-Sync + render 144 / physics 60), is_action_just_pressed retourne true uniquement pour un seul frame render. Si le tick physique ne tombe pas dans la bonne fenêtre render, l'input est silencieusement droppé. Le flag-via-signal garantit la survie de l'event jusqu'au prochain tick physique."
+    adr: docs/architecture/adr-0001-physics-rate-60hz.md
+    added: 2026-04-21
+
+  - pattern: set_enabled_bool_global_without_refcount
+    status: active
+    description: "Aucun système ne doit exposer un set_enabled(bool) global partagé par plusieurs owners. Utiliser systématiquement un refcount pattern : request_disable(owner) / release_enable_request(owner) avec Dictionary<owner_id, true> et auto-cleanup sur owner.tree_exited. enabled dérivé : blockers.is_empty()."
+    why: "Trois owners concurrents (Menu + Checkpoint + Cutscene) avec set_enabled(bool) produisent une race condition silencieuse : la fermeture de Menu réactive l'input alors que Checkpoint est encore en RESPAWN_DELAY. Observé comme bug structurel systems-designer F2 review r4 input-system. Refcount pattern élimine la classe entière."
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+
+  - pattern: input_singleton_access_from_non_main_thread
+    status: active
+    description: "Aucune lecture ou écriture de Input.* (y compris Input.mouse_mode, Input.is_action_pressed, Input.get_vector) depuis un Thread, WorkerThreadPool.add_task callback, ou Callable résultant d'un thread non-main. Godot Input singleton n'est pas documenté thread-safe. Uniquement main thread (_ready, _process, _physics_process, _input, _unhandled_input, _notification, signal handlers)."
+    why: "Le singleton Input gère l'état polling au niveau OS ; race conditions sur mouse_mode ou event parsing depuis non-main = corruption silencieuse ou crash difficile à reproduire. Documenter explicitement préserve contre features Tier 3 (Accessibility hold-to-repeat) qui pourraient être tentées d'utiliser un Thread."
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+
+  - pattern: preprocessor_if_debug_build_in_gdscript
+    status: active
+    description: "Ne jamais écrire `#if debug_build`, `#ifdef DEBUG`, ou toute directive préprocesseur conditionnelle dans un .gd. GDScript n'a pas de préprocesseur. Pour conditionner un comportement au build debug, utiliser OS.has_feature(\"debug\") runtime + no-op release + assert() au besoin."
+    why: "Écrire un `#if` dans GDScript = commentaire ou erreur parse selon la position. Toute logique test censée être 'compile-time stripped' devient soit toujours active (coût perf) soit jamais active (tests cassés) — pas de warning. Le runtime check idiomatique Godot est fonctionnellement équivalent (négligeable) et supporté."
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    added: 2026-04-21
+
+  - pattern: alloc_in_hot_path_via_literal_dict_or_pushback
+    status: active
+    description: "Dans tout _unhandled_input, _input, _process, _physics_process exécuté > 30× par seconde, interdiction de : (1) `{ key = value, ... }` literal Dictionary, (2) `Array.push_back(...)` sans `.resize()` initial garantissant capacity, (3) concat `String` par `+` ou `%`, (4) allocation Node / Resource runtime. Utiliser PackedFloat32Array / PackedInt64Array / PackedByteArray pré-alloués + `write_idx % capacity` pour buffers circulaires. EXEMPTION DOCUMENTÉE (ADR-0006 D-8, 2026-04-23) : CombatSystem._collect_swing_hits() et CombatSystem._tick0_intersect_shape_overlap() sont exemptés pour ~16 alloc/swing (seen_ids + merged Dict/Array locaux bornés ≤ MAX_KILLS_PER_SWING=3, + 5 allocs PhysicsShapeQueryParameters3D.new au tick 0). 4 clauses justificatives : (1) taille bornée, (2) scope local court + GC déterministe, (3) AC-CMB-37 gate empirique (MEMORY_STATIC Δ ≤ 500 KB + OBJECT_COUNT Δ ≤ 5 / 1000 cycles), (4) anti-YAGNI refactor pool avant mesure. Clause de rollback : si AC-CMB-37 FAIL, refactor pool pré-alloué obligatoire (_PooledQueryParams + _seen_ids/_merged membres privés + .clear() en entrée _collect_swing_hits). EXEMPTION test fixtures : tests/unit/combat/mock_audio_bus.gd log Dict literal explicitement autorisé (pas hot path production)."
+    why: "Pillar 1 (FLOW AVANT TOUT) requiert latence ≤ 16 ms p99. Allocations heap dans hot path génèrent pressure GC + jank non-déterministe. Un Dict literal 60-1000×/s est invisible à grep naïf (forme idiomatique GDScript) — seul un test zero-alloc MEMORY_STATIC delta le capture."
+    adr: docs/architecture/adr-0004-input-api-focus-handling.md
+    exemptions_documented_by:
+      - docs/architecture/adr-0006-combat-tick-model.md  # D-8 Combat swing allocs + rollback AC-CMB-37
+    added: 2026-04-21
+
+  - pattern: use_taa_for_fast_motion_fps
+    status: active
+    description: "anti_aliasing/quality/use_taa = true est interdit au MVP. Utiliser SMAA 1x (Godot 4.5+, sharp + cheap) ou FXAA (cheap mais blurry) ou Off."
+    why: "TAA introduit du ghosting sur fast motion (dash, wall-run, camera yaw rapide). Trainée visible = anti-Pillar-1 FLOW. Un joueur qui dash voit le trail de ses pixels = bug perceptuel. SMAA 1x nouveau 4.5 est le trade-off correct : plus net que FXAA, plus cheap que TAA, zero ghosting."
+    adr: docs/architecture/adr-0003-rendering-latency.md
+    added: 2026-04-21
+
+  - pattern: manual_viewport_post_process_chains
+    status: active
+    description: "Aucun post-processing ne doit être implémenté via chaînes Viewport manuelles. Utiliser le nœud Compositor (Godot 4.3+) et des CompositorEffect resources."
+    why: "Compositor = pattern idiomatique Godot 4.3+. Les manual viewport chains sont deprecated en pratique (pas de changement API mais pattern remplacé), fragiles avec le renderer Forward+, et ne s'intègrent pas aux optimisations 4.6 (glow before tonemap, AgX). CompositorEffect est la seule voie officielle."
+    adr: docs/architecture/adr-0003-rendering-latency.md
+    added: 2026-04-21
+
+  - pattern: event_bus_autoload_for_movement_intra_gameplay_events
+    status: active
+    description: "Interdiction de créer ou d'utiliser un autoload MovementEvents (ou équivalent singleton) pour dispatcher les 8 signaux Movement entre MovementController et ses consumers (Camera, Combat, VFX, Audio, HUD). Les signals sont émis DIRECTEMENT depuis le MovementController (Player node) ; les consumers se connectent au Player node via référence scene tree ou injection."
+    why: "EventBus autoload ajoute un double-dispatch (emit → MovementEvents → re-dispatch), un coupling caché via singleton global (consumers paraissent découplés mais dépendent d'un shared singleton), et une aggregation prématurée qui bloque le design si on introduit un 2e Player (coop). Le pattern direct typed signals sur le node qui porte le state est idiomatique Godot, cohérent avec ADR-0004 (InputManager → mouse_motion direct), et teste sans bootstrap d'autoload."
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    added: 2026-04-21
+
+  - pattern: mutate_movement_state_from_signal_handler
+    status: active
+    description: "Dans un callback connecté à un signal Movement (dash_started, wall_run_entered, died, etc.), aucune mutation de l'état Movement n'est autorisée. Spécifiquement interdit dans un handler consumer : écriture sur player.velocity, player.position, player.rotation ; appel de player.die() ou player.respawn() (sauf Checkpoint System qui a responsabilité explicite via appel direct documenté, PAS via signal handler) ; mutation de movement_tuning.tres runtime. Autorisé : lecture des read-only properties (state, velocity, wall_normal, dash_cooldown_ratio)."
+    why: "Write access à l'état Movement doit rester exclusif au MovementController lui-même (principe d'autorité unique sur son propre state). Un signal handler qui mute le state crée une boucle : le handler est appelé parce qu'une transition s'est produite, et il déclenche une autre transition — race avec la state machine en cours dans _physics_process. Debug extrêmement coûteux (état incohérent dans le même tick). die() idempotent limite les dégâts pour die() mais pas pour les autres mutations."
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    added: 2026-04-21
+
+  - pattern: emit_movement_signal_from_process_not_physics_process
+    status: active
+    description: "Aucun emit d'un signal Movement (dash_started, dash_ended, wall_run_entered, wall_run_exited, wall_jumped, died, respawned, attacked, ou signal futur ajouté via amendement ADR-0005) ne doit se produire depuis _process(), _input(), _unhandled_input(), _ready(), ou un callback Timer.timeout. Uniquement depuis _physics_process() du MovementController ou une fonction appelée depuis celui-ci (die(), respawn(), state machine transitions internes)."
+    why: "ADR-0001 pose _physics_process comme autorité unique pour les mutations d'état gameplay. Les signals Movement sont des notifications de transition d'état — ils DOIVENT être cohérents avec l'autorité. Emit depuis _process crée une race : le consumer reçoit le signal avant/après que _physics_process ait committed le state, selon le timing des deux callbacks. Reproductibilité GUT cassée, tests flaky, perception de jitter chez les consumers Camera/VFX."
+    adr: docs/architecture/adr-0005-movement-signals-architecture.md
+    added: 2026-04-21
+
+  - pattern: camera_polls_movement_state_transitions
+    status: active
+    description: "Dans src/gameplay/camera/, interdiction stricte de polling de l'état Movement pour inférer les transitions. Patterns interdits : `if player.state == WALL_RUNNING:` / `if player.state == DASHING:` / `if player.is_dashing:` / `match player.state:` dans _process ou _physics_process de Camera System. Lecture read-only autorisée : `player.rotation.y` (yaw pour aim_forward), `player.global_position` (future orbit cam death). Le pattern canonique est : connecter handler `_on_wall_run_entered / _on_wall_run_exited / _on_dash_started / _on_dash_ended / _on_died / _on_respawned` dans `_ready()`, cacher l'état courant dans des flags privés (`_is_wall_running`, `_wall_side_cached`, `_is_dashing`), et lire ces flags dans le lerp `_process`. Whitelist explicite : les payloads typés des signaux (e.g. `wall_normal: Vector3` arg de `_on_wall_run_entered`) peuvent être lus et cachés."
+    why: "Polling `player.state` couple Camera à l'enum interne State de MovementController — une refactorisation de l'enum (split DASH_AIR / DASH_GROUND, ajout PARRYING) casserait Camera silencieusement. Les 8 signaux typés ADR-0005 D-2 sont le contrat stable figé ; l'enum State est un détail d'implémentation. Par ailleurs, polling chaque frame dans _process re-évalue une condition qui ne change qu'à la transition — le pattern flag signal-driven est strictement plus efficace (1 load bool vs branch + getter + compare) et cohérent avec ADR-0005 D-4 (sync connection pour consumers light). Ce pattern sert de référence canonique pour tous les futurs consumers Movement (Combat, VFX, Audio, HUD)."
+    adr: docs/architecture/adr-0002-camera-scene-tree-cameraarm.md
+    added: 2026-04-23
+
+  - pattern: combat_system_as_sibling_or_grandchild_of_player
+    status: active
+    description: "Interdiction de placer CombatSystem en sibling de Player (Level / Player + Level / CombatSystem) ou en petit-enfant via un wrapper intermédiaire (Player / Subsystems / CombatSystem). CombatSystem DOIT être direct child de Player (Player / CombatSystem) — pas de wrapper, pas d'autoload. Invariant runtime : assert(get_parent() == player_node) dans CombatSystem._ready() debug build. Lint grep sur scene .tscn : tout fichier qui instancie CombatSystem doit le placer directement sous le node Player."
+    why: "L'ordre d'exécution _physics_process entre nodes dépend du DFS preorder Godot (parent → child 0 → descendants de child 0 → child 1 → ...). Rule 17 Hybrid mutual kill requires : Player._physics_process exécute AVANT CombatSystem._physics_process dans le même tick. Cela est garanti UNIQUEMENT si CombatSystem est direct child de Player. Sibling : ordre dépend arbitrairement du sibling index dans Level, casse silencieusement à tout déplacement éditeur. Petit-enfant : correct au MVP mais fragile (si Subsystems wrapper acquiert _physics_process, l'ordre peut être décalé). AC-CMB-49 Partie B (d) fail fast."
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    added: 2026-04-23
+
+  - pattern: combat_physics_process_priority_nonzero
+    status: active
+    description: "Interdiction d'assigner CombatSystem.physics_process_priority à une valeur différente de 0 (défaut Godot). Ni négatif (force avant siblings), ni positif (après siblings). Assertion _ready() debug build : assert(physics_process_priority == 0, 'Combat priority doit rester défaut — préserve DFS order ADR-0006 D-2')."
+    why: "physics_process_priority contrôle l'ordre d'exécution _physics_process au sein d'une fratrie. Valeur non-zero casse la garantie DFS parent-avant-enfant dont dépend Rule 17 Hybrid. Une valeur négative pourrait forcer Combat à s'exécuter avant Player dans le même sous-arbre → _death_pending set après le tick Combat → transition Dead décalée de 1 tick → mutual kill semantique cassée. AC-CMB-49 Partie B (e) couvre."
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    added: 2026-04-23
+
+  - pattern: combat_prev_position_update_at_start_of_physics_process
+    status: active
+    description: "Dans CombatSystem._physics_process, interdiction de mettre à jour _prev_position au DÉBUT du callback (avant la logique de sweep). L'assignation _prev_position = _player.global_position DOIT être la DERNIÈRE ligne du _physics_process, après toute logique de sweep du tick courant. Initialisation dans _ready() : _prev_position = _player.global_position (tick 0 safe init)."
+    why: "CombatSystem est direct child de Player (ADR-0006 D-1), donc Player._physics_process (Movement move_and_slide) exécute AVANT CombatSystem._physics_process via DFS preorder. Au moment où CombatSystem._physics_process démarre, player.global_position reflète DÉJÀ tick N (post-move). Si on assigne _prev_position en début de callback, on capture la position tick N (pas tick N-1) → sweep_delta = position_N - position_N = Vector3.ZERO → aucun kill possible (bug silencieux, absence de feedback observable). L'update en FIN capture tick N pour utilisation correcte au tick N+1. Formula 2 Combat (sweep inter-tick anti-tunneling) exige cette séquence précise."
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    added: 2026-04-23
+
+  - pattern: combat_build_capsule_basis_via_looking_at_from_euler
+    status: active
+    description: "Interdiction de construire la Basis pour CapsuleShape3D sweep Combat via `Basis.looking_at(aim_forward, safe_up) * Basis.from_euler(Vector3(PI/2, 0, 0))` ou toute variante `Basis.looking_at * rotation permutation axe`. Utiliser exclusivement le helper privé CombatSystem._build_capsule_basis(forward: Vector3) -> Basis qui construit la Basis par cross product direct (axe Y = forward par construction, axe X = safe_up.cross(forward), axe Z = forward.cross(axe X)). Contract mathématique : (_build_capsule_basis(v) * Vector3.UP).angle_to(v) < 0.001 rad pour tout v non-colinéaire à safe_up."
+    why: "Basis.looking_at oriente l'axe -Z local sur target (convention caméra Godot 4.x). La rotation `from_euler(Vector3(PI/2, 0, 0))` autour de X permute Y et Z de telle manière que l'axe +Y local pointe ANTIPARALLÈLE à aim_forward (inversion 180° silencieuse). La symétrie de CapsuleShape3D (forme symétrique sur son axe long) masquait l'erreur à la détection standard, mais ShapeCast3D.target_position = basis.inverse() * sweep_delta (Formula 2) propageait l'inversion dans la direction du sweep → tunneling garanti dès que aim_forward ≠ Vector3(0,0,-1). Convergence multi-specialist r5.2 (gameplay-programmer + godot-specialist fresh session). AC-CMB-08 r6 détecte via 100 échantillons sphère unitaire."
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    added: 2026-04-23
+
+  - pattern: scene_tree_paused_set_outside_gsm
+    status: active
+    description: "Interdiction stricte de lire ou écrire `get_tree().paused = X` (true OU false) depuis tout fichier src/**/*.gd qui n'est PAS game_state_manager.gd. GameStateManager est l'autorité exclusive pour muter cet état global (ADR-0007 D-4). Lecture libre via `if get_tree().paused:` autorisée (read-only). Lint grep CI : `get_tree\\(\\).paused\\s*=` attendu exactement 2 matches, tous dans game_state_manager.gd (un pour `= true`, un pour `= false`). Tout match ailleurs = violation."
+    why: "Plusieurs owners qui écrivent `get_tree().paused` = race conditions silencieuses (Menu set true pendant que Checkpoint set false en même tick → état final indéterminé). L'ADR-0007 centralise sur une machine à états finie avec transitions whitelistées → 1 seul point de drift possible = 0 bug. Pattern observé anti-pattern dans projets Godot sans orchestrateur."
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+
+  - pattern: scene_change_via_change_scene_to_file_outside_gsm
+    status: active
+    description: "Interdiction d'appeler `get_tree().change_scene_to_file(path)` OU `get_tree().change_scene_to_packed(scene)` depuis tout fichier src/**/*.gd qui n'est PAS game_state_manager.gd. Toute transition de scène menu (main_menu.tscn, hub_scene.tscn, credits.tscn) passe par `GameStateManager.request_scene_transition(path)`. Pour étages gameplay, utiliser `LevelSystem.load_etage(id)` (scene additive via ResourceLoader.load_threaded_request, pas via change_scene_to_file). Lint grep CI : `change_scene_to_(file|packed)` uniquement dans game_state_manager.gd."
+    why: "change_scene_to_file détruit entièrement la scène courante (Player perdu, CombatSystem perdu). Sans orchestration GSM, un Menu qui fait change_scene_to_file en pleine run kill le Player + credits + upgrades = perte de state. Encapsulation : le WHEN et WHY d'un scene change sont owned par GSM (state machine MENU ↔ PLAYING ↔ BOSS_DEFEATED) ; les autres systèmes REQUEST, ils ne décident pas."
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+
+  - pattern: game_state_mutation_outside_transition_api
+    status: active
+    description: "Interdiction d'assigner `GameStateManager._current_state = X` depuis l'extérieur du module game_state_manager.gd. Toute mutation passe par les 5 méthodes publiques : request_pause / request_resume / request_scene_transition / start_etage / request_new_run. La méthode privée `_transition_to(new_state)` est l'unique chemin interne (appelée par request_* + handlers signals died/respawned/focus_lost/level_active). Lint grep CI : `GameStateManager\\._current_state\\s*=` attendu 0 match global."
+    why: "La machine à états finie ADR-0007 D-2 garantit les invariants (transitions légales, émission state_changed unique, pause authority). Court-circuiter via write direct = transition silencieuse sans emit signal → consumers décorrélés de l'état réel. Violation d'encapsulation owner_system au même titre que mutate_movement_state_from_signal_handler (ADR-0005)."
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+
+  - pattern: gsm_mutates_downstream_system_state
+    status: active
+    description: "Interdiction pour GameStateManager de muter directement l'état interne d'un système downstream. Spécifiquement interdit dans game_state_manager.gd : écriture sur player.velocity / player.position / player.rotation, appel de player.die() / player.respawn(), mutation de camera.fov / camera.rotation, appel de combat_system.trigger_swing(), mutation de level_system._current_etage_id. Autorisé : lecture read-only (get_current_state-like properties) + appels aux APIs publiques documentées (LevelSystem.load_etage/unload_current, InputManager.request_disable via refcount, etc.)."
+    why: "GSM = orchestrateur d'état global, pas modificateur d'état interne. Chaque système owne son state (Movement → velocity/state, Camera → fov/rotation, Combat → swing state, Level → etage state). GSM les observe via signals + les oriente via APIs publiques. Violer cette règle = GSM devient un God Object qui connaît les internals de tout → couplage serré, impossibilité de tester GSM en isolation, et race conditions si GSM et owner_system mutent simultanément (ex: GSM set velocity.x=0 pour 'pause' pendant que Movement._physics_process calcule la prochaine velocity)."
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+
+  - pattern: game_state_poll_in_hot_path
+    status: active
+    description: "Interdiction de polling `GameStateManager.get_current_state()` dans un hot path (_process, _physics_process, _unhandled_input appelés > 30×/s). Utiliser la connexion au signal `state_changed(new_state)` et cacher l'état dans un flag privé consumer-local. Lint grep avancé : référence à `GameStateManager.get_current_state()` OU `GameStateManager._current_state` depuis une fonction matching regex `_(process|physics_process|unhandled_input)` → flag REVIEW. Autorisé : appels depuis _ready() (lecture initiale pattern pull ADR-0007 D-9), depuis UI callbacks (button handlers), depuis request_*() handlers."
+    why: "Polling chaque tick re-évalue un état qui ne change qu'à la transition (rare, ~1-10/run). Pattern connect signal + flag local est strictement plus efficace (1 load bool vs function call + enum compare) + cohérent avec architecture signals-driven déjà établie (ADR-0005 D-5 Movement + ADR-0006 D-6 Combat). Évite aussi le drift : consumer qui polls oubliera de se connecter au signal → bugs silencieux sur transitions tardives. Pattern canonique : `signal state_changed` → handler set `_is_paused: bool` → lecture flag dans _physics_process."
+    adr: docs/architecture/adr-0007-game-state-manager.md
+    added: 2026-04-23
+
+  - pattern: combat_signal_sync_connection_outside_whitelist
+    status: active
+    description: "Dans les consumers des 4 signaux Combat (swing_started, swing_ended, enemy_killed, multi_kill), interdiction d'utiliser connexion SYNC (flag CONNECT_0 / default) hors de la whitelist ADR-0006 D-6. Whitelist MVP : (1) VFX flash blanc ColorRect sur enemy_killed — toggle visible + Tween sur ColorRect pré-existant, aucune alloc > 256 B, aucune instanciation Node ; (2) HUD multi-kill counter sur multi_kill — toggle bool + int set. TOUTE autre connexion SYNC = defect. Annotation obligatoire : chaque connect() sans CONNECT_DEFERRED dans src/gameplay/combat/ ou consumers doit être précédée d'un commentaire `# sync-exempt: ADR-0006 D-6` référençant la whitelist. Interdiction équivalente pour le consumer Combat du signal Movement died (autorité re-déclarée D-6) : player.died.connect(_on_player_died) DOIT être SYNC, tout CONNECT_DEFERRED casse Rule 17 Hybrid (AC-CMB-41 clause 8 grep structural)."
+    why: "Le default DEFERRED pour consumers lourds (GPUParticles instantiate, AudioStreamPlayer.play) protège Pillar 1 contre burst CPU synchrones sur multi-kill. Une connexion SYNC pour un consumer lourd cause une cascade de latence frame-perceptible (Camera lag, jitter audio, janks). La whitelist SYNC est strictement limitée aux opérations triviales frame-precise (flash visuel, toggle UI) où DEFERRED ajouterait une frame de décalage perçu. Drift risk : un dev tenté d'ajouter SYNC Audio 'pour pas rater le feedback' casse Pillar 1. Lint grep + review stricts. Pour died handler spécifiquement, DEFERRED casse le mécanisme _death_pending (set au tick+1 → mutual kill impossible)."
+    adr: docs/architecture/adr-0006-combat-tick-model.md
+    added: 2026-04-23
+
+  - pattern: level_system_direct_reference_to_peers
+    status: active
+    description: "LevelSystem (autoload singleton) ne doit référencer aucun de ses consumers (CheckpointSystem, EnemySystem, HazardSystem, SecretSystem, HUDSystem, TutorialSystem, AudioSystem, VFXFeedbackSystem) par class_name, NodePath, get_node(), ou static method call. Communication sortante exclusivement via les 7 signals typés du contrat level_lifecycle_events + les 6 lookups read-only du contrat level_spatial_lookups. Lint grep src/gameplay/level/*.gd sur les identifiants CheckpointSystem / EnemySystem / etc. = 0 match attendu. Code review strict : tout import / class_name / preload d'un consumer depuis LevelSystem = blocking defect."
+    why: "Pattern outbound-only (ADR-0005 REQ-5 généralisé) garantit testabilité isolée de LevelSystem (GUT peut instancier sans bootstrap des peers) + découplage unidirectionnel (les peers évoluent sans casser Level). Référence directe introduit un cycle latent (Level → Enemy → Level.get_enemy_slots()) ou un coupling caché via autoload (Level → CheckpointSystem.notify() crée dépendance runtime fragile). Pattern canonique Godot + cohérence avec ADR-0004 InputManager + ADR-0005 MovementController outbound-only."
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    added: 2026-04-23
+
+  - pattern: mutate_level_state_from_peer_signal_handler
+    status: active
+    description: "Dans un callback connecté à un signal LevelSystem (level_active, level_unloading, etage_completed, level_load_failed, level_load_slow, room_entered, player_out_of_world), aucune mutation de l'état Level n'est autorisée. Spécifiquement interdit : écriture sur LevelSystem._state / _current_etage_root / _current_etage_id ; appel de LevelSystem.load_etage() / unload_current() depuis un handler consumer. AUTORISATIONS EXPLICITES : GameStateManager peut appeler load_etage() / unload_current() depuis son orchestration (ADR-0007 scene_transition_api) — ce n'est pas un signal handler, c'est du contrôle de flux. Autorisé : lecture read-only via get_state() / get_current_etage_id() / get_*_slots() depuis les handlers."
+    why: "Write access à l'état LevelSystem reste exclusif au singleton lui-même + au GameStateManager orchestrateur (pattern autorité unique ADR-0005 REQ-6 généralisé à Level). Un handler qui mute _state crée boucle : handler appelé parce que transition, déclenche autre transition — race avec state machine en cours dans _process polling ou body_entered callback. Debug coûteux (état incohérent même tick). Ex: handler HUD qui force unload_current() depuis _on_room_entered — casse le flow gameplay et désabonne les peers incorrectement. Autorité GameStateManager préservée car ADR-0007 est lifecycle owner légitime."
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    added: 2026-04-23
+
+  - pattern: navigation_region3d_runtime_bake
+    status: active
+    description: "Interdiction d'appeler NavigationRegion3D.bake_navigation_mesh() à runtime (après boot global / hors éditeur). Les NavMesh des étages DOIVENT être bakées en éditeur authoring-time et persistées dans le fichier etage_NN.tscn. Contrat bilatéral : LevelSystem garantit la présence d'une NavigationRegion3D baked ; Enemy System (quand écrit) garantit aucun appel bake_navigation_mesh() runtime. Lint grep src/**/*.gd sur bake_navigation_mesh = 0 match attendu hors editor scripts tools/."
+    why: "Bake runtime sur étage 5000 m³ coûte 200-800 ms (Tech-Risk-1 Godot addendum GDD level-system r2) — violation directe F4 budget load 1000 ms + Pillar 4 constance perf. Bake authoring-time = coût 0 runtime. Réciprocité enforcée dans design/gdd/enemy-system.md à sa création. Exception hypothétique Tier 2+ (ennemis destructibles modifient NavMesh) = ouverture ADR successeur + amendement pattern."
+    adr: docs/architecture/adr-0011-level-scene-architecture.md
+    added: 2026-04-23
+
+  - pattern: collision_layer_mask_bitmask_literal_in_src_gd
+    status: active
+    description: "Interdiction d'affecter collision_layer ou collision_mask avec un littéral entier (décimal, binaire 0b, ou hex 0x) dans tout fichier .gd sous src/**. Patterns bannis (lint grep CI) : `\\bcollision_(layer|mask)\\s*=\\s*(0b[01]+|0x[0-9a-fA-F]+|[0-9]+)`. Exemples interdits : `body.collision_layer = 8` ; `area.collision_mask = 0b00010` ; `shape_cast.collision_mask = 0x04`. Pattern autorisé pour CollisionObject3D : `set_collision_layer_value(N, true)` / `set_collision_mask_value(N, true)` 1-indexée. Pattern autorisé pour PhysicsRayQueryParameters3D / PhysicsShapeQueryParameters3D (pas d'API per-bit native) : `query.collision_mask = CollisionLayers.build_mask([CollisionLayers.LAYER_ENEMY])` helper. Exception unique : fichiers .tscn / .tres (sérialisation éditeur Godot écrit la valeur décimale, non code) ET tests/**/*.gd assertions (AC-CMB-09/AC-LVL-12/13 comparent `== 0b00010` — read, pas write)."
+    why: "Le bug off-by-one Level GDD r1 (commentaire `bit 4 = layer 4` faux — Project Settings 1-idx vs bit 0-idx, donc Layer 4 = bit 3 = 1<<3 = 8) a été corrigé r2 en forçant l'API 1-indexée. La lint CI empêche la régression. L'API per-bit est auto-explicative (`set_collision_layer_value(4, true)` ne peut pas être mal interprété), résistante au drift si les layers sont renumérotées (impossible par ADR-0008 D-1 mais defense-in-depth), et cohérente avec le helper PhysicsQueryParameters.build_mask() qui accepte les Array[int] 1-indexés. Sources uniques de vérité : project.godot [layer_names] (éditeur) + CollisionLayers class_name (code)."
+    adr: docs/architecture/adr-0008-collision-layer-taxonomy.md
+    added: 2026-04-23
+
+  - pattern: tween_volume_db_in_audio_src
+    status: active
+    description: "Interdiction d'utiliser Tween pour interpoler `volume_db` d'un AudioStreamPlayer / AudioStreamPlayer3D dans tout fichier .gd sous src/core/audio_system.gd OR src/gameplay/audio/**. Pattern banni (lint grep CI) : `(Tween\\.tween_property|create_tween\\(.*\\.tween_property).*volume_db`. Exemples interdits : `tween.tween_property(swoosh, \"volume_db\", -80, 0.03)`. Pattern autorisé : interpolation manuelle dans `_physics_process` via `_get_time_msec.call() - _fade_start_msec` + `lerpf(start_db, end_db, t)`. Exception unique : Music crossfade entre rooms (Tween OK quand `Engine.time_scale == 1.0` garanti, e.g. transitions GSM hors gameplay)."
+    why: "Tween est attaché à `_process` qui est scaled par `Engine.time_scale` Godot 4.6. Pendant slow-mo Combat (`time_scale = 0.3`), un fade Tween 30 ms wall-clock devient 100 ms perçus → swoosh-clac-blood overlap casse Fantasy staccato (Combat GDD r4 A-01 fix). AC-CMB-51 vérifie résolution `[25, 50] ms wall-clock` — Tween échoue ce gate. Pattern wall-clock dans `_physics_process` via Callable injection partagé Combat ↔ Audio (ADR-0006 D-5 + ADR-0009 D-3) garantit timing stable indépendamment de slow-mo + déterministe en CI via mock `_get_time_msec`."
+    adr: docs/architecture/adr-0009-audio-system-architecture.md
+    added: 2026-04-27
 
 # Example:
 #

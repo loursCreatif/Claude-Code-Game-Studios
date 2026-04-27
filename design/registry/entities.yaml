@@ -37,7 +37,7 @@
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
 version: 1
-last_updated: ""
+last_updated: "2026-04-27"   # /consistency-check audio-system (r1 solo auto-approve) : 2 valeurs stale + 2 referenced_by stale absorbés. SLOW_MO_SCALE 0.15 → 0.3 (safe_range [0.10,0.30] → [0.10,0.50]) et SLOW_MO_DURATION_MS 100 → 50 (safe_range [50,200] → [30,150]) — alignement sur Combat GDD r1 retune Martin D3 (jamais répercuté au registry au moment de Combat r1 — Audio GDD r1 a détecté la divergence et l'a documentée OQ ligne 384). audio-system.md ajouté en referenced_by sur les deux constantes (consommé par mix hierarchy, ducking, AC-AUD-07, Formula 4). Cross-GDD gap signal Level `etage_loaded` documenté hors scope registry (recommandation : amendement Level GDD r4 ou alternative décidée par Martin D3 avant Sprint Audio). Previous: /design-system audio-system (r1 solo auto-approve, ADR-0009 Accepted 2026-04-27 binding) : Audio System ajouté en referenced_by sur 1 constante existante (RESPAWN_DELAY — death.wav ≤ 40 ms = RESPAWN_DELAY 50 ms - 1 frame margin, Pillar 3 contract). Aucune nouvelle constante cross-system registrée — toutes constantes Audio sont system-internal MVP (swoosh_fade_duration_ms, ducking_release_ms, ducking_db_attenuation, ambient_crossfade_ms, blood_ambiance_delay_ms, death_audio_max_duration_ms, pool_2d_size, pool_3d_size — toutes Tuning Knobs Audio GDD, pas consommées par autre système au MVP). Bus names `Master / Music / SFX / swing_active / combat_kill / Ambience / UI` figés ADR-0009 D-1 (autorité canonique = Audio GDD, pas registry — figés via const StringName helper static `AudioBuses`). Previous: /design-system game-state-manager (r1 solo auto-approve + réalignement sur ADR-0007 Proposed) : GSM ajouté en referenced_by sur RESPAWN_DELAY (Formula 2 respawn window). Aucune nouvelle constante cross-system registrée — draft initial proposait RESPAWN_SAFETY_TIMEOUT_MS (500 ms) mais retiré au réalignement ADR-0007 D-7 (GSM pur state tracker MVP, pas de safety timer). State enum values (MENU/PLAYING/PAUSED/RESPAWNING/BOSS_DEFEATED) NON registrés comme entries — déjà documentés architecture.md §6.4, architecture.yaml l.125, et ADR-0007 D-2 comme autorité. API publique figée ADR-0007 D-10 (5 verbes + 1 signal state_changed(new_state) + 1 getter get_current_state). Previous: /design-system level-system r1 : Level System cité en referenced_by sur 4 constantes existantes (KATANA_REACH via Formula 1 min_opening_width = 2 × KATANA_REACH = 3.6 m ; LAYER_ENVIRONMENT layer 4 autorité géométrie statique ; LAYER_INTERACTIVE layer 5 autorité triggers ; RESPAWN_DELAY pull depuis Checkpoint sur player_out_of_world). Aucune nouvelle constante cross-system registrée (Level-internal au MVP — futurs Checkpoint/Secret/Enemy GDDs enregistreront leurs consumers). Previous: /consistency-check camera-system : RESPAWN_DELAY 0.2 → 0.05 s (aligné Movement GDD r3 Martin 2026-04-21) ; WALL_RUN_TILT_ANGLE notes nettoyées (Movement GDD patch confirmé). Previous: /design-system player-combat-system : +9 constants Combat (KATANA_REACH, KATANA_RADIUS, SWING_DURATION_MS, ATTACK_COOLDOWN_MS, TUNNELING_THRESHOLD, N_SUBSTEPS, MAX_KILLS_PER_SWING, SLOW_MO_SCALE, SLOW_MO_DURATION_MS) + 5 constants collision layers (LAYER_PLAYER, LAYER_ENEMY, LAYER_ENEMY_HITBOX, LAYER_ENVIRONMENT, LAYER_INTERACTIVE). r_enemy_min = 0.35 m cross-system contract consommé par Combat Section D.3 (non registré comme entrée — contrat Enemy System à figer au GDD futur).
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, characters, factions, bosses.
@@ -139,7 +139,270 @@ formulas: []
 #
 # Required fields: name, status, source, referenced_by, value, unit, added
 
-constants: []
+constants:
+  - name: mouse_sensitivity
+    status: active
+    source: design/gdd/input-system.md
+    referenced_by:
+      - design/gdd/input-system.md
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+    value: 0.0022
+    unit: rad/px
+    safe_range: [0.0005, 0.012]
+    notes: "Ownership résolu par /consistency-check 2026-04-21. Anciennement listé comme MOUSE_SENS dans le Movement GDD Tuning Knobs (retiré). Input System est custodian ; Movement + Camera le consomment pour yaw et pitch. Camera GDD activé dans referenced_by le 2026-04-21 (placeholder commenté levé). Safe range élargi de [0.0010, 0.0050] à [0.0005, 0.012] post-design-review r2 (2026-04-21) pour couvrir high-sens FPS (CS:GO, Valorant) et low-sens sniper. Default 0.0022 inchangé. Slider UI exposera un mapping exponentiel non-linéaire pour garder précision dans basses valeurs."
+    added: 2026-04-21
+    revised: 2026-04-21
+
+  - name: mouse_y_inverted
+    status: active
+    source: design/gdd/input-system.md
+    referenced_by:
+      - design/gdd/input-system.md
+      - design/gdd/camera-system.md
+    value: false
+    unit: bool
+    notes: "Setting utilisateur persistant dans input_settings.tres. Camera System lit cette valeur pour inverser le pitch ; n'affecte pas le yaw. Enregistré lors du /consistency-check 2026-04-21 après écriture du Camera GDD."
+    added: 2026-04-21
+    revised: ""
+
+  - name: BASE_FOV
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 90
+    unit: degrees
+    safe_range: [80, 100]
+    notes: "FOV caméra de base. Owned par Camera System (constantes caméra). Movement GDD le référence indirectement via les peak values FOV dans Visual/Audio Requirements et Acceptance Criteria. Défaut validé prototype. Conflit antérieur (Movement utilisait 100° au lieu de 90°) résolu par /consistency-check 2026-04-21."
+    added: 2026-04-21
+    revised: ""
+
+  - name: DASH_FOV_KICK
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 10
+    unit: degrees
+    safe_range: [6, 14]
+    notes: "Variation de FOV appliquée pendant un dash (additif à BASE_FOV). Peak dash = BASE_FOV + DASH_FOV_KICK = 100° par défaut. Movement GDD référence cette valeur via les AC dash et le toggle reduce_motion (kick ≤ 4° alors)."
+    added: 2026-04-21
+    revised: ""
+
+  - name: WALL_RUN_TILT_ANGLE
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 0.35
+    unit: rad
+    safe_range: [0.25, 0.45]
+    notes: "Angle de roll caméra pendant wall-run, appliqué à CameraEffects.rotation.z (cf. ADR-0002 + Camera GDD Rule 4). 0.35 rad ≈ 20°. Validé par playtest prototype movement-katana (2026-04-21) — le Movement GDD initial indiquait ~12° comme placeholder pré-playtest. Le présent GDD Camera est désormais source de vérité. Conflit résolu : Movement GDD patché r2 (lignes 369, 371, 386, 420) pour retirer la valeur numérique et référencer Camera GDD comme owner. Vérifié clean par /consistency-check 2026-04-23."
+    added: 2026-04-21
+    revised: 2026-04-23
+
+  - name: RESPAWN_DELAY
+    status: active
+    source: design/gdd/player-movement-system.md
+    referenced_by:
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+      - design/gdd/input-system.md
+      - design/gdd/level-system.md
+      - design/gdd/game-state-manager.md
+      - design/gdd/audio-system.md
+    value: 0.05   # was: 0.2 before 2026-04-23 (/consistency-check camera-system) — décision Martin r3 2026-04-21 respawn quasi-instantané (Pillar 3)
+    unit: seconds
+    safe_range: [0.03, 0.2]   # was: [0.1, 0.5] before 2026-04-23 — aligné Movement GDD Tuning Knobs r3
+    notes: "Délai entre appel `die()` et le respawn actif (position remise au checkpoint, inputs ré-activés). Owned par Movement System (Tuning Knobs + Detailed Rules). Camera System fige la rotation + applique l'overlay mort pendant cette fenêtre (cf. Camera GDD Rule 9 + Visual/Audio). Input System référence la constante pour le freeze `enabled=false` en gestion Checkpoint. Level System publie le signal `player_out_of_world(last_valid_position)` qui alimente le pull Checkpoint → RESPAWN_DELAY cycle (Level GDD EC-1 + AC-LVL-25). Game State Manager System consomme dans Formula 2 (respawn_window_ms = RESPAWN_DELAY × 1000 = 50 ms MVP) pour dimensionner l'état RESPAWNING entre notify_player_died et notify_respawn_complete (AC-GSM-14). Valeur révisée r3 Martin 2026-04-21 : 0.2 → 0.05 s pour maximiser Pillar 3 'UNE SECONDE CHANCE'. Invariant impératif : RESPAWN_DELAY ≥ 1/DISPLAY_TICK_RATE (16.6 ms à 60 Hz) pour garantir les consommateurs CONNECT_DEFERRED du signal died. Feedback visuel (fondu rouge) et audio (death.wav) raccourcis à ≤ 40 ms pour ne pas être tronqués. AC garde-fou playtest attribution causale ajouté (Movement AC-MV-101). /consistency-check 2026-04-23 : registry aligné sur valeur courante."
+    added: 2026-04-21
+    revised: 2026-04-23
+
+  # ─── Combat constants (added 2026-04-22 by /design-system player-combat-system) ───
+
+  - name: KATANA_REACH
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+    value: 1.8
+    unit: meters
+    safe_range: [1.4, 2.2]
+    notes: "Longueur utile de la hitbox capsule katana. Oblige proximité (vs ~2.0 m Ghostrunner). Invariant Section D.8 : doit rester > player.capsule_radius + 1.0 m. Consommé par Level System via Formula 1 (min_opening_width = 2 × KATANA_REACH = 3.6 m) — toute porte/couloir MVP respecte ce gabarit. Sera également consommé par Enemy System (hitbox grunt). Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  - name: KATANA_RADIUS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 0.45
+    unit: meters
+    safe_range: [0.30, 0.60]
+    notes: "Rayon de la CapsuleShape3D de la hitbox katana. Couvre lame + 0.10 m de marge de netteté. Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: SWING_DURATION_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 120
+    unit: milliseconds
+    safe_range: [80, 200]
+    notes: "Durée nominale du swing actif (hitbox ouverte). 8 ticks @ 60 Hz. Invariant cross-GDD Section D.8 : DASH_DURATION Movement (100 ms) < SWING_DURATION (120 ms) — conséquence documentée (swing survit au dash, rule 8 couvre). Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: ATTACK_COOLDOWN_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 400
+    unit: milliseconds
+    safe_range: [300, 600]
+    notes: "Cooldown entre deux swings consécutifs. Démarre au début du swing (pas fin). Invariants Section D.8 : > SWING_DURATION + 1 frame, > 2 × SLOW_MO_DURATION. Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: TUNNELING_THRESHOLD
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 25.0
+    unit: meters_per_second
+    safe_range: [20.0, 35.0]
+    notes: "Seuil vélocité joueur au-dessus duquel le sweep hitbox est subdivisé en N_SUBSTEPS casts (anti-tunneling). V_max dash ≈ 30 m/s. Formule gap_max = V × delta / N_SUBSTEPS doit rester < 2 × r_enemy_min = 0.7 m."
+    added: 2026-04-22
+    revised: ""
+
+  - name: N_SUBSTEPS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 3
+    unit: count
+    safe_range: [2, 5]
+    notes: "Nombre de sous-casts ShapeCast quand V > TUNNELING_THRESHOLD. 3 = gap_max 0.167 m à V=30 m/s. Couvre V jusqu'à 42 m/s théorique avec marge 60%."
+    added: 2026-04-22
+    revised: ""
+
+  - name: MAX_KILLS_PER_SWING
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 3
+    unit: count
+    safe_range: [1, 10]
+    notes: "Plafond de kills multi-hit par swing. Ennemis triés par distance croissante, 3 premiers reçoivent die(). Au-delà : ignorés ce tick. Anti-dégénération 'un coup vide la salle'. NE PAS faire varier selon difficulté (règle de base, pas tuning)."
+    added: 2026-04-22
+    revised: ""
+
+  - name: SLOW_MO_SCALE
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+    value: 0.3   # was: 0.15 before 2026-04-27 (/consistency-check audio-system absorbing Combat r1 D3 Martin retune 0.15 → 0.3 ; perception 50 ms wall-clock × 1/0.3 ≈ 167 ms percus = micro-pause rythmique servant Fantasy "silence entre deux notes", anti-climax)
+    unit: ratio
+    safe_range: [0.10, 0.50]   # was: [0.10, 0.30] before 2026-04-27 — aligné Combat GDD Tuning Knobs r1 (range élargi à 0.50 pour permettre retune fluide en playtest sans atteindre l'imperceptible)
+    notes: "Engine.time_scale appliqué pendant la fenêtre slow-mo kill. Default 0.3 (r1 Martin D3 — micro-pause rythmique, pas climax cinématique). Via `reduce_motion_slow_mo_scale_mult >= 1.0` quand accessibility active : mult=2.0 → effectif 0.6 (ralenti moins prononcé), mult=3.33 → ≈1.0 (aucune slow-mo). Audio System consomme la valeur via : (a) mix hierarchy ducking sur `swing_active` bus -6 dB release 30 ms wall-clock ; (b) Rule 11 invariant `AudioStreamPlayer.pitch_scale = 1.0` indépendant de `Engine.time_scale = SLOW_MO_SCALE` (Decision Martin D3 — slow-mo visuelle, pas sonore — Godot 4.6 default behavior confirmé) ; (c) AC-AUD-* mix verification au time_scale 0.3. Previous registry value (0.15) était la draft initiale Combat pré-r1 (climax 6× slower, anti-Fantasy) — retunée Martin D3 lors de Combat r1, registry sync au consistency-check 2026-04-27."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: SLOW_MO_DURATION_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+    value: 50   # was: 100 before 2026-04-27 (/consistency-check audio-system absorbing Combat r1 D3 Martin retune 100 → 50 ms ; @ time_scale 0.3 → ~167 ms percus = ~10 frames rendering @ 60 fps = micro-pause rythmique, pas climax)
+    unit: milliseconds
+    safe_range: [30, 150]   # was: [50, 200] before 2026-04-27 — aligné Combat GDD Tuning Knobs r1 (range serré 30-150 pour préserver Fantasy staccato : > 150 ms = perçu 500 ms = redevient climax)
+    notes: "Durée wall-clock (Time.get_ticks_msec()) de la fenêtre slow-mo — indépendant de delta scalé. Default 50 ms (r1 Martin D3). Invariants critiques Combat Section D.8 : (1) `< ATTACK_COOLDOWN_MS / 2` (#6 inégalité stricte) ; (2) `SWING_DURATION_MS + SLOW_MO_DURATION_MS < ATTACK_COOLDOWN_MS` (#4 — empêche re-swing pendant slow-mo). Une seule slow-mo par swing (idempotence via _slow_mo_active). Audio System consomme la valeur via : (a) Formula 4 perception = SLOW_MO_DURATION_MS × (1/SLOW_MO_SCALE) = 167 ms percus ; (b) AC-AUD-* fade-out swoosh 30 ms wall-clock indépendant time_scale ; (c) blood ambiance delay 50 ms wall-clock = 170 ms percus à 0.3× ; (d) fenêtre kill totale 200 ms wall-clock pour mix hierarchy. Previous registry value (100) était la draft initiale Combat pré-r1 (333 ms percus à 0.3× = climax, anti-Fantasy) — retunée Martin D3 lors de Combat r1, registry sync au consistency-check 2026-04-27."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  # ─── Collision layers taxonomy (cross-system, owned by Combat GDD Rule 12) ───
+
+  - name: LAYER_PLAYER
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 1
+    unit: bit_position
+    notes: "Layer 1 (bit 0b00001). Joueur CharacterBody3D + Katana ShapeCast3D. Canonisée ADR-0008 2026-04-23 (résout G-5). Archetype mask contract : Player body layer=1 mask=30 (Enemy+Hitbox+Env+Interactive) ; Katana ShapeCast layer=1 mask=2 (Enemy only). API write obligatoire 1-indexée `set_collision_layer_value(1, true)`. Consommateurs futurs : Enemy/Hazard/Boss/Secret GDDs."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  - name: LAYER_ENEMY
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 2
+    unit: bit_position
+    notes: "Layer 2 (bit 0b00010). Enemy CharacterBody3D body. Katana ShapeCast mask = 2 uniquement. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy body : layer=2 mask=8 (Environment seulement — réciprocité unilatérale, pas de mask LAYER_PLAYER car collision Player↔Enemy résolue côté Player.mask ⊃ 2). Futur : Enemy GDD implementera layer + r_enemy_min = 0.35 m contract."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  - name: LAYER_ENEMY_HITBOX
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 3
+    unit: bit_position
+    notes: "Layer 3 (bit 0b00100). Hitboxes létales vers joueur (laser grunt, projectiles, spike, AoE boss). Player mask inclut bit 3 pour subir les hits. Séparé de LAYER_ENEMY pour éviter double-résolution katana ↔ laser. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy lethal hitbox Area3D : layer=3 mask=1 (Player only) ; monitoring=true. Hazard System (futur) réutilisera cette layer pour triggers environnementaux létaux (décision par défaut — amendement ADR-0008 si split requis)."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  - name: LAYER_ENVIRONMENT
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 4
+    unit: bit_position
+    notes: "Layer 4 (bit 0b01000). Sols, murs, plafonds. Player mask inclut. Enemy mask inclut (nav). Katana mask EXCLUT (ne coupe pas les murs). Level System est l'**autorité de placement** : tous les StaticBody3D sous `StaticEnvironment/` sont sur ce layer (cf. Level GDD R-3 + AC-LVL-12). Aucun autre système n'instancie de géométrie sur ce layer. Canonisée ADR-0008 2026-04-23. Archetype mask contract Static environment : layer=4 mask=0 (statique détecte rien, détecté par tous)."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  - name: LAYER_INTERACTIVE
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 5
+    unit: bit_position
+    notes: "Layer 5 (bit 0b10000). Triggers shop, checkpoints, secrets. Player mask inclut. Level System est l'**autorité de placement** pour les Area3D (RoomTrigger, CheckpointVolume, SecretVolume, EtageExitTrigger, WorldBoundsVolume) — cf. Level GDD R-3 + AC-LVL-13 (monitorable=false, monitoring=true). Canonisée ADR-0008 2026-04-23. Archetype mask contract Interactive trigger Area3D : layer=5 mask ⊃ 1 (Player obligatoire sinon body_entered silencieux — gate AC-LVL-13 r2). Futur : Shop GDD, Checkpoint GDD, Secret GDD consommeront les slots publiés par Level au signal level_active."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  # Note (2026-04-23) : `RESPAWN_SAFETY_TIMEOUT_MS` considéré initialement comme constante cross-system
+  # mais RETIRÉ au réalignement GSM GDD ↔ ADR-0007 D-7 (ADR-0007 figé GSM pur state tracker, pas de
+  # safety timer interne MVP). Conservé en OQ-5 du GSM GDD comme extension post-MVP (amendement
+  # ADR-0007 D-7 requis). Pas d'entrée registry tant que pas implémenté.
 
 # Example:
 #
