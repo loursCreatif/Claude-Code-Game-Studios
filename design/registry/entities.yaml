@@ -37,7 +37,7 @@
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
 version: 1
-last_updated: "2026-04-27"   # /consistency-check audio-system (r1 solo auto-approve) : 2 valeurs stale + 2 referenced_by stale absorbés. SLOW_MO_SCALE 0.15 → 0.3 (safe_range [0.10,0.30] → [0.10,0.50]) et SLOW_MO_DURATION_MS 100 → 50 (safe_range [50,200] → [30,150]) — alignement sur Combat GDD r1 retune Martin D3 (jamais répercuté au registry au moment de Combat r1 — Audio GDD r1 a détecté la divergence et l'a documentée OQ ligne 384). audio-system.md ajouté en referenced_by sur les deux constantes (consommé par mix hierarchy, ducking, AC-AUD-07, Formula 4). Cross-GDD gap signal Level `etage_loaded` documenté hors scope registry (recommandation : amendement Level GDD r4 ou alternative décidée par Martin D3 avant Sprint Audio). Previous: /design-system audio-system (r1 solo auto-approve, ADR-0009 Accepted 2026-04-27 binding) : Audio System ajouté en referenced_by sur 1 constante existante (RESPAWN_DELAY — death.wav ≤ 40 ms = RESPAWN_DELAY 50 ms - 1 frame margin, Pillar 3 contract). Aucune nouvelle constante cross-system registrée — toutes constantes Audio sont system-internal MVP (swoosh_fade_duration_ms, ducking_release_ms, ducking_db_attenuation, ambient_crossfade_ms, blood_ambiance_delay_ms, death_audio_max_duration_ms, pool_2d_size, pool_3d_size — toutes Tuning Knobs Audio GDD, pas consommées par autre système au MVP). Bus names `Master / Music / SFX / swing_active / combat_kill / Ambience / UI` figés ADR-0009 D-1 (autorité canonique = Audio GDD, pas registry — figés via const StringName helper static `AudioBuses`). Previous: /design-system game-state-manager (r1 solo auto-approve + réalignement sur ADR-0007 Proposed) : GSM ajouté en referenced_by sur RESPAWN_DELAY (Formula 2 respawn window). Aucune nouvelle constante cross-system registrée — draft initial proposait RESPAWN_SAFETY_TIMEOUT_MS (500 ms) mais retiré au réalignement ADR-0007 D-7 (GSM pur state tracker MVP, pas de safety timer). State enum values (MENU/PLAYING/PAUSED/RESPAWNING/BOSS_DEFEATED) NON registrés comme entries — déjà documentés architecture.md §6.4, architecture.yaml l.125, et ADR-0007 D-2 comme autorité. API publique figée ADR-0007 D-10 (5 verbes + 1 signal state_changed(new_state) + 1 getter get_current_state). Previous: /design-system level-system r1 : Level System cité en referenced_by sur 4 constantes existantes (KATANA_REACH via Formula 1 min_opening_width = 2 × KATANA_REACH = 3.6 m ; LAYER_ENVIRONMENT layer 4 autorité géométrie statique ; LAYER_INTERACTIVE layer 5 autorité triggers ; RESPAWN_DELAY pull depuis Checkpoint sur player_out_of_world). Aucune nouvelle constante cross-system registrée (Level-internal au MVP — futurs Checkpoint/Secret/Enemy GDDs enregistreront leurs consumers). Previous: /consistency-check camera-system : RESPAWN_DELAY 0.2 → 0.05 s (aligné Movement GDD r3 Martin 2026-04-21) ; WALL_RUN_TILT_ANGLE notes nettoyées (Movement GDD patch confirmé). Previous: /design-system player-combat-system : +9 constants Combat (KATANA_REACH, KATANA_RADIUS, SWING_DURATION_MS, ATTACK_COOLDOWN_MS, TUNNELING_THRESHOLD, N_SUBSTEPS, MAX_KILLS_PER_SWING, SLOW_MO_SCALE, SLOW_MO_DURATION_MS) + 5 constants collision layers (LAYER_PLAYER, LAYER_ENEMY, LAYER_ENEMY_HITBOX, LAYER_ENVIRONMENT, LAYER_INTERACTIVE). r_enemy_min = 0.35 m cross-system contract consommé par Combat Section D.3 (non registré comme entrée — contrat Enemy System à figer au GDD futur).
+last_updated: "2026-04-27"   # /design-system credit-economy-system (r1 solo auto-approve) : Credit Economy GDD r1 written. Aucune nouvelle entité/item/formule/constante registry — toutes les constantes Credit (BASE_SECRET_CREDIT, BASE_UPGRADE_COST, TIER_COST_STEP, kill_credit[]) sont system-internal MVP (un seul GDD les consomme directement). Credit ajouté en referenced_by sur 1 constante existante (MAX_KILLS_PER_SWING — F-CRD-1 cross-ref Combat plafond multi-kill 3 cr/tick max). Nouveaux contrats cross-system documentés mais non registrés (signaux et API attendus de systems Not Started) : `secret_collected(secret_node: Node, tier: int)` SYNC depuis Secret System (PROVISOIRE — OQ-CRD-1), `try_spend(amount: int) -> bool` exposé pour Shop (OQ-CRD-2), `credits_changed(total, delta, source: SourceKind)` SYNC pour HUD, `SaveLoad.load_int/save_int` consommés. Enum `SourceKind { KILL=0, SECRET=1, SPEND_SHOP=2, BOOT_HYDRATE=3 }` réservation MVP. 49 ACs (48 BLOCKING + 1 ADVISORY). Solo gates : CD-GDD-ALIGN skipped. **Débloque** : `/design-review credit-economy-system` (fresh session), `/design-system shop-system` (consume try_spend), `/design-system hud-system` (consume credits_changed), `/design-system secret-system` (provide secret_collected). Previous: /design-system enemy-system (r1 solo auto-approve) : Enemy MVP unique archetype "grunt" registered as 1ère entity entry. +1 nouvelle constante R_ENEMY_MIN=0.35 m (cross-system contract Combat F.gap_max anti-tunneling). 6 referenced_by additions sur constants existantes (KATANA_REACH, MAX_KILLS_PER_SWING, LAYER_PLAYER/ENEMY/ENEMY_HITBOX/ENVIRONMENT). 🚨 Cross-GDD conflict potentiel détecté (OQ-ENM-1) : Combat Rule 11 stipule "Combat émet enemy_killed" mais Enemy GDD Rule 11 dit "Enemy émet" — résolution proposée Enemy comme autorité d'émission, Combat amendable Sprint A via /design-review. Previous: /consistency-check audio-system (r1 solo auto-approve) : 2 valeurs stale + 2 referenced_by stale absorbés. SLOW_MO_SCALE 0.15 → 0.3 (safe_range [0.10,0.30] → [0.10,0.50]) et SLOW_MO_DURATION_MS 100 → 50 (safe_range [50,200] → [30,150]) — alignement sur Combat GDD r1 retune Martin D3 (jamais répercuté au registry au moment de Combat r1 — Audio GDD r1 a détecté la divergence et l'a documentée OQ ligne 384). audio-system.md ajouté en referenced_by sur les deux constantes (consommé par mix hierarchy, ducking, AC-AUD-07, Formula 4). Cross-GDD gap signal Level `etage_loaded` documenté hors scope registry (recommandation : amendement Level GDD r4 ou alternative décidée par Martin D3 avant Sprint Audio). Previous: /design-system audio-system (r1 solo auto-approve, ADR-0009 Accepted 2026-04-27 binding) : Audio System ajouté en referenced_by sur 1 constante existante (RESPAWN_DELAY — death.wav ≤ 40 ms = RESPAWN_DELAY 50 ms - 1 frame margin, Pillar 3 contract). Aucune nouvelle constante cross-system registrée — toutes constantes Audio sont system-internal MVP (swoosh_fade_duration_ms, ducking_release_ms, ducking_db_attenuation, ambient_crossfade_ms, blood_ambiance_delay_ms, death_audio_max_duration_ms, pool_2d_size, pool_3d_size — toutes Tuning Knobs Audio GDD, pas consommées par autre système au MVP). Bus names `Master / Music / SFX / swing_active / combat_kill / Ambience / UI` figés ADR-0009 D-1 (autorité canonique = Audio GDD, pas registry — figés via const StringName helper static `AudioBuses`). Previous: /design-system game-state-manager (r1 solo auto-approve + réalignement sur ADR-0007 Proposed) : GSM ajouté en referenced_by sur RESPAWN_DELAY (Formula 2 respawn window). Aucune nouvelle constante cross-system registrée — draft initial proposait RESPAWN_SAFETY_TIMEOUT_MS (500 ms) mais retiré au réalignement ADR-0007 D-7 (GSM pur state tracker MVP, pas de safety timer). State enum values (MENU/PLAYING/PAUSED/RESPAWNING/BOSS_DEFEATED) NON registrés comme entries — déjà documentés architecture.md §6.4, architecture.yaml l.125, et ADR-0007 D-2 comme autorité. API publique figée ADR-0007 D-10 (5 verbes + 1 signal state_changed(new_state) + 1 getter get_current_state). Previous: /design-system level-system r1 : Level System cité en referenced_by sur 4 constantes existantes (KATANA_REACH via Formula 1 min_opening_width = 2 × KATANA_REACH = 3.6 m ; LAYER_ENVIRONMENT layer 4 autorité géométrie statique ; LAYER_INTERACTIVE layer 5 autorité triggers ; RESPAWN_DELAY pull depuis Checkpoint sur player_out_of_world). Aucune nouvelle constante cross-system registrée (Level-internal au MVP — futurs Checkpoint/Secret/Enemy GDDs enregistreront leurs consumers). Previous: /consistency-check camera-system : RESPAWN_DELAY 0.2 → 0.05 s (aligné Movement GDD r3 Martin 2026-04-21) ; WALL_RUN_TILT_ANGLE notes nettoyées (Movement GDD patch confirmé). Previous: /design-system player-combat-system : +9 constants Combat (KATANA_REACH, KATANA_RADIUS, SWING_DURATION_MS, ATTACK_COOLDOWN_MS, TUNNELING_THRESHOLD, N_SUBSTEPS, MAX_KILLS_PER_SWING, SLOW_MO_SCALE, SLOW_MO_DURATION_MS) + 5 constants collision layers (LAYER_PLAYER, LAYER_ENEMY, LAYER_ENEMY_HITBOX, LAYER_ENVIRONMENT, LAYER_INTERACTIVE). r_enemy_min = 0.35 m cross-system contract consommé par Combat Section D.3 (non registré comme entrée — contrat Enemy System à figer au GDD futur).
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, characters, factions, bosses.
@@ -48,7 +48,36 @@ last_updated: "2026-04-27"   # /consistency-check audio-system (r1 solo auto-app
 # Attribute fields: any key stats that could appear in another GDD
 #   (health, damage, drops, faction, etc.)
 
-entities: []
+entities:
+  - name: grunt
+    status: active
+    source: design/gdd/enemy-system.md
+    referenced_by:
+      - design/gdd/enemy-system.md
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+      - design/gdd/level-system.md
+      - design/gdd/credit-economy-system.md
+    archetype: grunt
+    health: 1                     # one-shot strict (Pillar 1, anti-pillar #5 game-concept)
+    capsule_radius_m: 0.35        # = R_ENEMY_MIN constant
+    capsule_height_m: 1.8         # HEIGHT_GRUNT_M
+    body_layer: 2                 # LAYER_ENEMY
+    body_mask: 8                  # LAYER_ENVIRONMENT only (Enemy mask=8 contract ADR-0008)
+    hitbox_layer: 3               # LAYER_ENEMY_HITBOX (LaserCone Area3D)
+    hitbox_mask: 1                # LAYER_PLAYER (kills player only)
+    laser_box_size_m: [0.5, 0.3, 6.0]   # LASER_WIDTH × LASER_HEIGHT × LASER_RANGE default
+    death_tween_duration_ms: 150  # wall-clock; 400 if reduce_motion=true
+    queue_free_on_death: false    # nœud persiste à scale 0.01 jusqu'à level unload (Enemy Rule 12)
+    api:
+      die: idempotent
+      is_dead: getter
+      _restore_from_snapshot: "(was_dead: bool)"
+    signals_emitted:
+      - "enemy_killed(enemy: Node, position: Vector3)  # SYNC, depuis die()"
+    notes: "MVP unique archetype enemy. Statique (set_physics_process false), one-shot mutuel strict. Spawné depuis Marker3D `EnemySlot_*` Level System R-2.6. Combat émet enemy_killed via consumption — Enemy est l'autorité d'émission (cf OQ-ENM-1 cross-GDD conflict resolution proposée). Tier 2+ ajoutera 4 archétypes (sentinelle pivot, brute, drone, sniper) sans rompre l'invariant one-shot."
+    added: 2026-04-27
+    revised: ""
 
 # Example (remove when first real entry is added):
 #
@@ -230,12 +259,13 @@ constants:
     referenced_by:
       - design/gdd/player-combat-system.md
       - design/gdd/level-system.md
+      - design/gdd/enemy-system.md
     value: 1.8
     unit: meters
     safe_range: [1.4, 2.2]
-    notes: "Longueur utile de la hitbox capsule katana. Oblige proximité (vs ~2.0 m Ghostrunner). Invariant Section D.8 : doit rester > player.capsule_radius + 1.0 m. Consommé par Level System via Formula 1 (min_opening_width = 2 × KATANA_REACH = 3.6 m) — toute porte/couloir MVP respecte ce gabarit. Sera également consommé par Enemy System (hitbox grunt). Tuning knob combat_config.tres."
+    notes: "Longueur utile de la hitbox capsule katana. Oblige proximité (vs ~2.0 m Ghostrunner). Invariant Section D.8 : doit rester > player.capsule_radius + 1.0 m. Consommé par Level System via Formula 1 (min_opening_width = 2 × KATANA_REACH = 3.6 m) — toute porte/couloir MVP respecte ce gabarit. Consommé par Enemy System (hitbox grunt — capsule r_enemy_min 0.35 m + KATANA_REACH 1.8 m garantissent kill at-distance). Tuning knob combat_config.tres."
     added: 2026-04-22
-    revised: 2026-04-23
+    revised: 2026-04-27
 
   - name: KATANA_RADIUS
     status: active
@@ -302,11 +332,27 @@ constants:
     source: design/gdd/player-combat-system.md
     referenced_by:
       - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
+      - design/gdd/audio-system.md
+      - design/gdd/credit-economy-system.md
     value: 3
     unit: count
     safe_range: [1, 10]
-    notes: "Plafond de kills multi-hit par swing. Ennemis triés par distance croissante, 3 premiers reçoivent die(). Au-delà : ignorés ce tick. Anti-dégénération 'un coup vide la salle'. NE PAS faire varier selon difficulté (règle de base, pas tuning)."
+    notes: "Plafond de kills multi-hit par swing. Ennemis triés par distance croissante, 3 premiers reçoivent die(). Au-delà : ignorés ce tick. Anti-dégénération 'un coup vide la salle'. NE PAS faire varier selon difficulté (règle de base, pas tuning). Enemy GDD F-ENM-3 cross-ref + Audio Formula 3 dimensionne pool combat_kill 12 voices basé sur ce plafond × cadence + Credit Economy F-CRD-1 cross-ref (multi-kill 3 → 3 emits credits_changed séquentiels SYNC le même _physics_process tick, plafond yield kill par tick = 3 × kill_credit['grunt'] = 3 cr MVP)."
     added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: R_ENEMY_MIN
+    status: active
+    source: design/gdd/enemy-system.md
+    referenced_by:
+      - design/gdd/enemy-system.md
+      - design/gdd/player-combat-system.md
+    value: 0.35
+    unit: meters
+    safe_range: [0.30, 0.50]
+    notes: "Rayon canonique d'un Enemy standard MVP (CapsuleShape3D radius). Cross-system contract Combat Section D.3 : invariant gap_max = V_player × delta / N_SUBSTEPS < 2 × r_enemy_min = 0.7 m garantit anti-tunneling. À V_max=30 m/s + N_SUBSTEPS=3 : gap_max = 0.167 m < 0.7 m (marge 4×). Toute baisse < 0.30 m exige amendement Combat (N_SUBSTEPS ↑ proportionnel) + PR cross-GDD. Tier 2+ archétypes (drone aérien notamment) doivent respecter r ≥ 0.35 m ou amender ce contrat."
+    added: 2026-04-27
     revised: ""
 
   - name: SLOW_MO_SCALE
@@ -342,36 +388,39 @@ constants:
     source: design/gdd/player-combat-system.md
     referenced_by:
       - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
       - docs/architecture/adr-0008-collision-layer-taxonomy.md
     value: 1
     unit: bit_position
-    notes: "Layer 1 (bit 0b00001). Joueur CharacterBody3D + Katana ShapeCast3D. Canonisée ADR-0008 2026-04-23 (résout G-5). Archetype mask contract : Player body layer=1 mask=30 (Enemy+Hitbox+Env+Interactive) ; Katana ShapeCast layer=1 mask=2 (Enemy only). API write obligatoire 1-indexée `set_collision_layer_value(1, true)`. Consommateurs futurs : Enemy/Hazard/Boss/Secret GDDs."
+    notes: "Layer 1 (bit 0b00001). Joueur CharacterBody3D + Katana ShapeCast3D. Canonisée ADR-0008 2026-04-23 (résout G-5). Archetype mask contract : Player body layer=1 mask=30 (Enemy+Hitbox+Env+Interactive) ; Katana ShapeCast layer=1 mask=2 (Enemy only). API write obligatoire 1-indexée `set_collision_layer_value(1, true)`. Enemy GDD : LaserCone Area3D mask=1 (kills player only). Consommateurs futurs : Hazard/Boss/Secret GDDs."
     added: 2026-04-22
-    revised: 2026-04-23
+    revised: 2026-04-27
 
   - name: LAYER_ENEMY
     status: active
     source: design/gdd/player-combat-system.md
     referenced_by:
       - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
       - docs/architecture/adr-0008-collision-layer-taxonomy.md
     value: 2
     unit: bit_position
-    notes: "Layer 2 (bit 0b00010). Enemy CharacterBody3D body. Katana ShapeCast mask = 2 uniquement. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy body : layer=2 mask=8 (Environment seulement — réciprocité unilatérale, pas de mask LAYER_PLAYER car collision Player↔Enemy résolue côté Player.mask ⊃ 2). Futur : Enemy GDD implementera layer + r_enemy_min = 0.35 m contract."
+    notes: "Layer 2 (bit 0b00010). Enemy CharacterBody3D body. Katana ShapeCast mask = 2 uniquement. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy body : layer=2 mask=8 (Environment seulement — réciprocité unilatérale, pas de mask LAYER_PLAYER car collision Player↔Enemy résolue côté Player.mask ⊃ 2). Enemy GDD MVP implémente : Grunt body layer=2 mask=8 + R_ENEMY_MIN=0.35m contract figé."
     added: 2026-04-22
-    revised: 2026-04-23
+    revised: 2026-04-27
 
   - name: LAYER_ENEMY_HITBOX
     status: active
     source: design/gdd/player-combat-system.md
     referenced_by:
       - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
       - docs/architecture/adr-0008-collision-layer-taxonomy.md
     value: 3
     unit: bit_position
-    notes: "Layer 3 (bit 0b00100). Hitboxes létales vers joueur (laser grunt, projectiles, spike, AoE boss). Player mask inclut bit 3 pour subir les hits. Séparé de LAYER_ENEMY pour éviter double-résolution katana ↔ laser. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy lethal hitbox Area3D : layer=3 mask=1 (Player only) ; monitoring=true. Hazard System (futur) réutilisera cette layer pour triggers environnementaux létaux (décision par défaut — amendement ADR-0008 si split requis)."
+    notes: "Layer 3 (bit 0b00100). Hitboxes létales vers joueur (laser grunt, projectiles, spike, AoE boss). Player mask inclut bit 3 pour subir les hits. Séparé de LAYER_ENEMY pour éviter double-résolution katana ↔ laser. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy lethal hitbox Area3D : layer=3 mask=1 (Player only) ; monitoring=true. Enemy GDD MVP : LaserCone Area3D BoxShape3D 0.5×0.3×6.0 m. Hazard System (futur) réutilisera cette layer (amendement ADR-0008 si split requis)."
     added: 2026-04-22
-    revised: 2026-04-23
+    revised: 2026-04-27
 
   - name: LAYER_ENVIRONMENT
     status: active
@@ -379,12 +428,13 @@ constants:
     referenced_by:
       - design/gdd/player-combat-system.md
       - design/gdd/level-system.md
+      - design/gdd/enemy-system.md
       - docs/architecture/adr-0008-collision-layer-taxonomy.md
     value: 4
     unit: bit_position
-    notes: "Layer 4 (bit 0b01000). Sols, murs, plafonds. Player mask inclut. Enemy mask inclut (nav). Katana mask EXCLUT (ne coupe pas les murs). Level System est l'**autorité de placement** : tous les StaticBody3D sous `StaticEnvironment/` sont sur ce layer (cf. Level GDD R-3 + AC-LVL-12). Aucun autre système n'instancie de géométrie sur ce layer. Canonisée ADR-0008 2026-04-23. Archetype mask contract Static environment : layer=4 mask=0 (statique détecte rien, détecté par tous)."
+    notes: "Layer 4 (bit 0b01000). Sols, murs, plafonds. Player mask inclut. Enemy mask=8 (= bit position 4 = LAYER_ENVIRONMENT only — Enemy détecte sol pour navigation passive). Katana mask EXCLUT (ne coupe pas les murs). Level System est l'**autorité de placement** : tous les StaticBody3D sous `StaticEnvironment/` sont sur ce layer (cf. Level GDD R-3 + AC-LVL-12). Aucun autre système n'instancie de géométrie sur ce layer. Canonisée ADR-0008 2026-04-23. Archetype mask contract Static environment : layer=4 mask=0 (statique détecte rien, détecté par tous)."
     added: 2026-04-22
-    revised: 2026-04-23
+    revised: 2026-04-27
 
   - name: LAYER_INTERACTIVE
     status: active

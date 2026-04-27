@@ -1,8 +1,9 @@
 # Enemy System
 
-> **Status** : In Design
+> **Status** : **APPROVED r2** (2026-04-27 fresh re-review APPROVED — voir [enemy-system-review-log.md](reviews/enemy-system-review-log.md))
 > **Author** : Martin + agents (game-designer, ai-programmer, art-director, systems-designer, qa-lead, creative-director, audio-director)
-> **Last Updated** : 2026-04-27
+> **Last Updated** : 2026-04-27 (r2 = r1 + 6 corrections éditoriales review-r1 + fresh re-review APPROVED)
+> **Gate condition résiduelle pour `/create-epics`** : (A) amendement Combat GDD r7 (retirer `enemy_killed` de Published API CombatSystem) + (B) Movement GDD re-review r4 confirme contrat `Player.die()` bidirectionnel (cf §Dependencies bidirectional check)
 > **Implements Pillar** : Pillar 1 FLOW AVANT TOUT (one-shot mutuel = staccato), Pillar 3 SECONDE CHANCE (mort pédagogique — l'ennemi qui t'a tué reste visible), Pillar 4 (positionnement spatial pour secrets — indirect)
 
 ## Overview
@@ -73,7 +74,7 @@ Quand le joueur meurt par laser grunt, **le grunt reste à sa place exacte**, da
    | Nœud | Layer | Mask | Justification |
    |---|---|---|---|
    | `Grunt: CharacterBody3D` (body) | `2` (LAYER_ENEMY) | `8` (LAYER_ENVIRONMENT) | Détecté par Player.mask⊃2 et par Katana ShapeCast.mask=2 ; détecte uniquement environnement (collision navigation, mais pas d'auto-nav MVP donc dormant) |
-   | `LaserCone: Area3D` (hitbox lethal) | `4` (LAYER_ENEMY_HITBOX bit) | `1` (LAYER_PLAYER) | Touche le Player exclusivement — pas d'enemies auto-touchables, pas de murs, pas de katana qui « parerait » le laser |
+   | `LaserCone: Area3D` (hitbox lethal) | `3` (LAYER_ENEMY_HITBOX, 1-indexed Godot convention = bit `0b00000100`) | `1` (LAYER_PLAYER) | Touche le Player exclusivement — pas d'enemies auto-touchables, pas de murs, pas de katana qui « parerait » le laser |
 
    ⚠️ **Convention 1-indexée Godot** : tous les `set_collision_layer_value(N, true)` utilisent N = 1-based (LAYER_ENEMY = 2 → bit 1 = `set_collision_layer_value(2, true)`). Source de vérité : ADR-0008.
 
@@ -126,7 +127,22 @@ Quand le joueur meurt par laser grunt, **le grunt reste à sa place exacte**, da
     a. `_state = State.DYING` (atomic guard pour idempotence Rule 6 + désactivation lethal Rule 8).
     b. `LaserCone.monitoring = false` (immédiat — un grunt en Dying ne tue plus, même pendant les 150 ms de tween).
     c. `enemy_killed.emit(self, global_position)` — payload SYNC (pas de CONNECT_DEFERRED côté émetteur, conforme Combat Rule 11 contract). Consommé par Credit Economy, VFX, Audio, HUD.
-    d. `create_tween().tween_property(MeshInstance3D, "scale", Vector3(0.01, 0.01, 0.01), 0.15).tween_callback(_on_death_tween_finished)`. À la fin du tween (`_on_death_tween_finished`), `_state = State.DEAD` puis **pas de `queue_free()`** — voir Rule 12.
+    d. **Tween wall-clock obligatoire** :
+       ```gdscript
+       var t: Tween = create_tween()
+       t.set_ignore_time_scale(true)  # ⚠️ OBLIGATOIRE — sans ça, Engine.time_scale=0.3 (slow-mo Combat) ralentit le tween
+       # set_pause_mode() est laissé à son default TWEEN_PAUSE_BOUND : le tween reste pausé quand tree.paused = true (EC-ENM-9)
+       t.tween_property(%MeshInstance3D, "scale", Vector3(EPSILON, EPSILON, EPSILON), DEATH_TWEEN_DURATION_MS / 1000.0)
+       t.tween_callback(_on_death_tween_finished)
+       ```
+       À la fin du tween (`_on_death_tween_finished`), `_state = State.DEAD` puis **pas de `queue_free()`** — voir Rule 12.
+
+       ⚠️ **Note Godot 4.6 — séparation pause vs time_scale** :
+       - `Tween.set_ignore_time_scale(true)` : tween indépendant de `Engine.time_scale` (ignore le slow-mo Combat). C'est cette ligne qui matérialise la propriété « wall-clock absolu » de F-ENM-3.
+       - `Tween.set_pause_mode()` (default `TWEEN_PAUSE_BOUND`) : tween pausé quand `tree.paused = true`. C'est le comportement attendu par EC-ENM-9 (Pause GSM gèle le tween, resume reprend).
+       - Si `set_ignore_time_scale(true)` est omis, F-ENM-3 est violé (tween dure 500 ms wall-clock pendant slow-mo 0.3× au lieu de 150 ms).
+       - Si `set_pause_mode(TWEEN_PAUSE_PROCESS)` était utilisé, EC-ENM-9 serait violé (tween continue pendant pause GSM).
+       Cf review-r1 BLOCKING-3 — la résolution canonique sépare les deux APIs.
 
 12. **Pas de `queue_free()` au MVP** (déviation explicite vs prototype `prototypes/movement-katana/enemy.gd`) — le grunt mort reste dans la scène en état `Dead`, son `MeshInstance3D` à scale 0.01 (invisible mais présent), son `LaserCone` désactivé. Justification :
     - **Pillar 3 mort pédagogique** : si Player meurt après avoir tué grunt, au respawn checkpoint le grunt doit rester mort (sa kill survit la mort joueur — récompense du progrès). Garder le nœud permet au Checkpoint System de capturer son état (`is_dead()`) dans son snapshot et de le restaurer au respawn.
@@ -160,14 +176,14 @@ Quand le joueur meurt par laser grunt, **le grunt reste à sa place exacte**, da
 
 | Système | Direction | Interface | Contrat |
 |---|---|---|---|
-| **Level System** (amont) | Read | `LevelSystem.get_etage_enemy_slots() -> Array[Marker3D]` | EnemySpawner reçoit la liste des `EnemySlot_*` au signal `level_active` ; instancie 1 grunt par slot avec `EnemySlot.global_basis` orientation. Contract **Level GDD R-2.6** : ARENA ≥3 EnemySlot, COMBAT room ≥3 EnemySlot, FirstEnemySightline garanti |
-| **Player Combat System** (aval) | Receive call | `enemy.die() -> void` | Combat appelle `enemy.die()` à chaque collider hit du sweep ShapeCast. Idempotent (Rule 6). Combat consomme `enemy_killed(node, position)` signal SYNC pour `enemy_killed` payload + déclenche slow-mo `Engine.time_scale = 0.3` 50 ms wall-clock (Combat Rule 13) |
+| **Level System** (amont) | Direct spawn | LevelSystem itère ses propres `EnemySlot_*` Marker3D au signal `level_active` et instancie `Grunt.tscn` à chaque slot avec `EnemySlot.global_basis` orientation. **Pas d'API publique `get_etage_enemy_slots()`** — Level est la factory directe au MVP (OQ-ENM-2 résolu review-r1, voir §Open Questions). Contract **Level GDD R-2.6** : ARENA ≥3 EnemySlot, COMBAT room ≥3 EnemySlot, FirstEnemySightline garanti | Authoring time : EnemySlot Marker3D placés dans `.tscn` étage. Boot time : Level itère + spawn |
+| **Player Combat System** (aval) | Receive call + listen signal | `enemy.die() -> void` (call) + écoute `enemy_killed` (signal) | Combat appelle `enemy.die()` à chaque collider hit du sweep ShapeCast (idempotent Rule 6). **Enemy émet `enemy_killed(node, position)` SYNC** depuis `die()` (Rule 11.c) ; Combat se connecte à ce signal pour déclencher slow-mo `Engine.time_scale = 0.3` 50 ms wall-clock (Combat Rule 13). **Enemy est l'autorité d'émission** — Combat n'émet pas son propre `enemy_killed` (OQ-ENM-1 résolu review-r1 → amendement Combat r7 requis, voir §Cross-system note ci-dessous) |
 | **Player Movement** (aval, indirect) | Send call | `Player.die() -> void` | LaserCone Area3D body_entered → `body.die()` si `body.is_in_group("player")`. Movement-owned die() (Movement GDD Rule die()) gère le tween fade rouge + Pillar 3 respawn |
 | **Checkpoint & Respawn System** (aval, post-MVP) | Read/Write meta | `enemy.is_dead() -> bool`, `enemy._restore_from_snapshot(was_dead: bool)` | Checkpoint capture `is_dead()` au passage ; au respawn restaure via `_restore_from_snapshot`. Rule 13 contract |
-| **Credit Economy** (aval, post-MVP) | Receive signal | `enemy_killed(node, position)` | Credit System écoute le signal Enemy (pas Combat — séparation des concerns) ; chaque kill = +X crédits selon archetype (MVP grunt = 1 credit ?) |
-| **VFX & Feedback System** (aval, post-MVP) | Receive signal | `enemy_killed(node, position)` | VFX déclenche flash blanc 50 ms + splash sang à `position` ; flash en connexion SYNC (frame-precise avec kill tick — Combat Rule 13). Le tween de scale 150 ms est géré par Enemy lui-même au MVP (pas externalisable au VFX System) |
-| **Audio System** (aval, APPROVED r2.1) | Receive signal | `enemy_killed(node, position)` | Audio joue le clac sur bus `combat_kill` à `position` 3D (positional). Source de vérité bus name : Audio GDD Rule 11 + ADR-0009 D-1. Aucune valeur de pitch/cooldown ; Audio gère sa pool (Formula 3 Audio GDD) |
-| **HUD / UI System** (aval, post-MVP) | Receive signal | `enemy_killed(node, position)` | HUD peut afficher kill count, combo timer, etc. Optional consumer — le kill count fait partie du compteur global, pas Enemy-owned |
+| **Credit Economy** (aval, post-MVP) | Receive signal | `Enemy.enemy_killed(node, position)` | Credit System se connecte à **`Enemy.enemy_killed`** (pas `CombatSystem.enemy_killed` — Enemy est l'autorité, OQ-ENM-1 résolu) ; chaque kill = +X crédits selon archetype (MVP grunt = 1 credit ?) |
+| **VFX & Feedback System** (aval, post-MVP) | Receive signal | `Enemy.enemy_killed(node, position)` | VFX se connecte à **`Enemy.enemy_killed`** ; flash blanc 50 ms + splash sang à `position` ; flash en connexion SYNC (frame-precise avec kill tick — Combat Rule 13). Le tween de scale 150 ms est géré par Enemy lui-même au MVP (pas externalisable au VFX System) |
+| **Audio System** (aval, APPROVED r2.1) | Receive signal | `Enemy.enemy_killed(node, position)` | Audio se connecte à **`Enemy.enemy_killed`** ; joue le clac sur bus `combat_kill` à `position` 3D (positional). Source de vérité bus name : Audio GDD Rule 11 + ADR-0009 D-1. Audio GDD r2.1 est neutre sur la source du signal (pas de mention `CombatSystem.enemy_killed`) — la résolution OQ-ENM-1 est transparente |
+| **HUD / UI System** (aval, post-MVP) | Receive signal | `Enemy.enemy_killed(node, position)` | HUD se connecte à **`Enemy.enemy_killed`** ; peut afficher kill count, combo timer, etc. Optional consumer — le kill count fait partie du compteur global, pas Enemy-owned |
 | **Hazard System** (cousin, Tier 2+) | Receive call | `enemy.die()` | Au Tier 2+, un piège environnemental pourrait appeler `enemy.die()` (Rule 7). Au MVP, contract latent — aucun Hazard MVP |
 | **Game State Manager** (amont, APPROVED r1) | Read state | `GameStateManager.get_current_state() -> State` | Enemy n'agit que si `state == PLAYING`. Si state passe à `PAUSED` ou `MENU`, Enemy gèle (LaserCone monitoring=false ; tween paused via `tree.paused = true` propagation natif Godot) |
 
@@ -225,7 +241,7 @@ Le tween de disparition du `MeshInstance3D` au `Alive → Dying → Dead` :
 
 | Variable | Symbol | Type | Range | Description |
 |---|---|---|---|---|
-| `t` | t | float | `[0, 150]` ms wall-clock depuis `die()` 1ère appel | Temps écoulé depuis transition `Alive → Dying`. Wall-clock ABSOLU (pas Engine.time_scale-affected — utilise `Time.get_ticks_msec()` delta) pour que le tween reste 150 ms même pendant le slow-mo Combat 50 ms × 0.3 |
+| `t` | t | float | `[0, 150]` ms wall-clock depuis `die()` 1ère appel | Temps écoulé depuis transition `Alive → Dying`. Wall-clock ABSOLU (pas Engine.time_scale-affected) — la propriété est garantie par `Tween.set_ignore_time_scale(true)` au create_tween (Rule 11.d). Le tween reste 150 ms même pendant le slow-mo Combat 50 ms × 0.3. **Note** : pause GSM (`tree.paused = true`) gèle quand-même le tween — c'est le comportement attendu (EC-ENM-9), géré par le default `TWEEN_PAUSE_BOUND`. |
 | `DEATH_TWEEN_DURATION_MS` | T | int | constant `150 ms` | Durée du tween. Aligné prototype `enemy.gd:tween_property(..., 0.15)`. Suffisamment long pour que le clac/flash blanc de Combat (50 ms slow-mo) soit clairement séparé du fade visuel. |
 | `EPSILON` | ε | float | constant `0.01` | Scale final non-zéro pour éviter `Vector3.ZERO` qui pose des artefacts numériques sur certains shaders Godot 4.6. À 0.01 le mesh est invisible à l'œil nu (1% de sa taille originale, sub-pixel à distance > 2 m). |
 
@@ -275,7 +291,7 @@ Les formules ci-dessous appartiennent à d'autres GDDs mais **consomment des con
 
 - **EC-ENM-8 — Plusieurs grunts EnemySlot collisionnent** : capsules grunt occupent la même zone → Jolt physics push automatiquement. Comportement non-blocking mais visuel laid (grunts qui « glissent »). **Lint Level System obligatoire** : `validate_enemy_slot_min_distance` warn si distance entre 2 EnemySlot < `2 × r_enemy_min + buffer = 1.0 m`.
 
-- **EC-ENM-9 — Grunt en `DYING` reçoit Pause (`GameStateManager.state = PAUSED`)** : `tree.paused = true` (autorité GameStateManager — GSM GDD AC-PAUSE-1) propage à l'arbre scene → le tween Enemy est paused natif Godot (`Tween.set_pause_mode` default = `PAUSE_MODE_BOUND`). Au resume, tween continue depuis l'instant de pause. Wall-clock total = 150 ms hors temps de pause. ✅ Pas d'action Enemy spécifique.
+- **EC-ENM-9 — Grunt en `DYING` reçoit Pause (`GameStateManager.state = PAUSED`)** : `tree.paused = true` (autorité GameStateManager — GSM GDD AC-PAUSE-1) propage à l'arbre scene → le tween Enemy est pausé natif Godot via `Tween.set_pause_mode` default = `TWEEN_PAUSE_BOUND` (cf Rule 11.d). Au resume, tween continue depuis l'instant de pause. Wall-clock total = 150 ms hors temps de pause. ✅ Comportement assuré par la séparation API : `set_ignore_time_scale(true)` ignore slow-mo MAIS pas la pause tree (default `TWEEN_PAUSE_BOUND` actif).
 
 - **EC-ENM-10 — Grunt en `ALIVE` reçoit Pause** : `tree.paused = true` propage → `_physics_process` désactivé (déjà désactivé par Rule 10 d'ailleurs) ; LaserCone Area3D `monitoring` reste à true mais Godot suspend les body_entered events tant que paused. Au resume, si Player s'est téléporté pendant la pause (impossible UX MVP mais hypothétique), le body_entered correspondant à la nouvelle position fire au tick de resume.
 
@@ -297,7 +313,7 @@ Les formules ci-dessous appartiennent à d'autres GDDs mais **consomment des con
 
 | Système | Status | Direction | Interface critique |
 |---|---|---|---|
-| **Level System** (APPROVED r3) | ✅ Designed, ⚠️ partiellement Implemented | Amont | `LevelSystem.get_etage_enemy_slots() -> Array[Marker3D]` au signal `level_active`. Sans EnemySlot Marker3D, EnemySpawner n'a rien à instancier. Level R-2.6 garantit ARENA ≥3, COMBAT ≥3, FirstEnemySightline anchoring |
+| **Level System** (APPROVED r3) | ✅ Designed, ⚠️ partiellement Implemented | Amont | LevelSystem est la **factory directe** des grunts au MVP (OQ-ENM-2 résolu) : itère ses propres `EnemySlot_*` Marker3D au signal `level_active` et instancie `Grunt.tscn` à chaque slot. **Pas d'API publique exposée Enemy → Level** (pas d'`EnemySpawner` autoload séparé). Level R-2.6 garantit ARENA ≥3, COMBAT ≥3, FirstEnemySightline anchoring. Si Tier 2+ exige un EnemyManager dédié, l'API sera extraite alors |
 | **Player Combat System** (APPROVED r6) | ✅ Designed | Aval | Combat appelle `enemy.die()` + écoute `enemy_killed`. Sans Combat, les grunts sont invincibles ; le système Enemy reste fonctionnel pour le côté letal (laser → Player.die()) mais le gameplay loop est cassé |
 | **Player Movement System** (In Review r3) | ⚠️ GDD pending re-review | Aval | LaserCone Area3D appelle `Player.die()`. Sans Movement-owned `die()`, le grunt ne peut pas tuer le Player. Movement GDD figè le contract `die()` idempotent + tween fade rouge |
 | **Game State Manager** (APPROVED r1) | ✅ Designed | Amont | Enemy gèle quand `state != PLAYING` (via `tree.paused = true` propagation). Sans GSM, pas de pause/unpause clean |
@@ -324,10 +340,18 @@ Les formules ci-dessous appartiennent à d'autres GDDs mais **consomment des con
 |---|---|---|
 | Level System cite Enemy comme « Depended on by: Enemy » dans Level GDD §header | ✅ Présent (« Depended on by: Checkpoint, Hazard, **Enemy**, Secret, HUD, Tutorial, Audio, VFX » ligne 9 Level GDD) | ✅ Bidirectionnel |
 | Combat System cite Enemy comme « Consumed by: Enemy System (die() au hit) » dans Combat GDD §Quick reference | ✅ Présent (Combat GDD ligne 14) | ✅ Bidirectionnel |
-| Movement cite Enemy via « die() called by Enemy laser » | ⚠️ À vérifier dans Movement GDD r3 — pending re-review fresh | ⚠️ À confirmer |
-| Audio cite Enemy comme consumer de bus combat_kill via `enemy_killed` signal | ⚠️ Audio GDD parle de Combat-emitted `enemy_killed`, mais le signal est en fait Enemy-emitted (Rule 11 ici) — **conflit potentiel** | 🚨 **À résoudre cross-Combat/Enemy/Audio** |
+| Movement cite Enemy via « die() called by Enemy laser » | ⚠️ À vérifier dans Movement GDD r3 — pending re-review fresh | ⚠️ **Gate condition** : ENEMY APPROVED conditionnel à confirmation Movement r4 documente `Player.die()` comme appelé par Enemy LaserCone (cf review-r1 BLOCKING-4). Tracé header GDD ligne 6. Non-bloquant pour design r2 mais bloquant pour `/create-epics enemy-system` |
+| Audio cite Enemy comme consumer de bus combat_kill via `enemy_killed` signal | ✅ Audio GDD r2.1 est neutre sur la source du signal (parle de "écoute `enemy_killed`" sans nommer l'émetteur) — la résolution OQ-ENM-1 (Enemy émet) est transparente pour Audio | ✅ Bidirectionnel post-résolution OQ-ENM-1 (review-r1) |
 
-> **Cross-system note 🚨** : Combat GDD Rule 11 « Chaque kill traité émet `enemy_killed(enemy: Node, position: Vector3)` » suggère que Combat émet. Enemy GDD Rule 11 dit que **Enemy émet** depuis `die()`. Décision proposée pour résolution (à valider par /design-review fresh) : **Enemy est l'autorité d'émission** (le grunt sait quand il meurt mieux que Combat — il pourrait être tué par un Hazard Tier 2+ aussi). Combat GDD Rule 11 doit être amendé : « Combat **forwarde** `enemy_killed` reçu d'Enemy pour ses propres consumers internes, ou se contente d'écouter le signal Enemy ». À documenter dans le review log Combat r7 si /design-review confirme.
+> **Cross-system note 🚨 — RÉSOLU review-r1** : OQ-ENM-1 a été résolu lors de la `/design-review enemy-system` r1 (2026-04-27) — **Enemy est l'autorité d'émission de `enemy_killed`**. Justifications : (1) un Hazard Tier 2+ peut appeler `enemy.die()` sans passer par Combat — si Combat était l'émetteur, les kills Hazard seraient silencieux pour Credit/VFX/Audio (bug architectural garanti) ; (2) cohérence sémantique — l'ennemi sait quand il meurt, c'est son signal ; (3) idempotence déjà résolue côté Enemy (Rule 6) garantit un seul emit ; (4) slow-mo Combat Rule 13 reste cohérent — Combat **réagit** à `Enemy.enemy_killed` pour déclencher `Engine.time_scale = 0.3` (cause causale grunt meurt → Combat réagit, vs self-loop Combat émet → Combat réagit) ; (5) Audio GDD r2.1 est neutre sur la source — aucun changement requis Audio.
+>
+> **Amendement Combat r7 requis** (à exécuter dans une session Combat dédiée — **NE PAS modifier Combat GDD depuis Enemy**) :
+> - Combat GDD Rule 9 (multi-hit) : retirer "émet `enemy_killed`" → "Combat appelle `enemy.die()` — Enemy émet son propre signal `enemy_killed`"
+> - Combat GDD Interactions table Enemy row : "Combat appelle `enemy.die()` au hit. Enemy émet `enemy_killed` que Combat connecte pour déclencher slow-mo Rule 13."
+> - Combat GDD Published API : retirer signal `enemy_killed` de la liste des signaux émis par CombatSystem (Combat consume, n'émet pas)
+> - Combat GDD Interactions Credit Economy / VFX rows : "Credit Economy / VFX se connecte à `Enemy.enemy_killed` (pas `CombatSystem.enemy_killed`)"
+>
+> Ce statut "amendement Combat r7 pending" est un **prerequisite gate** avant `/create-epics enemy-system` Sprint A (cohérence cross-GDD requise pour implémentation).
 
 ## Tuning Knobs
 
@@ -342,7 +366,7 @@ Tous les knobs ci-dessous sont des **constantes GDScript** au MVP (`const X: flo
 | `LASER_WIDTH_M` | `0.50 m` | `[0.30, 1.00]` | Largeur cône laser hitbox | < 0.30 → side-step trivial, perd menace ; > 1.00 → couloir étroit devient impossible à dodge sans wall-run |
 | `LASER_HEIGHT_M` | `0.30 m` | `[0.20, 0.80]` | Hauteur cône laser | < 0.20 → flicker visuel, mauvaise lisibilité ; > 0.80 → impossible à passer dessous en sliding (Movement n'a pas slide MVP donc moot) ou par-dessus en jump |
 | `LASER_RANGE_M` | `6.0 m` | `[3.0, 12.0]` | Portée letal du laser | < 3.0 → grunt trop facile à éviter en arc large ; > 12.0 → couvre toute la salle, force wall-run obligatoire |
-| `DEATH_TWEEN_DURATION_MS` | `150 ms` | `[100, 300]` | Durée disparition mesh post-`die()` | < 100 → pop-out brutal, perd Pillar 1 staccato satisfaction ; > 300 → fade traîne, casse rythme |
+| `DEATH_TWEEN_DURATION_MS` | `150 ms` (default) ; `400 ms` si `reduce_motion = true` (Accessibility System Tier 3 — latent) | `[100, 300]` MVP ; `[300, 600]` reduce_motion | Durée disparition mesh post-`die()` | < 100 → pop-out brutal, perd Pillar 1 staccato satisfaction ; > 300 → fade traîne, casse rythme. **Variant reduce_motion=true** : 400 ms réduit la vitesse de scale-down pour photosensibilité / motion sensitivity. Tracé dans `entities.yaml:69` mais **dépendance conditionnelle à Accessibility System (Not Started, Tier 3)** — la valeur 400 ms est figée ici comme contrat futur, pas activable au MVP (pas d'API `reduce_motion`) |
 | `EPSILON` | `0.01` | `(0, 0.05]` | Scale final mesh « invisible » | `0` → artefacts numériques shaders Godot 4.6 ; > 0.05 → mesh visible à distance < 1 m |
 
 ### Per-EnemySlot metadata (level-time authoring)
@@ -454,6 +478,10 @@ Types (per CLAUDE.md test evidence) : **Logic** = unit test BLOCKING ; **Integra
 
 - **AC-ENM-07 [Logic]** : GIVEN un Grunt MVP, WHEN inspect le node tree, THEN `_physics_process` est désactivé (`is_physics_processing() == false`) ET `velocity == Vector3.ZERO` (Rule 10).
 
+- **AC-ENM-07b [Logic]** : `is_dead()` getter contract (review-r1 missing AC). GIVEN `enemy.is_dead()` appelé sur 3 grunts dans 3 states distincts, WHEN inspect retours, THEN `enemy_alive.is_dead() == false`, `enemy_dying.is_dead() == true`, `enemy_dead.is_dead() == true`. Justification : Checkpoint System consume `is_dead()` pour son snapshot — comportement DYING+DEAD = "dead" garantit qu'un kill mid-tween est bien capturé au snapshot.
+
+- **AC-ENM-07c [Logic]** : Spawn orientation orthonormalization (review-r1 missing AC, EC-ENM-6). GIVEN un `EnemySlot_01` créé avec `basis = Basis.IDENTITY.scaled(Vector3(2, 1, 1))` (non-uniform scale), WHEN spawn, THEN `Grunt.%FacingPivot.global_basis.is_equal_approx(EnemySlot.global_basis.orthonormalized())` ET `FacingPivot.global_basis.is_normalized() == true` (cône non-déformé visuellement).
+
 ### Spawn et orientation
 
 - **AC-ENM-08 [Integration]** : GIVEN un étage chargé avec `EnemySlot_01..03` (3 Marker3D) à des positions distinctes, WHEN signal `LevelSystem.level_active` est émis, THEN exactement 3 instances de `Grunt.tscn` sont ajoutées au scene tree, leurs `global_position` matchent les `EnemySlot.global_position` (epsilon 0.001 m).
@@ -483,6 +511,8 @@ Types (per CLAUDE.md test evidence) : **Logic** = unit test BLOCKING ; **Integra
 - **AC-ENM-17 [Integration]** : GIVEN un Grunt en `state == ALIVE` et un Player qui respawn depuis checkpoint dont snapshot inclut `enemy_id → was_dead = false`, WHEN respawn, THEN `_restore_from_snapshot(false)` est appelé, `_state == ALIVE` post-restore.
 
 - **AC-ENM-18 [Integration]** : GIVEN un Grunt en `state == DYING` (tween en cours), WHEN `_restore_from_snapshot(false)` est appelé, THEN le tween est `kill()` ET `_state == ALIVE`, `MeshInstance3D.scale == Vector3.ONE`, `LaserCone.monitoring == true` (EC-ENM-13).
+
+- **AC-ENM-18b [Integration]** : `_restore_from_snapshot(true)` sur DYING (review-r1 missing AC, EC-ENM-13 second variant). GIVEN un Grunt en `state == DYING` (tween 50 ms écoulés), WHEN `_restore_from_snapshot(true)` est appelé, THEN le tween est `kill()` ET `_state == DEAD` direct (skip DYING→DEAD natural transition), `MeshInstance3D.scale.is_equal_approx(Vector3(EPSILON, EPSILON, EPSILON))` (epsilon 0.001), `LaserCone.monitoring == false`, **aucun signal `enemy_killed`** ré-émis (le kill original a déjà été crédité au moment de la mort, le restore ne re-crédite pas).
 
 ### Pause / state transitions
 
@@ -516,8 +546,8 @@ Types (per CLAUDE.md test evidence) : **Logic** = unit test BLOCKING ; **Integra
 
 | OQ | Question | Owner | Target resolution |
 |---|---|---|---|
-| **OQ-ENM-1** | Combat GDD Rule 11 stipule « Combat émet `enemy_killed` » mais Enemy GDD Rule 11 (ici) dit Enemy émet. **Cross-GDD conflict potentiel** sur l'autorité du signal. Résolution proposée : **Enemy émet** (le grunt sait quand il meurt mieux que Combat ; cohérent avec source Hazard Tier 2+). Combat doit amender Rule 11 pour « écoute le signal Enemy » | game-designer + Combat GDD owner | Sprint A — `/design-review enemy-system` doit forcer la cohérence cross-GDD ; amendement Combat r7 si nécessaire |
-| **OQ-ENM-2** | Pattern d'instantiation des grunts : autoload `EnemySpawner` global vs Service Locator vs Service ad-hoc per-LevelSystem ? **Recommandation** : Service ad-hoc — `LevelSystem` instancie ses grunts directement au signal `level_active` (cohérent avec autorité Level System sur les EnemySlot Marker3D). Pas d'autoload séparé MVP | technical-director / godot-specialist | Sprint A ou Sprint B — décider avant `/dev-story enemy-system-001` |
+| **OQ-ENM-1** ✅ RESOLVED review-r1 | Combat GDD Rule 11 stipule « Combat émet `enemy_killed` » mais Enemy GDD Rule 11 (ici) dit Enemy émet. **Cross-GDD conflict** sur l'autorité du signal. **Résolution** : **Enemy est l'autorité d'émission** (5 justifications, voir §Dependencies cross-system note). Amendement Combat GDD r7 requis (à exécuter dans une session Combat dédiée) — **prerequisite gate avant `/create-epics enemy-system`** | game-designer + Combat GDD owner | RÉSOLU 2026-04-27 review-r1. Amendement Combat r7 pending |
+| **OQ-ENM-2** ✅ RESOLVED review-r1 | Pattern d'instantiation des grunts : autoload `EnemySpawner` global vs Service Locator vs Service ad-hoc per-LevelSystem ? **Résolution** : **LevelSystem est la factory directe** — itère ses propres `EnemySlot_*` au signal `level_active` et instancie `Grunt.tscn`. Pas d'autoload `EnemySpawner` séparé au MVP. API publique `LevelSystem.get_etage_enemy_slots()` retirée de la Interactions table (obsolète). Si Tier 2+ exige un EnemyManager dédié, l'API sera extraite alors | technical-director / godot-specialist | RÉSOLU 2026-04-27 review-r1 |
 | **OQ-ENM-3** | LaserCone : `BoxShape3D` (MVP simple, lecture rectangle) vs `CylinderShape3D` (cône évasé plus correct géométriquement) ? **Recommandation MVP** : `BoxShape3D` — la précision géométrique du cône importe moins que la lisibilité visuelle, et le rectangle 0.5 × 0.3 × 6 m est plus prévisible côté side-step joueur | art-director + game-designer | Sprint A — playtest peut valider que le rectangle « se lit » comme un cône |
 | **OQ-ENM-4** | Credit value per kill au MVP : `CREDIT_VALUE["grunt"] = 1` ? Ou plus ? **Recommandation** : 1 crédit MVP — Credit Economy GDD futur tranchera (3 upgrades ≈ 3-9 crédits totaux par etage = 1 crédit par kill = 9 kills à faire = 1 etage de 8-10 salles, économie cohérente) | economy-designer | Sprint A — bloque finalisation Credit Economy GDD |
 | **OQ-ENM-5** | Death sound MVP : un seul `clac` partagé tous archetype, ou un sample dédié grunt ? **Recommandation** : un sample « combat_kill_clac.wav » universel partagé tous archétypes Tier 2+ (cohérence rythme staccato Pillar 1) — Audio GDD r2.1 confirme qu'un seul bus `combat_kill` est utilisé. Pitch-shift (Audio Rule 13 r2.1 +2/+4 semitones multi-kill) suffit pour différenciation | audio-director + sound-designer | Sprint A — vérifier dans Audio GDD si déjà figé |
