@@ -1,11 +1,11 @@
 # Credit Economy System
 
-> **Status**: In Design (r2 — cosmetic amendment 2026-04-27 : OQ-CRD-1/OQ-CRD-2 RESOLVED, B-3 tween ownership delegation, dependency status refresh post Shop/HUD/Secret r1)
-> **Author**: economy-designer + creative-director + game-designer + qa-lead + Martin
-> **Last Updated**: 2026-04-27 (r2 cosmetic amendment after fresh /design-review)
+> **Status**: In Design (r2 — full revision 2026-04-27 : 7 ship-blockers résolus B-1..B-7 ; pre-impl + polish déférés batch séparé)
+> **Author**: economy-designer + creative-director + game-designer + qa-lead + systems-designer + Martin
+> **Last Updated**: 2026-04-27 (r2 full revision after fresh /design-review)
 > **Last Verified**: 2026-04-27
 > **Implements Pillar**: Pillar 2 (LA PROGRESSION SE VOIT) primaire ; Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou (le crédit ne doit jamais interrompre)
-> **Review history** : `design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md` — NEEDS REVISION (7 ship-blocking + 10 pre-impl + 9 polish pending separate r2 design session ; this r2 amendment addresses B-3 + OQ promotions only)
+> **Review history** : `design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md` — NEEDS REVISION → r2 résout les 7 ship-blockers (B-1 Rule 7 batching default true, B-2 BASE_UPGRADE_COST 20→8 anti soft-lock, B-3 tween ownership délégué HUD, B-4 sanity check cumulatif Tier 2+, B-5 6 ACs reclassés Lints/Static, B-6 Rule 6 checkpoint purge clarifié, B-7 race boot Rule 5 + Rule 11 explicités). 10 pre-impl + 9 polish reportés séparément.
 
 ## Summary
 
@@ -43,11 +43,11 @@ Ce que le système ne fait **jamais** : pas de drop chance, pas de rareté, pas 
 
 4. **Sink unique** — Les crédits ne peuvent être dépensés que via `CreditEconomy.try_spend(amount: int) -> bool`. Il n'existe pas d'autre mécanisme de perte (pas de taxe, pas de decay, pas de coût caché au respawn). L'API `try_spend` est atomique : si `total_credits >= amount`, déduit et retourne `true` ; sinon, ne modifie rien et retourne `false`. Aucune exception, aucune transaction intermédiaire, aucun « panier ». Choix de l'API `try_spend` plutôt que `spend + can_afford` séparés : un appel atomique élimine la fenêtre de race condition entre le check et la dépense — le Shop System ne peut pas vérifier, puis être interrompu, puis dépenser un montant désormais invalide. **Edge cases atomiques** : `try_spend(0)` retourne `true` et n'émet pas de signal (no-op explicite, voir AC-CRD-05) ; `try_spend(amount < 0)` retourne `false` et `push_warning` (paramètre invalide, AC-CRD-06).
 
-5. **Connexion event-driven aux ennemis** — Credit Economy est un autoload. Au chargement d'un étage, Credit Economy souscrit au signal `enemy_killed` de chaque grunt via `get_tree().get_nodes_in_group("enemies")`. Ce pattern de connexion (`autoload` + groupe Godot) est préféré à un signal bus centralisé car il conserve la traçabilité directe par instance et évite d'introduire un intermédiaire avant que le bus ne soit designé. Le Level System émet `level_active` (Level GDD R-2) au moment où les ennemis sont prêts — Credit Economy se connecte dans le handler de `level_active`, pas dans `_ready()`.
+5. **Connexion event-driven aux ennemis** — Credit Economy est un autoload. Au chargement d'un étage, Credit Economy souscrit au signal `enemy_killed` de chaque grunt via `get_tree().get_nodes_in_group("enemies")`. Ce pattern de connexion (`autoload` + groupe Godot) est préféré à un signal bus centralisé car il conserve la traçabilité directe par instance et évite d'introduire un intermédiaire avant que le bus ne soit designé. Le Level System émet `level_active` (Level GDD R-2) au moment où les ennemis sont prêts — Credit Economy se connecte dans le handler de `level_active`, pas dans `_ready()`. **[r2 B-7] Découplage strict connexion ↔ signaux** : la connexion `enemy_killed.connect(...)` se fait à `level_active` **indépendamment** de l'état `_is_hydrated`. Le guard `_is_hydrated` (Rule 11) rejette les *signaux reçus* avant hydratation, **pas les *connexions établies***. Cela garantit qu'aucun ennemi n'est sans signal connecté, même si `level_active` arrive avant `state_changed(PLAYING)` (race boot Level → GSM possible — voir EC-CRD-11 + AC-CRD-51). Contrainte MVP late spawns : tous les ennemis sont présents dans le groupe `"enemies"` au `level_active` (assert debug ; Tier 2+ gérera spawns dynamiques via EventBus — voir OQ-CRD-7).
 
-6. **Idempotence de kill** — Si le signal `enemy_killed` était réémis par bug pour le même ennemi (exemple : double-appel de `die()` contourné), Credit Economy filtre via un `Dictionary[int, bool] _credited_this_run` indexé par `enemy.get_instance_id()`. Si l'ID est déjà présent, le signal est ignoré. Ce dictionnaire est vidé au `request_new_run()` (GSM ADR-0007) ou au `level_active` suivant. Rappel : Enemy GDD Rule 6 garantit l'idempotence côté `die()` — ce filtre est une garde défensive côté Credit, pas une dépendance au comportement Enemy.
+6. **Idempotence de kill** — Si le signal `enemy_killed` était réémis par bug pour le même ennemi (exemple : double-appel de `die()` contourné), Credit Economy filtre via un `Dictionary[int, bool] _credited_this_run` indexé par `enemy.get_instance_id()`. Si l'ID est déjà présent, le signal est ignoré. Ce dictionnaire est vidé au `request_new_run()` (GSM ADR-0007) ou au `level_active` suivant. Rappel : Enemy GDD Rule 6 garantit l'idempotence côté `die()` — ce filtre est une garde défensive côté Credit, pas une dépendance au comportement Enemy. **[r2 B-6] Comportement sur checkpoint intra-étage** : `_credited_this_run` n'est **PAS** purgé sur activation d'un checkpoint (Tier 2+ Checkpoint System). Le pattern Level retenu côté Enemy est **state-restore via `_restore_from_snapshot`** (Enemy GDD EC-ENM-11), **pas** réinstanciation : Enemy ne ré-émet pas `enemy_killed` au restore, donc Credit ne reçoit aucun signal de double-crédit potentiel. Les `instance_id` des ennemis morts pré-checkpoint restent dans le set, garantissant que si Combat re-tuait un ennemi déjà comptabilisé (impossible en pratique mais défensif), le crédit serait rejeté. Couvert par AC-CRD-50.
 
-7. **Multi-kill simultané : 3 emits séquentiels** — `MAX_KILLS_PER_SWING = 3` (registry constant, source Combat GDD) peut générer jusqu'à 3 signaux `enemy_killed` dans le même `_physics_process` tick. Credit Economy traite chaque signal séquentiellement dans l'ordre de réception et émet 3 signaux `credits_changed` séquentiels dans le même tick. Décision retenue contre le batching en un seul emit : le batching complexifie le HUD (qui devrait séparer l'affichage de 1 vs 3 kills) et masque la granularité au analytics futur. Le HUD peut animer 3 incréments distincts (+1, +1, +1) ou les regrouper visuellement en aval — c'est une décision de présentation HUD, pas de Credit Economy.
+7. **Multi-kill simultané : 1 emit batched par défaut MVP** — `MAX_KILLS_PER_SWING = 3` (registry constant, source Combat GDD) peut générer jusqu'à 3 signaux `enemy_killed` dans le même `_physics_process` tick. Credit Economy incrémente `total_credits` séquentiellement à chaque signal reçu (3 incréments séparés) **mais émet un unique signal batché** `credits_changed(N+3, +3, KILL)` à la fin du traitement du tick par défaut MVP. **[r2 B-1] Adjudication creative-director** : `BATCH_MULTI_KILL_EMIT = true` MVP par défaut, pillar-driven non-négociable. Justification Pillar 1 FLOW : 3 emits séquentiels en 16.6 ms = imperceptible visuellement et sature le HUD pulse cyan (un seul pulse vu, 2 perdus en feedback). 1 emit batché préserve la lisibilité du compteur (`+3` lu d'un coup) et respecte FLOW. Granularité 3 emits séquentiels (analytics future, perception alternative) est déférée Tier 2+ via knob `BATCH_MULTI_KILL_EMIT = false` activable post-playtest. Rationale technique batching : Credit accumule les deltas dans un buffer interne pendant le tick (counter local `_pending_kill_delta`), incrémente `total_credits` à chaque kill séquentiellement (cohérence comptable), et flush 1 seul signal SYNC en fin de chaîne handler. Ordre stable : si 3 kills arrivent ordre A, B, C, le set `_credited_this_run` capture A, B, C séquentiellement, le compteur passe par N→N+1→N+2→N+3 en interne, et le signal final reflète l'état final (`total = N+3`, `delta = +3`).
 
 8. **Émission synchrone du signal `credits_changed`** — Le signal `credits_changed(total: int, delta: int, source: SourceKind)` est émis SYNC (non CONNECT_DEFERRED) immédiatement après la mise à jour de `total_credits`. Justification : le HUD doit voir le compteur monter dans le même `_physics_process` que le kill pour respecter Pillar 1 (zéro overhead perçu — le nombre change au moment où l'ennemi meurt, pas une frame plus tard). L'émission SYNC depuis un autoload connecté à un signal Enemy est safe — aucun risque de mutation de scène pendant le callback car Credit Economy ne modifie que son propre état interne. **Cas particulier `try_spend` réussi** : émission `credits_changed(new_total, -amount, SPEND_SHOP)` SYNC dans le même call stack que l'appel `try_spend`. **Cas particulier BOOT_HYDRATE** : `delta == 0`, `source == BOOT_HYDRATE`, émis 1 fois après lecture Save/Load.
 
@@ -55,7 +55,7 @@ Ce que le système ne fait **jamais** : pas de drop chance, pas de rareté, pas 
 
 10. **Comportement en pause** — Pendant `state_changed(PAUSED)` (GSM ADR-0007), Credit Economy ignore tout signal `enemy_killed` reçu. En pratique, Enemy System gèle son LaserCone et Combat System ne swing pas pendant la pause (Enemy GDD Rule : GSM state == PLAYING requis) — ce cas ne devrait pas se produire. Le contrat est documenté ici par défense : si un signal parvenait pendant PAUSED, le handler vérifie `GameStateManager.get_current_state() == State.PLAYING` avant de créditer.
 
-11. **Boot hydration** — À la réception de `state_changed(PLAYING)` au démarrage, Credit Economy charge `total_credits` depuis Save/Load System (`SaveLoad.load_int("total_credits", 0)`). Immédiatement après, elle émet un signal `credits_changed(total_credits, 0, SourceKind.BOOT_HYDRATE)` pour que le HUD initialise son affichage sans attendre un premier gain. Si Save/Load retourne une valeur absente (première session) ou corrompue, `total_credits` est initialisé à `0` sans crash (AC-CRD-25).
+11. **Boot hydration** — À la **première** réception de `state_changed(PLAYING)` (guard `_is_hydrated == false`), Credit Economy charge `total_credits` depuis Save/Load System (`SaveLoad.load_int("total_credits", 0)`), set `_is_hydrated = true`, puis émet un signal `credits_changed(total_credits, 0, SourceKind.BOOT_HYDRATE)` pour que le HUD initialise son affichage sans attendre un premier gain. Les transitions PLAYING **suivantes** (depuis PAUSED, MENU, RESPAWNING) **ne déclenchent pas** une nouvelle hydratation — `_on_state_changed(PLAYING)` est no-op si `_is_hydrated == true`. Si Save/Load retourne une valeur absente (première session) ou corrompue, `total_credits` est initialisé à `0` sans crash, `_is_hydrated = true` quand même (AC-CRD-25). **[r2 B-7] Découplage hydration ↔ connexion ennemis** : le guard `_is_hydrated` rejette les *signaux `enemy_killed` reçus* avant hydratation (EC-CRD-11), il ne contrôle pas l'établissement des connexions (Rule 5). Pendant la fenêtre `level_active` reçu mais `_is_hydrated == false`, Credit est **connecté** à tous les ennemis mais **rejette silencieusement** tout `enemy_killed` reçu — comportement attendu (le joueur ne peut physiquement pas tuer avant `state_changed(PLAYING)` car Combat gèle hors PLAYING). Couvert par AC-CRD-51.
 
 12. **Persistance en quit-to-menu** — À `state_changed(MENU)`, Credit Economy écrit `total_credits` dans Save/Load (`SaveLoad.save_int("total_credits", total_credits)`). Les crédits survivent au quit-to-menu et à tout retour en MENU. Il n'y a pas de « reset de run » en Credit Economy : la persistance est la règle, la perte est l'exception réservée à `try_spend`.
 
@@ -112,7 +112,7 @@ credits = kill_credit[archetype]
 
 **Output range** : MVP = `[1, 1]` (grunt unique). Tier 2+ = `[1, 10]`.
 
-**Exemple worked (MVP)** : 3 grunts tués en un swing (`MAX_KILLS_PER_SWING = 3`) → 3 signaux `enemy_killed` → 3 × 1 cr = **+3 crédits**, `credits_changed` émis 3 fois séquentiellement le même tick.
+**Exemple worked (MVP)** : 3 grunts tués en un swing (`MAX_KILLS_PER_SWING = 3`) → 3 signaux `enemy_killed` → 3 × 1 cr = **+3 crédits**, `credits_changed(N+3, +3, KILL)` émis **1 fois batched** en fin de tick (Rule 7, knob `BATCH_MULTI_KILL_EMIT = true` MVP par défaut).
 
 **Cross-ref** : `MAX_KILLS_PER_SWING = 3` est une constante registry (source Combat GDD, referenced_by Enemy GDD, Audio GDD). Credit Economy la consomme implicitement : un swing peut générer au maximum 3 × `kill_credit["grunt"]` = 3 crédits par tick. Quand Tier 2+ intégrera de nouveaux archétypes, `kill_credit` sera étendu dans `credit_config.tres` sans modifier la formule.
 
@@ -160,34 +160,34 @@ cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × n
 
 | Variable | Symbol | Type | Valeur | Description |
 |----------|--------|------|--------|-------------|
-| `BASE_UPGRADE_COST` | B | int | 20 | Coût de l'upgrade à n=0 (la moins chère). Tuning Knob. |
+| `BASE_UPGRADE_COST` | B | int | **8** *(r2 B-2 : 20 → 8)* | Coût de l'upgrade à n=0 (la moins chère). Tuning Knob. **r2** : abaissé pour qu'un combat-only étage 1 (8 kills × 1 cr = 8 cr) atteigne l'upgrade n=0 sans soft-lock Pillar 2. |
 | `TIER_COST_STEP` | S | int | 20 | Incrément linéaire entre deux upgrades consécutives. Tuning Knob. |
 | `n` | n | int ∈ [0, N_UPGRADES - 1] | — | Index 0-based de l'upgrade par ordre croissant de prix. |
 | `cost_n` | c | int | — | Coût en crédits de l'upgrade d'index n. |
 
-**Output range** : MVP = `[20, 40]` (2 upgrades). Full Vision = `[20, 160]` (8 upgrades).
+**Output range** : MVP = `[8, 28]` (2 upgrades). Full Vision = `[8, 148]` (8 upgrades).
 
-**Table MVP (2 upgrades, 0-based)** :
+**Table MVP (2 upgrades, 0-based) — r2 B-2** :
 
 | n | Upgrade | Coût | Justification |
 |---|---------|------|---------------|
-| 0 | Double jump | 20 cr | Atteignable en 1 session sans secrets (8 grunts × 1 + mix minimal). Pillar 2 : la progression se voit dès la première session. |
-| 1 | Dash horizontal | 40 cr | Nécessite secrets ou cumul cross-session — incite à explorer avant d'acheter. |
+| 0 | Double jump | **8 cr** | **Atteignable en 1 session combat-only étage 1** (8 grunts × 1 cr = 8 cr). Pillar 2 : la progression se voit dès la première session, **même sans exploration**. Anti soft-lock B-2. |
+| 1 | Dash horizontal | **28 cr** | Nécessite secrets ou cumul cross-session (étage 1 explorateur 33 cr, ou étage 1 combat 8 cr + étage 2 combat 12 cr + 1 secret = 28-30 cr) — incite à explorer **sans punir** combat-only. |
 
-**Table Full Vision indicative (5-8 upgrades, 0-based)** :
+**Table Full Vision indicative (5-8 upgrades, 0-based) — r2 B-2** :
 
 | n | Coût indicatif |
 |---|---------------|
-| 0 | 20 cr |
-| 1 | 40 cr |
-| 2 | 60 cr |
-| 3 | 80 cr |
-| 4 | 100 cr |
-| 5 | 120 cr |
-| 6 | 140 cr |
-| 7 | 160 cr |
+| 0 | 8 cr |
+| 1 | 28 cr |
+| 2 | 48 cr |
+| 3 | 68 cr |
+| 4 | 88 cr |
+| 5 | 108 cr |
+| 6 | 128 cr |
+| 7 | 148 cr |
 
-**Justification courbe linéaire vs exponentielle** : une courbe exponentielle (coût × 2 par rang) produirait un « wall final » (upgrade n=8 à 2 560 cr si base=20 × 2^7) qui transforme les dernières upgrades en grind de dizaines de sessions — contradiction directe avec Pillar 1 FLOW et l'anti-pillar « pas de grinding ». La courbe linéaire garantit que l'upgrade la plus chère (n=8 à 160 cr) reste atteignable en 3-4 sessions riches en secrets, et que chaque session offre un progrès perceptible. La progression « se voit » (Pillar 2) à chaque session, pas seulement en fin de game.
+**Justification courbe linéaire vs exponentielle** : une courbe exponentielle (coût × 2 par rang) produirait un « wall final » (upgrade n=8 à 2 048 cr si base=8 × 2^7) qui transforme les dernières upgrades en grind de dizaines de sessions — contradiction directe avec Pillar 1 FLOW et l'anti-pillar « pas de grinding ». La courbe linéaire **avec base abaissée à 8 cr** garantit (a) que la première upgrade est atteignable en 1 session combat-only (anti soft-lock Pillar 2 B-2), (b) que l'upgrade la plus chère (n=7 à 148 cr) reste atteignable en 3-4 sessions riches en secrets, (c) que chaque session offre un progrès perceptible. La progression « se voit » (Pillar 2) à chaque session, pas seulement en fin de game.
 
 ---
 
@@ -212,42 +212,49 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 
 **Output range visé** : `[8, 100]` cr par session MVP (étage 1+2 cumul).
 
-**Worked example — Étage 1 (session minimale, combat-only)** :
+**Worked example — Étage 1 (session minimale, combat-only) — r2 B-2** :
 
 - 8 grunts × 1 cr = 8 cr kills
 - 0 secret collecté = 0 cr secrets
 - `session_yield = 8 cr`
-- Upgrade n=1 (20 cr) : non atteignable en 1 seul étage combat-only → **incitation à trouver des secrets ou rejouer**
+- Upgrade n=0 (**8 cr**) : **atteignable** dès la première session combat-only — Pillar 2 satisfait sans punir le playstyle combat-focused. Solde résiduel 0 cr (joueur achète puis recommence).
 
 **Worked example — Étage 1 (session normale, 3 secrets mix)** :
 
 - 8 grunts × 1 cr = 8 cr kills
 - 3 secrets : T1 (5 cr) + T2 (10 cr) + T2 (10 cr) = 25 cr secrets
 - `session_yield = 33 cr`
-- Upgrade n=1 (20 cr) : **atteignable** avec 13 cr en réserve
+- Upgrade n=0 (8 cr) + n=1 (28 cr) = 36 cr : n=0 + n=1 **non atteignable simultanément**, mais n=1 seul **atteignable** avec 5 cr en réserve. Joueur typique : achète n=0 à 8 cr → solde 25 cr → return étage 2.
 
 **Worked example — Étage 2 (session normale, 4 secrets mix)** :
 
 - 12 grunts × 1 cr = 12 cr kills
 - 4 secrets : T1 (5 cr) + T2 (10 cr) + T2 (10 cr) + T3 (15 cr) = 40 cr secrets
 - `session_yield = 52 cr`
-- Upgrade n=2 (40 cr) : **atteignable** avec 12 cr en réserve
+- Upgrade n=1 (28 cr) : **atteignable** avec 24 cr en réserve.
 
-**Worked example — Run complète MVP (étage 1 + étage 2, crédits accumulés)** :
+**Worked example — Run complète MVP (étage 1 + étage 2, crédits accumulés) — r2 B-2** :
 
-- Étage 1 : 33 cr → achat upgrade n=1 (20 cr) → solde 13 cr
-- Étage 2 : 52 cr gagnés → solde 13 + 52 = 65 cr → achat upgrade n=2 (40 cr) → solde 25 cr
-- **2 upgrades achetées en 1 run de 2 étages** : promesse « 1-2 upgrades par session » tenue.
+- Étage 1 : 33 cr → achat upgrade n=0 (8 cr) → solde 25 cr
+- Étage 2 : 52 cr gagnés → solde 25 + 52 = 77 cr → achat upgrade n=1 (28 cr) → solde 49 cr
+- **2 upgrades achetées en 1 run de 2 étages** : promesse « 1-2 upgrades par session » tenue, **avec marge confortable** (49 cr résiduels Tier 2+).
 
-**Validation de la promesse économique** :
+**Validation de la promesse économique — r2 B-2** :
 
 | Profil joueur | Session typique | Crédits gagnés | Upgrades achetées |
 |---------------|----------------|---------------|------------------|
-| Combat-only (ignore secrets) | Étage 1 : 8 kills | 8 cr | 0 — doit revenir ou explorer |
-| Explorateur (3 secrets T1+T2+T2) | Étage 1 | 33 cr | 1 (n=1 à 20 cr) |
-| Explorateur avancé (tous secrets) | Étage 1+2 | 85 cr | 2 (n=1 + n=2 = 60 cr) |
+| Combat-only (ignore secrets) | Étage 1 : 8 kills | 8 cr | **1 (n=0 à 8 cr)** — Pillar 2 satisfait dès session 1 (anti soft-lock B-2) |
+| Explorateur (3 secrets T1+T2+T2) | Étage 1 | 33 cr | 1 (n=0 à 8 cr) + reste 25 cr → n=1 sur 2 sessions |
+| Explorateur avancé (tous secrets) | Étage 1+2 | 85 cr | 2 (n=0 + n=1 = 36 cr) + reste 49 cr |
 
-**Sanity check anti-inflation** : un run complet MVP (2 étages, tous secrets trouvés) génère au maximum ≈ 85-100 cr. Avec 2 upgrades MVP coûtant 20 + 40 = 60 cr, le solde résiduel maximum est ≈ 40 cr. Ce surplus n'est pas récupérable au MVP (pas d'upgrade n=3 disponible) et s'accumule pour Tier 2+ — ce comportement est intentionnel : les crédits épargnés créent une récompense psychologique anticipatoire (« je serai prêt pour la prochaine upgrade dès qu'elle sera disponible »). Aucun risque d'inflation dégénérative au MVP car le seul sink (Shop) est borné par `N_UPGRADES = 2`.
+**Sanity check anti-inflation** : un run complet MVP (2 étages, tous secrets trouvés) génère au maximum ≈ 85-100 cr. Avec 2 upgrades MVP coûtant 8 + 28 = 36 cr, le solde résiduel maximum est ≈ 64 cr. Ce surplus n'est pas récupérable au MVP (pas d'upgrade n=2 disponible) et s'accumule pour Tier 2+ — ce comportement est intentionnel : les crédits épargnés créent une récompense psychologique anticipatoire (« je serai prêt pour la prochaine upgrade dès qu'elle sera disponible »). Aucun risque d'inflation dégénérative au MVP car le seul sink (Shop) est borné par `N_UPGRADES = 2`.
+
+**[r2 B-4] Sanity check cumulatif Tier 2+ (N=8)** : pour valider que la dernière upgrade est atteignable avant fatigue Pillar 2 (« la progression se voit » doit aboutir avant lassitude), vérifier `Σ cost_n ≤ session_yield × N_SESSIONS_TARGET` où `N_SESSIONS_TARGET = 8-10`. Avec MVP r2 B-2 valeurs (BASE=8, STEP=20, N=8 Full Vision) :
+
+- `Σ cost_n = Σ (8 + 20 × i)` pour i ∈ [0, 7] = 8 × 8 + 20 × (0+1+2+3+4+5+6+7) = **64 + 560 = 624 cr** total cumul Full Vision.
+- `session_yield_max ≈ 85 cr` (étage 1+2 secrets + combat normal).
+- `624 / 85 ≈ 7.3 sessions` pour tout débloquer en exploration max.
+- Borne cible : `7.3 ≤ N_SESSIONS_TARGET ∈ [8, 10]` ✅ **PASS**. Si tuner abaisse `BASE_SECRET_CREDIT` ou augmente `TIER_COST_STEP` au-delà de cible, recalculer ce ratio (warning systems-designer si > 10 sessions).
 
 ---
 
@@ -270,11 +277,11 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 
 - **EC-CRD-4 — `try_spend(amount == total_credits)`** : retourne `true`, `total_credits = 0`, signal `credits_changed(0, -amount, SPEND_SHOP)` émis. Le compteur peut atteindre 0 sans crash (pas de borne `> 0` imposée).
 
-- **EC-CRD-5 — Multi-kill 3 séquentiels** : 3 emits `enemy_killed` reçus dans le même `_physics_process` tick → 3 incréments `total_credits` séquentiels + 3 emits `credits_changed` séquentiels (`total = N+1`, `N+2`, `N+3`). Voir Rule 7 pour rationale (granularité préservée pour HUD/analytics).
+- **EC-CRD-5 — Multi-kill batched 1 emit (r2 B-1)** : 3 emits `enemy_killed` reçus dans le même `_physics_process` tick → 3 incréments `total_credits` séquentiels (état comptable cohérent N→N+1→N+2→N+3) + **1 seul emit batché `credits_changed(N+3, +3, KILL)`** en fin de chaîne handler par défaut MVP. Voir Rule 7 pour rationale (Pillar 1 FLOW : pulse HUD lisible, pas de saturation visuelle). Knob `BATCH_MULTI_KILL_EMIT = false` (Tier 2+) restaure le comportement 3 emits séquentiels (`N+1`, `N+2`, `N+3`) si analytics granulaire requise post-playtest.
 
 - **EC-CRD-6 — `enemy_killed` ré-émis pour le même `instance_id`** : Credit Economy détecte la collision dans `_credited_this_run`, ignore le 2ème emit, aucun crédit ajouté, aucun warning console (silent guard). Rappel : Enemy GDD Rule 6 garantit l'idempotence côté `die()` — ce filtre est défensif. AC-CRD-09 le verrouille.
 
-- **EC-CRD-7 — `_restore_from_snapshot(was_dead=true)` côté Enemy** : Enemy ne re-émet PAS `enemy_killed` pendant le restore (Enemy EC-ENM-11). Credit ne reçoit donc rien et ne re-crédite pas. Le crédit a été comptabilisé au kill original ; le restore ne peut pas créer de double-crédit. AC-CRD-22 verrouille.
+- **EC-CRD-7 — `_restore_from_snapshot(was_dead=true)` côté Enemy (r2 B-6)** : Enemy ne re-émet PAS `enemy_killed` pendant le restore (Enemy EC-ENM-11). Credit ne reçoit donc rien et ne re-crédite pas. Le crédit a été comptabilisé au kill original ; le restore ne peut pas créer de double-crédit. **`_credited_this_run` n'est PAS purgé sur checkpoint intra-étage** — Rule 6 r2 garantit que les `instance_id` morts pré-checkpoint restent enregistrés (garde défensive supplémentaire si Combat re-tuait). AC-CRD-22 + AC-CRD-50 verrouillent.
 
 - **EC-CRD-8 — Save absent / corrompu au boot** : `SaveLoad.load_int("total_credits", 0)` retourne `0` (default) si la clé est absente ou si la valeur n'est pas castable en `int`. Credit hydrate `total_credits = 0`, émet `credits_changed(0, 0, BOOT_HYDRATE)`. Pas de crash, pas de prompt utilisateur — comportement silencieux pour première session ou save corrompu. AC-CRD-25.
 
@@ -282,7 +289,7 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 
 - **EC-CRD-10 — Signal `enemy_killed` reçu pendant `state_changed(PAUSED)`** : guard sur `GameStateManager.get_current_state() == State.PLAYING` rejette le signal. En pratique impossible (Enemy gèle son LaserCone, Combat ne swing pas pendant pause), mais documenté défensivement (Rule 10).
 
-- **EC-CRD-11 — Signal `enemy_killed` reçu avant `state_changed(PLAYING)` (boot pré-hydration)** : guard sur `_is_hydrated == false` rejette le signal silencieusement. Aucun crédit attribué avant que Save/Load ait été lu. Cas attendu : le Level System charge avant que GSM passe à PLAYING (race au boot).
+- **EC-CRD-11 — Signal `enemy_killed` reçu avant `state_changed(PLAYING)` (boot pré-hydration) (r2 B-7)** : guard sur `_is_hydrated == false` rejette le signal silencieusement. Aucun crédit attribué avant que Save/Load ait été lu. Cas attendu : le Level System émet `level_active` AVANT que GSM passe à PLAYING (race timing au boot). **Découplage explicite** : Credit s'est **bien connecté** à tous les ennemis au `level_active` (Rule 5) — les connexions sont établies indépendamment de l'état d'hydratation. Seuls les *signaux reçus* sont rejetés. Combat ne swing pas hors PLAYING (game-state guard côté Combat) donc en pratique aucun signal n'arrive avant PLAYING. AC-CRD-51 verrouille (race boot integration test).
 
 - **EC-CRD-12 — `total_credits` atteint `int.MAX` (cap théorique GDScript int 64-bit)** : non capé au MVP. Godot int est 64-bit signé (`9_223_372_036_854_775_807`) — un joueur devrait tuer 9 quintillions de grunts pour déborder, donc impossible. Tier 2+ pourra introduire un `MAX_CREDITS` knob si analytics révèle des saves anormalement gros (cap symbolique 9 999 ou 99 999 pour UX HUD à 4 chiffres).
 
@@ -292,7 +299,7 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 
 - **EC-CRD-15 — Connexion à un grunt manqué (signal pas connecté au spawn)** : si `_on_level_active()` rate la connexion d'un grunt (race timing avec Level System), ce grunt mort ne créditera pas. Garde-fou : assertion en debug que tous les nodes du groupe `"enemies"` ont leur signal `enemy_killed` connecté à Credit Economy. Production : silently failing — un kill perdu est invisible côté joueur.
 
-- **EC-CRD-16 — Plusieurs runs back-to-back sans quit** : `request_new_run()` (GSM ADR-0007) est appelé. Credit Economy purge `_credited_this_run` (set d'IDs) mais **conserve `total_credits`** — c'est un nouveau run, pas une nouvelle vie économique. Comportement aligné Pillar 2 (la progression survit aux runs).
+- **EC-CRD-16 — Plusieurs runs back-to-back sans quit (r2 B-6)** : `request_new_run()` (GSM ADR-0007) est appelé. Credit Economy purge `_credited_this_run` (set d'IDs) mais **conserve `total_credits`** — c'est un nouveau run, pas une nouvelle vie économique. Comportement aligné Pillar 2 (la progression survit aux runs). **Distinction explicite** : `request_new_run()` purge le set ; un checkpoint intra-étage **ne purge PAS** le set (Rule 6 r2 + EC-CRD-7 + AC-CRD-50).
 
 ## Dependencies
 
@@ -343,7 +350,7 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 |-----------|---------------|------------|-------------------|-------------------|
 | `BASE_SECRET_CREDIT` | 5 | [3, 10] | Secrets paient plus → plus d'incitation à explorer (Pillar 4) → upgrades atteignables plus vite, risque de progression trop rapide | Secrets paient moins → ratio secret:kill se rapproche de 1:1 → Pillar 4 affaibli, économie penche vers combat |
 | `kill_credit["grunt"]` | 1 | [1, 3] | Kills paient plus → économie penche vers combat, ratio secret:kill diminue → Pillar 4 affaibli | Kills paient 0 — interdit (économie devient secrets-only, sessions combat-only impossibles à monétiser) |
-| `BASE_UPGRADE_COST` | 20 | [15, 40] | Upgrades plus chères → première upgrade nécessite plus de sessions → progression plus lente, frustration potentielle | Upgrades trop bon marché → joueur achète tout en 1 session → Pillar 2 dilué (la progression doit être étalée) |
+| `BASE_UPGRADE_COST` | **8** *(r2 B-2)* | [5, 15] | Upgrades plus chères → première upgrade nécessite plus de sessions → progression plus lente, **risque soft-lock combat-only si > 8 cr étage 1** (anti Pillar 2 — voir B-2 review r1) | Upgrades trop bon marché → joueur achète tout en 1 session → Pillar 2 dilué (la progression doit être étalée). Plancher 5 cr garde un minimum de friction. |
 | `TIER_COST_STEP` | 20 | [10, 40] | Courbe coût plus pentue → upgrades tardives deviennent difficiles → flirt avec « wall final » (anti-Pillar 1) | Courbe trop plate → toutes les upgrades coûtent ~pareil → pas de hiérarchie économique perceptible |
 | `_credited_this_run` size | unbounded (Dictionary) | n/a | n/a | n/a |
 
@@ -369,13 +376,15 @@ secret_yield  = Σ (BASE_SECRET_CREDIT × secret_i.tier)  pour i ∈ secrets_col
 | `BOSS_BONUS_AMOUNT` | 25 cr | Bonus crédité à `boss_defeated` (BOSS_BONUS = 4 dans `SourceKind` réservé). |
 | `ROOM_CLEAR_BONUS_AMOUNT` | 0 cr (anti-Pillar 4) | Réservé désactivé par défaut — un bonus « room clear » récompenserait le combat sans skill, anti-Pillar 4. À débattre si playtest révèle des salles ennuyantes. |
 | `AUTO_SAVE_ON_LEVEL_ACTIVE` | `false` | Trigger auto-save à chaque `level_active` du Level System (Tier 2+ pour réduire risque crash EC-CRD-14). |
-| `BATCH_MULTI_KILL_EMIT` | `false` | Si `true`, batche les 3 emits multi-kill en 1 seul `credits_changed(N+3, +3, KILL_BATCH)`. À évaluer playtest si HUD sature visuellement. |
+| `BATCH_MULTI_KILL_EMIT` | **`true`** *(r2 B-1 — MVP par défaut, creative-director adjudication Pillar 1 FLOW)* | **MVP par défaut `true`** : 3 emits multi-kill batchés en 1 seul `credits_changed(N+3, +3, KILL)`. Si `false` (Tier 2+ post-playtest), restaure 3 emits séquentiels (`N+1`, `N+2`, `N+3`) pour granularité analytics. Décision pillar-driven non-négociable au MVP. |
 
 ### Cross-tuning interactions
 
-- **`BASE_SECRET_CREDIT × N_secrets_par_etage` doit ≥ `BASE_UPGRADE_COST`** : pour qu'un explorateur achète son upgrade en 1 étage, le yield secrets doit dépasser le coût upgrade. Knob réglable côté Level (densité secrets) ou côté Credit (`BASE_SECRET_CREDIT`).
-- **`BASE_UPGRADE_COST + TIER_COST_STEP × (N_UPGRADES - 1) ≤ session_yield × 5`** : la dernière upgrade doit être atteignable en ~5 sessions max (Pillar 2 — la progression visible doit aboutir avant fatigue). Avec MVP : 40 + 20 × (2-1) = 40 cr ≤ session_yield (33-52 cr) × 5 = 165-260 cr ✅.
-- **Si `BATCH_MULTI_KILL_EMIT == true`, alors HUD doit afficher `+N`** : sinon le joueur ne voit qu'1 incrément pour 3 kills (perception cassée). Couplage Credit↔HUD à confirmer si knob activé.
+- **`BASE_SECRET_CREDIT × N_secrets_par_etage` doit ≥ `BASE_UPGRADE_COST`** : pour qu'un explorateur achète son upgrade en 1 étage, le yield secrets doit dépasser le coût upgrade. Knob réglable côté Level (densité secrets) ou côté Credit (`BASE_SECRET_CREDIT`). r2 B-2 : avec `BASE_UPGRADE_COST = 8 cr`, 1 secret T1 (5 cr) seul ne suffit pas, mais T1+T2 (15 cr) > 8 cr ✅.
+- **[r2 B-2] `BASE_UPGRADE_COST ≤ kill_yield_etage_1`** : la première upgrade doit être atteignable combat-only étage 1 (Pillar 2 anti soft-lock). Avec MVP r2 : `BASE_UPGRADE_COST = 8 cr ≤ N_KILLS_ETAGE_1 × kill_credit["grunt"] = 8 × 1 = 8 cr` ✅ pile-poil. Si tuner monte `BASE_UPGRADE_COST > 8`, soft-lock revient — assert balance-check requis.
+- **Sanity dernière upgrade (1 cycle session)** : la dernière upgrade MVP doit être atteignable en 1 run étage 1+2 (Pillar 2 — la progression visible doit aboutir en cycle court). Avec MVP r2 : `BASE_UPGRADE_COST + TIER_COST_STEP × (N_UPGRADES - 1) = 8 + 20 × 1 = 28 cr ≤ session_yield_max ≈ 85 cr` ✅.
+- **[r2 B-4] Sanity check cumulatif Tier 2+ N=8** : `Σ cost_n ≤ session_yield × N_SESSIONS_TARGET` où `N_SESSIONS_TARGET ∈ [8, 10]` (Pillar 2 — la progression doit aboutir avant fatigue, projection Full Vision). Avec MVP r2 valeurs étendues N=8 : `Σ cost_n = 624 cr` (calcul F-CRD-3 r2) ; `session_yield_max × 8 = 85 × 8 = 680 cr` ; `624 ≤ 680` ✅. Marge 56 cr (≈ 0.7 session). Garde-fou : si playtest révèle session_yield < 78 cr, recalculer (tuner Level density secrets ou abaisser TIER_COST_STEP).
+- **[r2 B-1] Si `BATCH_MULTI_KILL_EMIT == false` (Tier 2+ knob), alors HUD doit afficher 3 incréments séquentiels** : par défaut MVP `true` (1 batched emit), HUD affiche `+3` lisible d'un coup. Si knob bascule à `false`, le HUD doit gérer 3 pulses séquentiels et vérifier qu'aucun n'est perdu visuellement (sinon perception cassée). Couplage Credit↔HUD à confirmer lors d'activation Tier 2+.
 
 ## Visual/Audio Requirements
 
@@ -474,7 +483,7 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 
 ## Acceptance Criteria
 
-> **49 ACs total** — 48 BLOCKING (Logic + Integration + Performance + Lint), 1 ADVISORY (Visual/Feel). ACs provisoires marqués sur dépendances Secret/Shop/Save-Load (à raffermir lors du design de ces systèmes).
+> **49 ACs total (r2)** — 48 BLOCKING + 1 ADVISORY. Décomposition r2 B-5 : **42 Logic / Integration / Perf BLOCKING** + **6 Lints / Static BLOCKING** (séparés des tests GUT runtime — tests statiques `tests/static/credit_economy_lint_test.gd`) + **1 Visual/Feel ADVISORY**. ACs provisoires marqués sur dépendances Secret/Shop/Save-Load (à raffermir lors du design de ces systèmes). Changements r2 vs r1 : AC-CRD-32 supprimé (doublon AC-CRD-42) ; AC-CRD-20 + AC-CRD-21 fusionnés et reclassés Lints/Static (1 AC-CRD-20 unifié) ; AC-CRD-08 + AC-CRD-31 reformulés pour `BATCH_MULTI_KILL_EMIT = true` MVP (B-1) ; **AC-CRD-50 ajouté (B-6 checkpoint purge)** ; **AC-CRD-51 ajouté (B-7 race boot)**. Net : 49 → 49 (−1 supprimé −1 fusionné +2 ajoutés).
 
 ### Core invariants
 
@@ -488,7 +497,7 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 ### Source KILL
 
 - **AC-CRD-07 [Logic]** : GIVEN `total_credits == N` et un grunt ennemi est tué, WHEN `enemy_killed(enemy_node, position)` est émis par Enemy System, THEN `total_credits == N + 1` et `credits_changed(N+1, +1, KILL)` est émis dans le même physics frame. *Mécanisme* : unit test avec mock Enemy émettant le signal, vérification compteur + payload signal.
-- **AC-CRD-08 [Logic]** : GIVEN 3 ennemis distincts meurent dans le même tick physics (multi-kill swing katana), WHEN 3 émissions `enemy_killed` arrivent séquentiellement dans `_physics_process`, THEN `total_credits` augmente de 3, et exactement 3 signaux `credits_changed` sont émis dans cet ordre : `(N+1, +1, KILL)`, `(N+2, +1, KILL)`, `(N+3, +1, KILL)`. *Mécanisme* : unit test avec spy sur `credits_changed` enregistrant l'ordre et le payload de chaque appel.
+- **AC-CRD-08 [Logic] (r2 B-1)** : GIVEN 3 ennemis distincts meurent dans le même tick physics (multi-kill swing katana) ET `BATCH_MULTI_KILL_EMIT == true` (MVP par défaut), WHEN 3 émissions `enemy_killed` arrivent séquentiellement dans `_physics_process`, THEN `total_credits` augmente de 3, et **exactement 1 signal `credits_changed(N+3, +3, KILL)` est émis** en fin de chaîne handler du tick. *Mécanisme* : unit test avec spy sur `credits_changed` — assert exactement 1 appel, payload `(total = N+3, delta = +3, source = KILL)`. Variante Tier 2+ knob `BATCH_MULTI_KILL_EMIT == false` : 3 emits séquentiels `(N+1, +1, KILL)`, `(N+2, +1, KILL)`, `(N+3, +1, KILL)` (même test, knob inversé).
 - **AC-CRD-09 [Logic]** : GIVEN un grunt a déjà été comptabilisé (`instance_id` enregistré), WHEN `enemy_killed` est ré-émis pour le **même** `enemy.get_instance_id()`, THEN `total_credits` n'est PAS incrémenté et aucun signal `credits_changed` n'est émis. *Mécanisme* : unit test — émettre deux fois le même signal avec le même node mock, vérifier compteur stable après le 2ème et spy à 0 appel.
 - **AC-CRD-10 [Logic]** : GIVEN le set d'IDs vus contient des entrées de l'étage précédent, WHEN `_on_level_unloaded()` est appelé (fin d'étage), THEN le set d'IDs vus est vidé (`seen_ids.size() == 0`) ET `total_credits` est inchangé. *Mécanisme* : unit test — peupler le set, déclencher unload, vérifier les deux conditions indépendamment.
 - **AC-CRD-11 [Integration]** : GIVEN `MAX_KILLS_PER_SWING == 3` (Combat-side enforcement), WHEN exactement 3 ennemis distincts meurent sur le même swing, THEN `total_credits` augmente de exactement 3 — pas plus. *Note* : si un 4ème `enemy_killed` arrive sur le même tick (bug Combat), il est ignoré seulement si déjà dans `_credited_this_run`. Cet AC dépend du contrat Combat MAX_KILLS_PER_SWING.
@@ -510,8 +519,7 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 - **AC-CRD-17 [Logic]** : GIVEN `total_credits == 10`, WHEN `try_spend(10)` est appelé, THEN retourne `true`, `total_credits == 0`, `credits_changed(0, -10, SPEND_SHOP)` émis.
 - **AC-CRD-18 [Logic]** : GIVEN `total_credits == 10`, WHEN `try_spend(11)` est appelé, THEN retourne `false`, `total_credits == 10`, aucun signal émis. *Mécanisme* : spy sur `credits_changed` — 0 appels.
 - **AC-CRD-19 [Logic]** : GIVEN `total_credits == 5`, WHEN deux appels `try_spend(3)` se produisent séquentiellement dans le même frame, THEN le premier retourne `true` (`total_credits == 2`), le second retourne `false` (`total_credits == 2` inchangé). *Mécanisme* : unit test séquentiel — vérifier état intermédiaire après chaque appel.
-- **AC-CRD-20 [Logic]** : GIVEN `try_spend(amount)` est appelé, WHEN l'opération est exécutée, THEN elle est atomique : aucun état intermédiaire n'est observable entre la vérification du solde et la déduction. *Mécanisme* : impossible en single-thread GDScript de rompre l'atomicité — documenter comme assertion architecturale dans le test (pas de `await`, pas de signal intermédiaire entre check et deduct).
-- **AC-CRD-21 [Logic]** : GIVEN Pillar 1 — FLOW AVANT TOUT, WHEN `try_spend` est appelé, THEN aucun `await`, aucun signal asynchrone, aucun deferred call n'est effectué dans le chemin d'exécution de `try_spend` lui-même. *Mécanisme* : revue de code statique — chercher `await` dans la fonction `try_spend`.
+- *(r2 B-5 : AC-CRD-20 + AC-CRD-21 fusionnés et reclassés en AC-CRD-20 [Lints/Static] — voir section Lints / Static plus bas. Les deux ACs originaux portaient la même garantie « pas d'`await` / pas de signal intermédiaire dans `try_spend` » et étaient des greps source statiques, pas des tests GUT runtime.)*
 
 ### Persistence
 
@@ -527,8 +535,8 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 - **AC-CRD-28 [Logic]** : GIVEN un crédit est gagné ou dépensé, WHEN `credits_changed(total, delta, source)` est émis, THEN `total` reflète le nouveau total APRÈS la modification, `delta` est la variation nette signée (`+N` pour gain, `-N` pour spend). *Mécanisme* : unit test — capturer payload et vérifier `total == expected_new_total` et `delta == expected_delta`.
 - **AC-CRD-29 [Logic]** : GIVEN Pillar 2 — LA PROGRESSION SE VOIT, WHEN un kill est enregistré dans `_physics_process` au tick T, THEN `credits_changed` est émis SYNC dans ce même tick T — pas de `call_deferred`, pas d'`await`, pas de frame delay. *Mécanisme* : unit test — vérifier que le signal est émis dans le même appel à `_physics_process` en inspectant l'ordre d'exécution (signal connecté avec flag 0, pas CONNECT_DEFERRED).
 - **AC-CRD-30 [Logic]** : GIVEN un boot hydrate, WHEN `credits_changed` est émis avec `source == BOOT_HYDRATE`, THEN `delta == 0` (pas de variation, juste une notification de valeur courante).
-- **AC-CRD-31 [Logic]** : GIVEN un multi-kill de 3 ennemis dans le même tick, WHEN les 3 signaux `credits_changed` sont émis, THEN ils sont émis dans l'ordre séquentiel des kills : le 1er signal a `total == N+1`, le 2ème `total == N+2`, le 3ème `total == N+3`. *Mécanisme* : unit test avec liste d'appels capturés en ordre — `received_signals[0].total < received_signals[1].total < received_signals[2].total`.
-- **AC-CRD-32 [Logic]** : GIVEN le signal `credits_changed` est déclaré dans CreditEconomy, WHEN le contrat de signal est inspecté statiquement, THEN la signature est `signal credits_changed(total: int, delta: int, source: SourceKind)` avec types statiques stricts — pas de `Variant`. *Mécanisme* : grep sur le fichier source ou GdUnit4 assertant les types des paramètres du signal.
+- **AC-CRD-31 [Logic] (r2 B-1)** : GIVEN un multi-kill de 3 ennemis dans le même tick ET `BATCH_MULTI_KILL_EMIT == true` (MVP par défaut), WHEN le tick `_physics_process` se termine, THEN exactement **1 signal `credits_changed(N+3, +3, KILL)` est émis** ; `total_credits` interne est passé séquentiellement par `N+1`, `N+2`, `N+3` dans l'ordre des handlers signal mais ces états intermédiaires ne sont **pas observables** côté listeners (1 seul payload final). *Mécanisme* : unit test — émettre 3 signaux `enemy_killed` séquentiellement dans le même physics tick (via mock), capturer la liste des appels `credits_changed` reçus → assert `received_signals.size() == 1` ET `received_signals[0] == (N+3, +3, KILL)`.
+- *(supprimé r2 B-5 : AC-CRD-32 doublon de AC-CRD-42 — la vérification statique de la signature `signal credits_changed(total, delta, source)` est couverte par AC-CRD-42 dans la section Lints / Static.)*
 
 ### Cross-system integration
 
@@ -554,6 +562,7 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 - **AC-CRD-43 [Logic]** : GIVEN `SourceKind` est un enum déclaré dans CreditEconomy, WHEN les valeurs MVP sont inspectées, THEN l'enum contient exactement : `KILL`, `SECRET`, `SPEND_SHOP`, `BOOT_HYDRATE` — pas plus, pas moins pour le MVP. *Mécanisme* : unit test listant les valeurs de l'enum et assertant le count == 4 et les noms exacts.
 - **AC-CRD-44 [Logic]** : GIVEN le fichier `credit_economy.gd` est analysé statiquement, WHEN gdtoolkit ou lint maison est exécuté, THEN aucun `Variant` implicite n'apparaît dans les signatures de méthodes publiques (`try_spend`, `get_total`, handler callbacks) — typage strict GDScript appliqué. *Mécanisme* : CI lint job sur le fichier source.
 - **AC-CRD-45 [Logic]** : GIVEN CreditEconomy est un autoload, WHEN il est inspecté pour le pattern `emit_signal()` / `.emit()`, THEN tous les appels `.emit()` sur `credits_changed` se trouvent dans des fonctions appelées depuis `_physics_process` (callbacks signal `enemy_killed`, `secret_collected`) ou dans le scope direct d'un appel publié (`try_spend`, `_on_state_changed`) — aucun emit depuis `_ready`, `_process` ou callback async. *Mécanisme* : revue de code statique + grep sur fichier source, aligné avec la règle `level-signals-main-thread-only`.
+- **AC-CRD-20 [Lints/Static] (r2 B-5 — fusion ex AC-CRD-20 + AC-CRD-21)** : GIVEN la fonction `try_spend(amount: int) -> bool` du fichier source `credit_economy.gd`, WHEN une analyse statique grep est effectuée sur le body de la fonction, THEN aucun `await`, aucun `.emit_signal(` asynchrone, aucun `.call_deferred(`, aucun `Thread.start(`, aucun `WorkerThreadPool.add_task(` n'apparaît dans le chemin d'exécution direct de `try_spend` (atomicité Pillar 1 garantie par single-thread GDScript). *Mécanisme* : test statique `tests/static/credit_economy_lint_test.gd` (parallèle à `movement_lint_test.gd`) — extraction du body de `try_spend` via parsing function-scoped + assert regex absent. Couvre simultanément l'atomicité architecturale (pas d'état intermédiaire observable entre check et deduct) et le contrat Pillar 1 FLOW (zéro async dans le chemin spend).
 
 ### Visual / Feel (ADVISORY playtest)
 
@@ -564,6 +573,8 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 - **AC-CRD-47 [Logic]** : GIVEN `total_credits` est à sa valeur maximale plausible (knob `MAX_CREDITS` non capé MVP), WHEN un nouveau gain est tenté (`enemy_killed` reçu), THEN soit le compteur est plafonné à `MAX_CREDITS` sans overflow, soit le plafond n'est pas défini MVP et le compteur dépasse sans crash (`int` GDScript 64-bit ne déborde pas). *Mécanisme* : unit test avec `total_credits` à valeur très haute — vérifier absence de crash. *Note* : la politique de plafond peut être précisée plus tard via knob `MAX_CREDITS` (Tier 2+).
 - **AC-CRD-48 [Logic]** : GIVEN deux ennemis avec des `instance_id` distincts meurent dans le même tick, WHEN leurs deux `enemy_killed` arrivent dans le même `_physics_process`, THEN les deux sont comptabilisés (IDs distincts, pas de collision dans le memoization set). *Mécanisme* : unit test — deux nodes mock distincts, vérifier `total_credits += 2`.
 - **AC-CRD-49 [Integration]** : GIVEN l'étage se charge pour la première fois (aucun enemy encore tué), WHEN `_on_level_loaded()` est appelé, THEN le set d'IDs vus est vide et `total_credits` est intact depuis le boot hydrate — pas de reset imprévu. *Mécanisme* : test d'intégration avec GSM mock émettant level_loaded, vérifier les deux conditions.
+- **AC-CRD-50 [Integration] (r2 B-6 — checkpoint purge)** : GIVEN un checkpoint intra-étage est activé (Tier 2+ Checkpoint System mock), GIVEN `_credited_this_run` contient les `instance_id` de N ennemis morts pré-checkpoint, GIVEN `total_credits == T` (T = T_pre + N × kill_credit), WHEN `_restore_from_snapshot(was_dead=true)` restaure tous les ennemis morts (Enemy EC-ENM-11 — Enemy ne re-émet PAS `enemy_killed`), THEN (a) `_credited_this_run.size()` reste à N (set non purgé — Rule 6 r2), (b) `total_credits == T` (compteur inchangé), (c) **0 emit `credits_changed`** capturé par spy pendant le restore, (d) si Combat re-tuait un ennemi déjà dans le set (test défensif — émettre `enemy_killed` pour un ID déjà présent), le signal est ignoré silencieusement (AC-CRD-09 chained). *Mécanisme* : integration test avec Enemy mock émettant restore signal + spy sur `credits_changed` + assert set + compteur stables.
+- **AC-CRD-51 [Integration] (r2 B-7 — race boot connexion vs hydration)** : GIVEN le boot game (sequence Level System émet `level_active` à T0, GSM émet `state_changed(PLAYING)` à T1 > T0), GIVEN `level_active` reçu par Credit AVANT `state_changed(PLAYING)` (race timing typique), WHEN Credit traite `_on_level_active()`, THEN (a) tous les nodes du groupe `"enemies"` ont leur signal `enemy_killed` connecté à Credit (assert via spy `connections.size() == enemies_count`), (b) `_is_hydrated == false` (hydration pas encore faite). WHEN un signal `enemy_killed` arrive pendant `_is_hydrated == false` (test défensif — Combat ne devrait pas swing hors PLAYING mais émission manuelle dans le test), THEN (c) le signal est rejeté silencieusement (`total_credits` inchangé, 0 emit `credits_changed` capturé). WHEN `state_changed(PLAYING)` arrive ensuite, THEN (d) `_is_hydrated = true`, (e) signal `credits_changed(loaded_value, 0, BOOT_HYDRATE)` émis exactement 1 fois, (f) tout signal `enemy_killed` ultérieur est correctement traité (`total_credits += kill_credit`). *Mécanisme* : integration test avec ordre temporel strict (Level mock + GSM mock + Enemy mock), spy sur connexions + signaux + compteur sur les 4 phases.
 
 ---
 
@@ -571,22 +582,22 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 
 | Sous-thème | ACs | Type | Gate |
 |------------|-----|------|------|
-| Core invariants | AC-CRD-01..06 | Logic | BLOCKING |
-| Source KILL | AC-CRD-07..11 | Logic + Integration | BLOCKING |
-| Source SECRET (provisoire) | AC-CRD-12..16 | Logic | BLOCKING |
-| Sink Shop (provisoire) | AC-CRD-17..21 | Logic | BLOCKING |
-| Persistence | AC-CRD-22..27 | Logic + Integration | BLOCKING |
-| Signal `credits_changed` | AC-CRD-28..32 | Logic | BLOCKING |
-| Cross-system integration | AC-CRD-33..35 | Integration | BLOCKING |
-| GSM observation | AC-CRD-36..38 | Logic + Integration | BLOCKING |
-| Performance | AC-CRD-39..40 | Performance | BLOCKING |
-| Lints / Static | AC-CRD-41..45 | Logic | BLOCKING |
-| Visual / Feel | AC-CRD-46 | Visual/Feel | ADVISORY |
-| Edge cases | AC-CRD-47..49 | Logic + Integration | BLOCKING |
+| Core invariants | AC-CRD-01..06 (6) | Logic | BLOCKING |
+| Source KILL | AC-CRD-07..11 (5) | Logic + Integration | BLOCKING |
+| Source SECRET (provisoire) | AC-CRD-12..16 (5) | Logic | BLOCKING |
+| Sink Shop (provisoire) — *r2 B-5 retiré 20, 21* | AC-CRD-17, 18, 19 (3) | Logic | BLOCKING |
+| Persistence | AC-CRD-22..27 (6) | Logic + Integration | BLOCKING |
+| Signal `credits_changed` — *r2 B-5 retiré 32* | AC-CRD-28, 29, 30, 31 (4) | Logic | BLOCKING |
+| Cross-system integration | AC-CRD-33..35 (3) | Integration | BLOCKING |
+| GSM observation | AC-CRD-36..38 (3) | Logic + Integration | BLOCKING |
+| Performance | AC-CRD-39..40 (2) | Performance | BLOCKING |
+| **Lints / Static** *(r2 B-5 nouvelle ligne dédiée — tests statiques `tests/static/credit_economy_lint_test.gd`, séparés des tests GUT runtime)* | AC-CRD-20 (fusionné), 41, 42, 43, 44, 45 (6) | **Lints/Static** | BLOCKING |
+| Visual / Feel | AC-CRD-46 (1) | Visual/Feel | ADVISORY |
+| Edge cases — *r2 B-6 + B-7 ajouté 50, 51* | AC-CRD-47..51 (5) | Logic + Integration | BLOCKING |
 
-**Total** : 49 ACs — 48 BLOCKING, 1 ADVISORY.
+**Total r2** : 49 ACs — **42 Logic/Integration/Perf BLOCKING + 6 Lints/Static BLOCKING + 1 Visual/Feel ADVISORY**. Comptage : 6+5+5+3+6+4+3+3+2 = 37 Logic/Integration tests GUT runtime + 2 Performance + 5 Edge cases (47..51) = **42 BLOCKING tests runtime** + **6 Lints/Static** + **1 ADVISORY** = 49 ✅.
 
-**ACs provisoires** (à raffermir post Secret/Shop/Save-Load GDDs) : AC-CRD-12..16 (Secret), AC-CRD-17..21 (Shop logic OK mais intégration AC-CRD-35 dépend de Shop stub), AC-CRD-23..25 (Save/Load).
+**ACs provisoires** (à raffermir post Secret/Shop/Save-Load GDDs) : AC-CRD-12..16 (Secret), AC-CRD-17..19 (Shop logic OK mais intégration AC-CRD-35 dépend de Shop stub), AC-CRD-23..25 (Save/Load), AC-CRD-50 (Checkpoint Tier 2+ — pending /design-system checkpoint-respawn-system).
 
 ## Open Questions
 
@@ -596,7 +607,7 @@ Cette connexion est **outbound-only** côté HUD — Credit Economy ne référen
 | **OQ-CRD-2** | ✅ **RESOLVED 2026-04-27** par Shop System GDD r1 + design-review r2 (`design/gdd/reviews/shop-system-review-r1-2026-04-27.md`). Shop confirme l'API `try_spend(amount: int) -> bool` SYNC atomique à l'identique du contrat provisoire Credit r1 (R-SHP-6 cycle d'achat étape 4). Aucun amendement Credit r2 requis sur ce contrat — verrouillé. | economy-designer + Shop System owner | RESOLVED |
 | **OQ-CRD-3** | **Plafond `MAX_CREDITS`** : non capé MVP (Godot int 64-bit, débordement physiquement impossible). Faut-il introduire un cap symbolique 9 999 ou 99 999 pour contraindre l'UX HUD à 4-5 chiffres ? Décision dépend de l'analytics post-launch. | game-designer | Tier 2+ — basé sur playtest data |
 | **OQ-CRD-4** | **Réservation enum `SourceKind` Tier 2+** : `BOSS_BONUS = 4`, `ROOM_CLEAR_BONUS = 5` réservés mais inactifs MVP. À confirmer la liste exhaustive (faut-il `STREAK_MULTIPLIER` ? `TIME_BONUS` ?) — potentiellement anti-Pillar 4 si non maîtrisé. | creative-director + economy-designer | Tier 2+ — sera tranché lors du Boss System ou Speedrun System design |
-| **OQ-CRD-5** | **Multi-kill 3 emits séquentiels vs batch unique** : ce GDD tranche pour 3 emits séquentiels (Rule 7). Si playtest HUD révèle saturation visuelle (3 pulses en 1 frame imperceptibles), knob `BATCH_MULTI_KILL_EMIT = true` activable. À valider playtest. | game-designer + ux-designer | Sprint A playtest evidence |
+| **OQ-CRD-5** | ✅ **RESOLVED 2026-04-27 (r2 B-1)** par adjudication creative-director : `BATCH_MULTI_KILL_EMIT = true` MVP par défaut (1 batched emit `credits_changed(N+3, +3, KILL)`). Pillar 1 FLOW > granularité analytics — 3 emits séquentiels en 16.6 ms saturent le HUD pulse cyan et créent perception cassée. Granularité 3 emits déférée Tier 2+ via knob `BATCH_MULTI_KILL_EMIT = false` activable post-playtest si analytics requise. Voir Rule 7 r2 + EC-CRD-5 r2 + AC-CRD-08 r2 + AC-CRD-31 r2 + Tuning Knob `BATCH_MULTI_KILL_EMIT` r2. | game-designer + creative-director | RESOLVED |
 | **OQ-CRD-6** | **Auto-save trigger** : MVP ne save qu'à `state_changed(MENU)`. Risque : crash mid-run perd ~30 cr. Faut-il auto-save à chaque `level_active` (Tier 2+) ? Trade-off : I/O overhead vs sécurité. | gameplay-programmer + producer | Tier 2+ — dépend telemetry crash |
 | **OQ-CRD-7** | **Connexion event-driven aux ennemis** : Rule 5 propose `get_tree().get_nodes_in_group("enemies")` au `level_active`. Alternative : signal bus centralisé (autoload `EventBus`) émettrait `enemy_killed` global. Choix groupe-Godot retenu MVP par simplicité. À reconsidérer si EventBus est introduit Tier 2+. | godot-specialist + lead-programmer | Tier 2+ — décision architecture |
 | **OQ-CRD-8** | **VFX gain crédit secret distinct du kill** : Player Fantasy section 4 propose un « son plus profond » au crédit secret. Implémentation : nouvelle bus Audio `SECRET_REWARD` ? Variation sur `COMBAT_KILL` ? À designer lors du HUD GDD + Audio GDD r3 si Secret System impose un son dédié. | audio-director + ux-designer | Sprint A `/design-system hud-system` |
