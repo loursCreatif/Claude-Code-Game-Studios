@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: "2026-04-27 (ADR-0009 Audio System Architecture appended — 7-bus hierarchy, AudioPool 15× pré-instancié, wall-clock fades dans _physics_process via _get_time_msec Callable injection, CONNECT_DEFERRED par défaut, AudioListener3D = Camera3D actif, forbidden tween_volume_db_in_audio_src). Previous 2026-04-23 (ADR-0011 Level Scene appended)."
+last_updated: "2026-04-27 (ADR-0010 Save/Load Persistence Architecture — ConfigFile Ratification appended — pivot opéré post-détection que save-load-system.md GDD r1 existait avec choix ConfigFile explicite ; ADR ratifie GDD R-SAV-1..17 sans modification : ConfigFile sur user://savegame.cfg, autoload SaveLoadSystem position #3 sur 4 verrouillée par ADR-0007 D-1, 4 verbes MVP load_int/save_int/load_string_array/save_string_array + 2 verbes Tier 2+ load_int_array/save_int_array réservés + 1 getter get_save_version, String keys / void save returns, write-through synchrone, PROCESS_MODE_ALWAYS, NOTIFICATION_WM_CLOSE_REQUEST handler no-op MVP, zero outbound signals, zero orchestration, schema versioning _save_version, main-thread-only D-7, atomic tmp+rename DÉFÉRÉ Tier 2+ OQ-SAV-4 ; nouvelles entrées : state persistent_save_data, contract save_load_persistence, api save_load_serialization_format, forbidden save_data_direct_access_outside_save_load + save_load_thread_offload + save_load_outbound_signal_emission + save_load_inbound_signal_subscription). Previous 2026-04-27 (ADR-0009 Audio System Architecture — 7-bus hierarchy, AudioPool, wall-clock fades). Previous 2026-04-23 (ADR-0011 Level Scene)."
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -109,6 +109,22 @@ state_ownership:
       - docs/architecture/adr-0011-level-scene-architecture.md
       - design/gdd/level-system.md
     added: 2026-04-23
+    revised: ""
+
+  - state: persistent_save_data
+    status: active
+    owner_system: save-load-system
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    interface: "SaveLoadSystem._config: ConfigFile — cache backend privé hydraté UNE FOIS au _ready() autoload depuis user://savegame.cfg (R-SAV-7). JAMAIS exposé directement aux consumers — forbidden pattern save_data_direct_access_outside_save_load. Accès exclusif via 7 méthodes publiques : load_int(key: String, default: int) -> int / save_int(key: String, value: int) -> void / load_string_array(key: String, default: Array[StringName]) -> Array[StringName] / save_string_array(key: String, value: Array[StringName]) -> void / load_int_array(key: String, default: Array[int]) -> Array[int] (Tier 2+ réservé) / save_int_array(key: String, value: Array[int]) -> void (Tier 2+ réservé) / get_save_version() -> int. Section unique [data], flat keys MVP (R-SAV-3). Validation typée par accesseur (R-SAV-6/12) : type mismatch / corruption → return default + push_warning, jamais crash. Normalisation StringName ↔ String côté load_string_array (ConfigFile sérialise StringName comme String quoted — R-SAV-12). Schema versioning top-level _save_version: int monotone (R-SAV-14/15) ; clé toujours écrite au premier save_*. Write-through synchrone (R-SAV-5) — pas de batch, pas de cache RAM dirty intermédiaire ; chaque save_* exécute set_value + ConfigFile.save(SAVE_FILE_PATH). PROCESS_MODE_ALWAYS (R-SAV-8 + ADR-0007 D-4). Main thread only (ADR-0010 D-7) — assert OS.get_thread_caller_id() == main en debug build. Atomic tmp+rename DÉFÉRÉE Tier 2+ (OQ-SAV-4 ; ADR successeur)."
+    write_access: save-load-system-only
+    referenced_by:
+      - docs/architecture/adr-0007-game-state-manager.md
+      - docs/architecture/adr-0010-save-load-serialization-format.md
+      - design/gdd/save-load-system.md
+      - design/gdd/credit-economy-system.md
+      - design/gdd/shop-system.md
+      - design/gdd/secret-system.md
+    added: 2026-04-27
     revised: ""
 
 # Example:
@@ -382,6 +398,27 @@ interfaces:
       - docs/architecture/adr-0011-level-scene-architecture.md
       - design/gdd/level-system.md
     added: 2026-04-23
+    revised: ""
+
+  - contract: save_load_persistence
+    status: active
+    pattern: direct_call
+    producer: save-load-system
+    consumers:
+      - credit-economy-system
+      - shop-system
+      - secret-system
+      - (Tier 2+ provisional) upgrade-system
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    api_signature: "SaveLoadSystem.load_int(key: String, default: int) -> int ; SaveLoadSystem.save_int(key: String, value: int) -> void ; SaveLoadSystem.load_string_array(key: String, default: Array[StringName]) -> Array[StringName] ; SaveLoadSystem.save_string_array(key: String, value: Array[StringName]) -> void ; SaveLoadSystem.load_int_array(key: String, default: Array[int]) -> Array[int] (Tier 2+ réservé) ; SaveLoadSystem.save_int_array(key: String, value: Array[int]) -> void (Tier 2+ réservé) ; SaveLoadSystem.get_save_version() -> int"
+    semantics: "4 verbes MVP (load_int / save_int / load_string_array / save_string_array) + 2 verbes Tier 2+ réservés signatures figées (load_int_array / save_int_array — Secret Tier 2+ persistance OQ-SEC-2) + 1 getter méta (get_save_version). String keys, void save returns (PAS bool — différence clé avec un draft JSON antérieur). Tous les load_* retournent default sans crash sur fichier absent / corrompu / type mismatch / élément Array invalide (R-SAV-6/12 + push_warning). Tous les save_* sont synchrones write-through (R-SAV-5) — exécutent ConfigFile.set_value + ConfigFile.save(SAVE_FILE_PATH) immédiatement ; en cas d'échec ConfigFile.save (ERR_FILE_NO_PERMISSION, disque plein) : push_error émis avec err code, return normal void (caller n'a pas de feedback succès/échec — état RAM consumer reste cohérent indépendamment, voir EC-SHP-9). Consumers déclenchent eux-mêmes save_* depuis leurs handlers (R-SAV-11 zéro orchestration) — SaveLoadSystem ne s'abonne à aucun signal (R-SAV-10 outbound-zero). Triggers MVP : Credit save_int au state_changed(MENU) + load_int au _ready / state_changed(PLAYING) (R-CRD-11/12) ; Shop save_string_array synchrone post-try_spend succès AVANT apply_upgrade (R-SHP-8) + load_string_array dans Shop._ready (R-SHP-3) ; Secret Tier 2+ save_int_array au state_changed(MENU) + load_int_array au level_active (différé OQ-SEC-2). Main thread only (ADR-0010 D-7). Path persisté user://savegame.cfg (R-SAV-2) — single fichier, single section [data], flat keys (R-SAV-3). Round-trip StringName ↔ String normalisé côté load_string_array (R-SAV-12). Schema versioning forward-only via clé top-level _save_version (R-SAV-14/15)."
+    referenced_by:
+      - docs/architecture/adr-0010-save-load-serialization-format.md
+      - design/gdd/save-load-system.md
+      - design/gdd/credit-economy-system.md
+      - design/gdd/shop-system.md
+      - design/gdd/secret-system.md
+    added: 2026-04-27
     revised: ""
 
 # Example:
@@ -813,6 +850,21 @@ api_decisions:
     added: 2026-04-27
     revised: ""
 
+  - purpose: save_load_serialization_format
+    status: active
+    api: "Godot ConfigFile natif stocké dans user://savegame.cfg (R-SAV-2). Single section [data], flat keys MVP (R-SAV-3). API engine : ConfigFile.set_value(section, key, value) / get_value(section, key, default) / save(path) / load(path) — stables depuis Godot 3.x, non-affectées par les breaking changes 4.4-4.6. Schéma MVP : _save_version=1 (méta toujours écrite premier save, R-SAV-15) + total_credits: int (Credit r1) + owned_upgrades: Array[StringName] (Shop r1). Tier 2+ ajouts prévus sans casser les saves existants : collected_secret_ids: Array[int] (Secret r1 §J-2 OQ-SEC-2), current_etage_id: int, playtime_seconds: int. Settings split fichier user://settings.cfg recommandé Tier 2+ (OQ-SAV-2)."
+    not: "JSON texte (rejected — verbeux 3× la taille, pas de typage natif, parsing manuel JSON.parse_string + cast élément-par-élément Array[StringName] godot-specialist Q4 ; gain debuggabilité humaine partiellement préservé par ConfigFile format INI lisible). Resource sérialisée .tres (rejected — nécessite class_name SaveData figé, casse migration MVP→Tier2+, couplage compile-time perdrait l'agnostique vis-à-vis consumers). Binary FileAccess.store_var/get_var (rejected — Godot 4.4 breaking change FileAccess.store_* retourne bool was void multiplie chemins error-handling ; opaque debug Sprint 1 ; fragilité versioning binaire cross Godot minor ; tests GUT plus durs). Multi-fichier 1-par-système (rejected — multiplie surface I/O 3×, pas de transaction cross-système Tier 2+, gain isolation marginal vs validation typée par-clé R-SAV-12 ; settings split Tier 2+ OQ-SAV-2 reste possible séparément). SQLite via GDExtension (rejected — over-engineering total pour 3 clés flat MVP, dépendance native binaire ~500 KB, complexité tests, ré-évaluable Tier 3 si cloud sync / leaderboards)."
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    reason: "Décision design GDD save-load-system.md R-SAV-2 ratifiée au niveau architectural. ConfigFile abstrait l'API stable Godot (immune au breaking change 4.4 FileAccess.store_*), supporte StringName ↔ String round-trip avec normalisation explicite côté consumer (R-SAV-12), forward-safe Tier 2+ (clés inconnues conservées silencieusement). 4 GDDs (Credit r1 / Shop r1 / Secret r1 / Save-Load r1) référencent l'API à signatures exactes — zéro renommage requis. F-SAV-1 budget I/O validé (B≈0.3 ms à S=0.1 KB SSD M1, marge ×55 frame budget). Anti-cheat naïf explicitement accepté MVP (jeu solo, joueur non-dev). Atomic write tmp+rename DÉFÉRÉE Tier 2+ (OQ-SAV-4) — risque crash mid-write accepté par GDD EC-SAV-15 (cas rare PC desktop 2026 avec UPS/battery)."
+    referenced_by:
+      - docs/architecture/adr-0010-save-load-serialization-format.md
+      - design/gdd/save-load-system.md
+      - design/gdd/credit-economy-system.md
+      - design/gdd/shop-system.md
+      - design/gdd/secret-system.md
+    added: 2026-04-27
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -1027,6 +1079,34 @@ forbidden_patterns:
     description: "Interdiction d'utiliser Tween pour interpoler `volume_db` d'un AudioStreamPlayer / AudioStreamPlayer3D dans tout fichier .gd sous src/core/audio_system.gd OR src/gameplay/audio/**. Pattern banni (lint grep CI) : `(Tween\\.tween_property|create_tween\\(.*\\.tween_property).*volume_db`. Exemples interdits : `tween.tween_property(swoosh, \"volume_db\", -80, 0.03)`. Pattern autorisé : interpolation manuelle dans `_physics_process` via `_get_time_msec.call() - _fade_start_msec` + `lerpf(start_db, end_db, t)`. Exception unique : Music crossfade entre rooms (Tween OK quand `Engine.time_scale == 1.0` garanti, e.g. transitions GSM hors gameplay)."
     why: "Tween est attaché à `_process` qui est scaled par `Engine.time_scale` Godot 4.6. Pendant slow-mo Combat (`time_scale = 0.3`), un fade Tween 30 ms wall-clock devient 100 ms perçus → swoosh-clac-blood overlap casse Fantasy staccato (Combat GDD r4 A-01 fix). AC-CMB-51 vérifie résolution `[25, 50] ms wall-clock` — Tween échoue ce gate. Pattern wall-clock dans `_physics_process` via Callable injection partagé Combat ↔ Audio (ADR-0006 D-5 + ADR-0009 D-3) garantit timing stable indépendamment de slow-mo + déterministe en CI via mock `_get_time_msec`."
     adr: docs/architecture/adr-0009-audio-system-architecture.md
+    added: 2026-04-27
+
+  - pattern: save_data_direct_access_outside_save_load
+    status: active
+    description: "Interdiction d'accéder à `SaveLoadSystem._config` (cache backend ConfigFile privé) ou tout autre membre privé de SaveLoadSystem (préfixe underscore) depuis tout fichier .gd autre que src/core/save_load_system.gd. Lint grep CI : `\\bSaveLoadSystem\\._config\\b` ET tout autre `\\bSaveLoadSystem\\._\\w+` attendu 0 match global hors src/core/save_load_system.gd et tests/unit/save_load/**. Tout consumer DOIT utiliser exclusivement les 7 accesseurs publics : load_int / save_int / load_string_array / save_string_array / load_int_array (Tier 2+) / save_int_array (Tier 2+) / get_save_version. Interdiction étendue : pas de manipulation directe de SaveLoadSystem.SAVE_FILE_PATH ou _CURRENT_SAVE_VERSION constants (opaques pour consumers — ils n'ont pas à connaître le filesystem layout ni le versioning interne)."
+    why: "Encapsulation R-SAV-17 (outbound-only towards engine, inbound-only depuis consumers) renforcée. Si un consumer accède à _config directement, il peut : (1) muter une clé que SaveLoadSystem ne connaît pas → drift de schéma silencieux ; (2) appeler _config.save() en bypassant la validation typée R-SAV-6/12 → corruption ; (3) lire une valeur non-validée → crash sur Variant inattendu. Les accesseurs publics centralisent toute la logique de validation et d'écriture (R-SAV-12 normalisation StringName ↔ String inclus) — pas de chemin alternatif."
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    added: 2026-04-27
+
+  - pattern: save_load_thread_offload
+    status: active
+    description: "Interdiction d'appeler toute méthode publique de SaveLoadSystem (load_int / save_int / load_string_array / save_string_array / load_int_array / save_int_array / get_save_version) depuis un Thread, WorkerThreadPool.add_task callback, ou Callable.call_deferred résultant d'un thread non-main. Toutes les méthodes assertent `OS.get_thread_caller_id() == OS.get_main_thread_id()` en debug build (ADR-0010 D-7). Lint grep cover-all : si un fichier src/**/*.gd contient à la fois `SaveLoadSystem\\.(save|load|get_save_version)_?` ET un contexte thread (`\\bThread\\s*(\\(|\\.new\\b|\\.start\\b)|\\bWorkerThreadPool\\s*\\.`), inspecter manuellement (zéro match attendu MVP — la base ne contient aucun Thread)."
+    why: "ConfigFile et FileAccess Godot ne sont pas documentés thread-safe. Race conditions sur descriptor de fichier OS, corruption mid-write, deadlock sur lock interne ConfigFile (non documenté explicitement) sont tous possibles. Cohérent avec patterns input_singleton_access_from_non_main_thread (ADR-0004 D-7) et level-signals-main-thread-only (ADR-0011) — généralisation de la règle main-thread-only à tout I/O système Godot dans src/core/. Si un futur ADR Tier 2+ introduit save async (long flush > 16 ms perçu, OQ-SAV-3), il devra documenter un pattern Thread + Semaphore + main-thread emit, pas un appel direct à SaveLoadSystem."
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    added: 2026-04-27
+
+  - pattern: save_load_outbound_signal_emission
+    status: active
+    description: "Interdiction stricte pour SaveLoadSystem (src/core/save_load_system.gd) de déclarer ou émettre tout signal (R-SAV-10 zero outbound signals). Lint grep CI : `^signal\\s+\\w+` dans src/core/save_load_system.gd attendu 0 match global. Lint grep CI : `\\.emit\\s*\\(|emit_signal\\s*\\(` dans src/core/save_load_system.gd attendu 0 match global. SaveLoadSystem est une couche persistance pure — write-through synchrone implique : si l'appelant a la main après save_*, la write a réussi (ou un push_error a été émis). Aucun consumer n'a besoin d'être notifié async. Tier 2+ async batch (OQ-SAV-3) pourra introduire `save_completed(key: String, success: bool)` mais c'est un amendement explicite ADR-0010 + GDD."
+    why: "R-SAV-10 + R-SAV-11 (zero orchestration) verrouillent SaveLoadSystem comme couche data-pure. Un signal sortant introduirait une boucle implicite : consumer reçoit save_completed → déclenche autre save → autre signal → race conditions sur l'ordre d'émission cross-tick. Le pattern verbe pur (consumer.save() puis consumer.continue_logic()) est strictement plus simple à raisonner et débugger. Cohérent avec pattern outbound-only ADR-0005 D-10 + ADR-0011 D-7 généralisé. La couche persistance ne doit JAMAIS pousser de notification — elle répond à des verbes, point."
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
+    added: 2026-04-27
+
+  - pattern: save_load_inbound_signal_subscription
+    status: active
+    description: "Interdiction stricte pour SaveLoadSystem (src/core/save_load_system.gd) de connecter (subscribe) à tout signal d'un autre système (R-SAV-11 zero orchestration). Lint grep CI : `\\.connect\\s*\\(` dans src/core/save_load_system.gd attendu 0 match global. SaveLoadSystem ne consume pas state_changed(MENU) pour déclencher save automatique — ce sont les consumers (Credit R-CRD-12, Shop R-SHP-8, Secret Tier 2+) qui décident *quand* appeler save_*. Pattern : API verbe pur, pas d'orchestration. Single-responsibility."
+    why: "Si SaveLoadSystem observait state_changed(MENU) pour auto-save Credit ET Credit appelait également save_int au même handler, double écriture du fichier en une frame (overhead I/O + race ordering). Pattern verbe pur élimine la classe entière de bugs. Évite aussi le coupling SaveLoadSystem → GSM (forbidden gsm_mutates_downstream_system_state direction inverse — ici on évite que SaveLoadSystem dépende de GSM, pour préserver outbound-only D-5 qui le rend testable en isolation sans bootstrap GSM)."
+    adr: docs/architecture/adr-0010-save-load-serialization-format.md
     added: 2026-04-27
 
 # Example:
