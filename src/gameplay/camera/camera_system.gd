@@ -16,6 +16,7 @@ extends Node3D
 ## Story 001 : scene skeleton only. Motion logic arrives in story 002+.
 ## Story 002 : yaw + pitch raw apply via InputManager.mouse_motion signal.
 ## Story 005 : tilt wall-run — derive wall_side from player.wall_normal + lerp camera_effects.rotation.z.
+## Story 006 : FOV dash pulse — signal-driven flag + lerp camera3d.fov.
 
 
 # ---------------------------------------------------------------------------
@@ -31,6 +32,22 @@ const PITCH_LIMIT: float = PI / 2.0 - 0.05
 ## dégénéré (10 000 px/event) × sensitivity max (0.012) → 120 rad sinon.
 ## AC-CAM-04 : cap AVANT commit, le delta excédentaire n'est PAS accumulé.
 const MAX_ROT_PER_FRAME: float = PI
+
+
+# ---------------------------------------------------------------------------
+# Constants — FOV dash pulse (story 006, TR-cam-001, ADR-0002 + ADR-0005)
+# ---------------------------------------------------------------------------
+
+## FOV de base (degrés). Prototype validé 2026-04-21 (Camera GDD).
+## Reduce_motion slider et réglage utilisateur hors scope (stories 010, MVP open question).
+const BASE_FOV: float = 90.0
+
+## Bonus FOV ajouté lors d'un dash (degrés). Peak cible = BASE_FOV + DASH_FOV_KICK = 100°.
+## Reduce_motion multiplier (0.5) PAS dans cette story — ajouté par story 010 (peak → 95°).
+const DASH_FOV_KICK: float = 10.0
+
+## Vitesse de lerp FOV (unit/s). Snap-in ~150 ms — fov ≥ 98.5° en 9 frames (AC-CAM-20).
+const DASH_FOV_LERP_SPEED: float = 14.0
 
 
 # ---------------------------------------------------------------------------
@@ -62,6 +79,17 @@ const TILT_LERP_SPEED: float = 12.0
 
 
 # ---------------------------------------------------------------------------
+# Module state — signal-driven flags (story 006+)
+# ---------------------------------------------------------------------------
+
+## Cache signal-driven de l'état dash. Mis à jour exclusivement par les
+## handlers _on_dash_started / _on_dash_ended. Source de vérité Camera-side.
+## Manifest 2026-04-23 ligne 161 : interdit de lire player.is_dashing en _process.
+## Ne jamais écrire ce flag depuis _update_fov_dash — lecture seule dans _process.
+var _is_dashing: bool = false
+
+
+# ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 
@@ -73,10 +101,21 @@ func _ready() -> void:
 	assert(PITCH_LIMIT < PI / 2.0, "CameraSystem: PITCH_LIMIT must stay strictly under PI/2 to avoid gimbal lock")
 	assert(MAX_ROT_PER_FRAME > 0.0, "CameraSystem: MAX_ROT_PER_FRAME must be positive")
 
+	# Initialisation explicite FOV avant toute lerp (story 006, AC-CAM-20 initial state).
+	_camera3d.fov = BASE_FOV
+
 	# Story 002 : connexion synchrone (CONNECT_0 default) — handler léger,
 	# zéro alloc, mutation scalaire uniquement (ADR-0005 D-5 consumer léger).
 	# Story 011 ajoutera le _exit_tree disconnect symétrique.
 	InputManager.mouse_motion.connect(_on_mouse_motion)
+
+	# Story 006 : connexions canoniques Camera ↔ Movement — Manifest 2026-04-23
+	# ligne 149 (6 handlers signal-driven Movement). Mode SYNC (flags=0, pas
+	# CONNECT_DEFERRED) — ADR-0005 D-5 consumer léger (toggle bool, zero-alloc).
+	# VC-8 ADR-0002 Amendment A-1 : assert connection.flags == 0.
+	# Story 011 ajoutera les disconnects symétriques en _exit_tree.
+	_player.dash_started.connect(_on_dash_started)
+	_player.dash_ended.connect(_on_dash_ended)
 
 
 # ---------------------------------------------------------------------------
@@ -84,9 +123,10 @@ func _ready() -> void:
 # ---------------------------------------------------------------------------
 
 ## Frame update — cosmetic-only camera effects (ADR-0001 Rule 12, Control Manifest
-## Presentation layer). Tilt wall-run exécuté ici, pas dans _physics_process.
+## Presentation layer). Tilt wall-run et FOV dash exécutés ici, pas dans _physics_process.
 func _process(delta: float) -> void:
 	_update_tilt_wall_run(delta)
+	_update_fov_dash(delta)
 
 
 # ---------------------------------------------------------------------------
@@ -121,6 +161,48 @@ func _update_tilt_wall_run(delta: float) -> void:
 		target_roll,
 		min(TILT_LERP_SPEED * delta, 1.0),
 	)
+
+
+# ---------------------------------------------------------------------------
+# Private — FOV dash pulse (story 006, TR-cam-001, ADR-0002 + ADR-0005)
+# ---------------------------------------------------------------------------
+
+## Interpole camera3d.fov vers BASE_FOV + DASH_FOV_KICK quand _is_dashing,
+## vers BASE_FOV sinon. Lu depuis _process (cosmétique uniquement).
+##
+## Pattern : flag _is_dashing mis à jour par handlers signaux (_on_dash_started /
+## _on_dash_ended) — jamais par polling player.is_dashing (Manifest 2026-04-23
+## ligne 161, forbidden pattern camera_polls_movement_state_transitions).
+##
+## Double dash avant retour complet : dash_started re-fire, _is_dashing reste true,
+## target reste 100°, lerp reprend depuis valeur courante (pas de saut — kick absolu).
+##
+## Reduce_motion multiplier (DASH_FOV_KICK * 0.5 si reduce_motion, peak 95°) :
+## PAS dans cette story — ajouté par story 010.
+## Respawn reset (_camera3d.fov = BASE_FOV, _is_dashing = false) :
+## PAS dans cette story — ajouté par story 008.
+func _update_fov_dash(delta: float) -> void:
+	var target_fov: float = BASE_FOV + (DASH_FOV_KICK if _is_dashing else 0.0)
+	_camera3d.fov = lerp(
+		_camera3d.fov,
+		target_fov,
+		min(DASH_FOV_LERP_SPEED * delta, 1.0),
+	)
+
+
+# ---------------------------------------------------------------------------
+# Signal handlers — Movement dash (story 006, ADR-0005 D-7 / D-8)
+# ---------------------------------------------------------------------------
+
+## Sets _is_dashing=true. ADR-0005 D-7 (no Movement mutation) + D-8 (idempotent).
+## SYNC connection (D-5 : toggle bool, zero-alloc).
+func _on_dash_started(_dash_dir: Vector3, _dash_speed: float) -> void:
+	_is_dashing = true
+
+
+## Sets _is_dashing=false. ADR-0005 D-7 (no Movement mutation) + D-8 (idempotent).
+func _on_dash_ended() -> void:
+	_is_dashing = false
 
 
 # ---------------------------------------------------------------------------

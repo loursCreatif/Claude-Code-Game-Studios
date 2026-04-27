@@ -4,7 +4,7 @@
 > **Status**: Ready
 > **Layer**: Presentation
 > **Type**: Integration
-> **Manifest Version**: 2026-04-21
+> **Manifest Version**: 2026-04-23
 
 ## Context
 

@@ -4,7 +4,7 @@
 > **Status**: Ready
 > **Layer**: Presentation
 > **Type**: Visual/Feel
-> **Manifest Version**: 2026-04-21
+> **Manifest Version**: 2026-04-23
 
 ## Context
 

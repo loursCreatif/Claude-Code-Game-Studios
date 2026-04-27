@@ -4,7 +4,8 @@
 > **Status**: Ready
 > **Layer**: Presentation
 > **Type**: Logic
-> **Manifest Version**: 2026-04-21
+> **Estimate**: 1h
+> **Manifest Version**: 2026-04-23
 
 ## Context
 
@@ -12,8 +13,8 @@
 **Requirement**: aucun TR-cam direct (accessibility floor MVP, GDD Rule 14 — décision creative-director r1 2026-04-21 « floor accessibility — évite exclusion 15-25% public motion-sensitive »)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
-**ADR Governing Implementation**: ADR-0002 (Camera Scene Tree CameraArm — ownership des effets modulés est sur les noeuds prescrits)
-**ADR Decision Summary**: Pas d'ADR direct pour `reduce_motion` (décision design-level creative-director). Lu chaque frame depuis `InputManager.reduce_motion` (ou équivalent settings — ownership TBD dans entities registry). Applique multiplicateurs AVANT commit : tilt × 0.25, fov_kick × 0.5, shake × 0.
+**ADR Governing Implementation**: ADR-0002 (Camera Scene Tree CameraArm — ownership des effets modulés est sur les noeuds prescrits) + ADR-0002 Amendment A-1 (signal-driven consumption — `_is_dashing` cached flag prescrit story-006)
+**ADR Decision Summary**: Pas d'ADR direct pour `reduce_motion` (décision design-level creative-director). Lu chaque frame depuis `InputManager.reduce_motion` (ou équivalent settings — ownership TBD dans entities registry). Applique multiplicateurs AVANT commit : tilt × 0.25, fov_kick × 0.5, shake × 0. Le patch story-006 lit `_is_dashing` (cached flag via signaux), pas `player.is_dashing` (forbidden Manifest 2026-04-23 ligne 161).
 
 **Engine**: Godot 4.6 | **Risk**: LOW
 **Engine Notes**: Simple lecture bool + multiplication scalaire chaque frame — coût négligeable. Pas de post-cutoff API. Hot-reload (pas de cache) — toggle ON/OFF runtime depuis Menu a effet immédiat au prochain frame.
@@ -56,14 +57,14 @@ func _update_tilt_wall_run(delta: float) -> void:
         min(TILT_LERP_SPEED * delta, 1.0)
     )
 
-# Patch Story 006 _update_fov_dash
+# Patch Story 006 _update_fov_dash — utilise _is_dashing cached flag (story-006).
+# Manifest 2026-04-23 ligne 161 interdit le polling player.is_dashing.
 func _update_fov_dash(delta: float) -> void:
-    var player: CharacterBody3D = get_parent()
     var dash_kick: float = DASH_FOV_KICK
     # reduce_motion gate
     if InputManager.reduce_motion:
         dash_kick *= 0.5   # Rule 14 : fov_kick_mult → peak 95° au lieu de 100°
-    var target_fov: float = BASE_FOV + (dash_kick if player.is_dashing else 0.0)
+    var target_fov: float = BASE_FOV + (dash_kick if _is_dashing else 0.0)
     _camera3d.fov = lerp(
         _camera3d.fov,
         target_fov,
@@ -106,8 +107,8 @@ func add_shake(offset_radians: Vector3) -> void:
 
 **AC-CAM-71 (FOV kick × 0.5)** — Logic
 
-- Given : `reduce_motion = true`, `player.is_dashing = false`, `_camera3d.fov = 90.0`
-- When : `player.is_dashing = true` ; 30 frames `_process(1.0/60.0)`
+- Given : `reduce_motion = true`, Camera connectée à `player.dash_started`/`dash_ended`, `_is_dashing == false`, `_camera3d.fov = 90.0`
+- When : `player.dash_started.emit(Vector3.FORWARD, 18.0)` (handler set `_is_dashing=true`) ; 30 frames `_process(1.0/60.0)`
 - Then : `_camera3d.fov` converge vers ≈ `90.0 + 10.0 * 0.5 = 95.0`, tolérance ±0.2
 - Edge cases : `reduce_motion` toggle mid-dash → lerp adapte ; `reduce_motion = false` → back to 100 target
 
