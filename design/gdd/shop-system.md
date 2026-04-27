@@ -1,14 +1,14 @@
 # Shop System
 
-> **Status**: In Design (r1 solo auto-approve)
-> **Author**: Martin + main session (Opus 4.7) + subagents
-> **Last Updated**: 2026-04-27
+> **Status**: Designed r2 (revisions 2026-04-27 post design-review fresh — voir `reviews/shop-system-review-r1-2026-04-27.md`)
+> **Author**: Martin + main session (Opus 4.7) + subagents (game-designer, economy-designer, systems-designer, qa-lead, ux-designer)
+> **Last Updated**: 2026-04-27 (r2)
 > **Implements Pillar**: 2 (LA PROGRESSION SE VOIT) primaire ; 1 (FLOW) garde-fou transition ; anti-Pillar 4 (le shop est l'unique lieu de dépense — protège la sémantique "secrets = mouvement, pas marchandage")
-> **Quick reference** — Layer: `Feature/UI` · Priority: `MVP` · Key deps: `Credit Economy (Designed r1, locked try_spend), Game State Manager (APPROVED r1, request_scene_transition), Upgrade System (Not Started — provisional apply_upgrade), Save/Load System (Not Started — provisional save_string_array), Menu System (Not Started — sibling UI scene)`
+> **Quick reference** — Layer: `Feature/UI` · Priority: `MVP` · Key deps: `Credit Economy ✅ Designed r1 (locked try_spend, F-CRD-3 amendée r2 0-based, OQ-CRD-2 RESOLVED), Game State Manager ✅ APPROVED r1 (request_scene_transition), Save/Load System ✅ Designed r1 (save/load_string_array LOCKED, OQ-SHP-3 RESOLVED), Upgrade System ⚠️ Not Started (provisional apply_upgrade + _pending_upgrades pattern, OQ-SHP-2 chain-blocked Sprint 1), Menu System ⚠️ Not Started (sibling UI scene)`
 
 ## Overview
 
-Shop System est la **scène transitoire d'achat** entre étages : un Control fullscreen `res://scenes/shop/shop.tscn` chargé par GameStateManager (`request_scene_transition` ADR-0007 D-5) au signal `etage_completed` du Level System. Le shop expose un catalogue MVP de **2 upgrades binaires permanentes** (`double_jump` à 20 cr, `dash_horizontal` à 40 cr — coûts dérivés de la courbe linéaire F-CRD-3 `cost_n = 20 + 20×n` owned par Credit Economy). Chaque achat est une transaction atomique : `CreditEconomy.try_spend(amount: int) -> bool` (R-CRD-4 locked) — si succès, l'état owned est immédiatement persisté via `SaveLoad.save_string_array("owned_upgrades", _owned_upgrades)` (provisional Save/Load) puis `UpgradeSystem.apply_upgrade(id: StringName)` (provisional Upgrade) active la capacité dans la couche gameplay. Le shop est **idempotent** (chaque upgrade = achat unique, double-click bloqué par guard `_owned_upgrades.has(id)`), **sans grinding** (pas de re-stock, pas de stack, pas de re-roll), et **sans état SHOPPING dédié dans GSM** (le shop est une scène container PLAYING-state agnostic — voir R-SHP-5). Sa surface API est minimale : un nœud-local `ShopControllerScript` dans la scène (pas d'autoload), un signal interne `_on_continue_pressed()` qui déclenche `request_scene_transition` vers MENU au MVP (Tier 2+ : `start_etage(next_etage_id)` chaîné). Le shop ferme le segment économique du core loop : sans lui, les crédits accumulés par Credit Economy n'ont pas de sortie, Pillar 2 (LA PROGRESSION SE VOIT) reste promesse. Le scope MVP couvre 2 upgrades, 1 visite par étage (1 shop pour 1 étage MVP), persistance binaire owned/not_owned via Save/Load, et zéro SFX (Audio bus shop différé Tier 2+).
+Shop System est la **scène transitoire d'achat** entre étages : un Control fullscreen `res://scenes/shop/shop.tscn` chargé par GameStateManager (`request_scene_transition` ADR-0007 D-5) au signal `etage_completed` du Level System. Le shop expose un catalogue MVP de **2 upgrades binaires permanentes** (`double_jump` à 20 cr index n=0, `dash_horizontal` à 40 cr index n=1 — coûts dérivés de la courbe linéaire F-CRD-3 amendée r2 `cost_n = 20 + 20×n` 0-based owned par Credit Economy). Chaque achat est une transaction atomique : `CreditEconomy.try_spend(amount: int) -> bool` (R-CRD-4 locked) — si succès, l'état owned est immédiatement persisté via `SaveLoad.save_string_array("owned_upgrades", _owned_upgrades)` (provisional Save/Load, atomicité requise — voir Dependencies) puis `UpgradeSystem.apply_upgrade(id: StringName)` (provisional Upgrade — pattern `_pending_upgrades` si Player non instancié, voir EC-SHP-17) active la capacité dans la couche gameplay. Le shop est **idempotent** (chaque upgrade = achat unique, double-click bloqué par guard `_owned_upgrades.has(id)`), **sans grinding au MVP** (pas de re-stock, pas de stack, pas de re-roll ; cf. note Tier 2+ courbe F-SHP-1 sur l'accumulation cross-session), et **sans état SHOPPING dédié dans GSM** (le shop est une scène container PLAYING-state agnostic — voir R-SHP-5). Sa surface API est minimale : un nœud-local `ShopControllerScript` dans la scène (pas d'autoload), un signal interne `_on_continue_pressed()` qui déclenche `request_scene_transition` vers MENU au MVP (Tier 2+ : `start_etage(next_etage_id)` chaîné via autoload `RunContext`, OQ-SHP-5 RESOLVED). Le shop ferme le segment économique du core loop : sans lui, les crédits accumulés par Credit Economy n'ont pas de sortie, Pillar 2 (LA PROGRESSION SE VOIT) reste promesse. Le scope MVP couvre 2 upgrades, **2 étages playable MVP** (1 shop par étage = 2 visites possibles, F-CRD-4 yield_max 85 cr cumul cohérent F-SHP-3), persistance binaire owned/not_owned via Save/Load, et zéro SFX (Audio bus shop différé Tier 2+, OQ-SHP-4 RESOLVED).
 
 ---
 
@@ -18,9 +18,11 @@ Shop System est la **scène transitoire d'achat** entre étages : un Control ful
 
 ### Le moment Shop
 
-Tu viens de finir l'étage. La caméra est encore essoufflée, l'écran fade au noir 200 ms, puis le shop apparaît. Le 3D world a disparu. Le silence est total — pas de musique d'ambiance qui te précipite, pas de timer qui te presse. Devant toi, **deux cartes**. À droite, ton compteur de crédits — le même chiffre que tu surveilles depuis le début, mais ici il a un poids différent : il est **convertible**. La carte du haut dit `Saut Double — 20 ₵`. Tu en as 47. Tu peux. La carte du bas dit `Dash Horizontal — 40 ₵`. Tu peux aussi. Mais pas les deux. Tu vas devoir choisir.
+Tu viens de finir l'étage. La caméra est encore essoufflée, l'écran fade au noir 200 ms, puis le shop apparaît. Le 3D world a disparu. Le silence est total — pas de musique d'ambiance qui te précipite, pas de timer qui te presse. Devant toi, **deux cartes**. À droite, ton compteur de crédits — le même chiffre que tu surveilles depuis le début, mais ici il a un poids différent : il est **convertible**. La carte du haut dit `Saut Double — 20 ₵`. Tu en as 33 (étage 1, trois secrets trouvés). Tu peux. La carte du bas dit `Dash Horizontal — 40 ₵`. Tu ne peux pas. Pas encore. À ta première visite, tu peux. Mais pas les deux — pas encore.
 
-Et c'est exactement le point : **le shop est le seul moment du jeu où tu réfléchis pour avancer**. Partout ailleurs, tu réagis à 60 fps — un laser, un mur, un grunt. Ici, tu *décides*. Cette décision est légère (deux options MVP, pas un skill tree) et lourde à la fois (chaque upgrade change physiquement ce que tu peux faire dans le prochain étage). Il n'y a pas de modal "Are you sure?", pas de fanfare, pas de cinématique. Tu cliques, le compteur tombe de 47 à 27 en 300 ms, la carte vire au cyan désaturé qui dit `POSSÉDÉ`, et le bouton `CONTINUER` est toujours là, toujours prêt. Tu reprends ton souffle, tu cliques, et la tour t'attend de nouveau.
+Et c'est exactement le point : **le shop est le seul moment du jeu où tu réfléchis pour avancer**. Partout ailleurs, tu réagis à 60 fps — un laser, un mur, un grunt. Ici, tu *décides*. Cette décision est légère (deux options MVP, pas un skill tree) et lourde à la fois (chaque upgrade change physiquement ce que tu peux faire dans le prochain étage). Il n'y a pas de modal "Are you sure?", pas de fanfare, pas de cinématique. Tu cliques, le compteur tombe de 33 à 13 en 300 ms, la carte vire au cyan désaturé qui dit `POSSÉDÉ`, et le bouton `CONTINUER` est toujours là, toujours prêt. La carte du dash reste ouverte — tu sais qu'au prochain étage, si tu trouves les bons secrets, elle deviendra à toi. Tu reprends ton souffle, tu cliques, et la tour t'attend de nouveau.
+
+> **Honnêteté économique** (note design) : la tension décisionnelle "tu peux mais pas les deux" est la promesse de la **première visite** d'un joueur explorateur normal (yield étage 1 ≈ 21–38 cr selon profil, voir F-SHP-3). Pour le joueur expert qui finit les 2 étages MVP avec tous les secrets (yield_max 85 cr), la tension se résout en "tu peux les deux avec marge". Pour le joueur faible (yield ≤ 19 cr), aucun achat possible étage 1 — la fenêtre arrive étage 2. La fantasy est temporelle, pas invariante : le moment de tension existe à un instant précis dans la progression, pas à chaque visite.
 
 ### Le pacte avec le crédit
 
@@ -41,7 +43,15 @@ Le shop n'est **pas** :
 
 ### Référence sentimentale
 
-Inspirations directes : *Hollow Knight* shop Iselda/Sly (sobre, fonctionnel, la décision est dans le choix de l'item, pas dans la mise en scène) ; *Ghostrunner* upgrade screen (minimaliste, monospace, zéro friction). Anti-référence : tous les shops F2P (loot box reveal, particules, son de jackpot) — le shop de Chrome://Ascent est leur opposé exact.
+Inspirations directes (révisées r2 design-review) :
+
+- **Sobriété d'interface** : *Hotline Miami* écran de stats fin de niveau (texte monospace, fond noir, zéro FX décoratif — le score parle, l'écran se tait).
+- **Absence de friction** : *Hades* inventory screens (lecture immédiate, transitions courtes, le joueur n'a pas l'impression de "rentrer dans un menu").
+- **Livraison sans célébration** : *Dead Cells* unlocks passifs entre runs (l'upgrade s'applique sans cinématique, sans fanfare — le seul changement est que la barre de capacité s'agrandit).
+
+Anti-référence : tous les shops F2P (loot box reveal, particules, son de jackpot), tous les skill trees graphiques connectés (Path of Exile, Ghostrunner upgrade tree) — le shop de Chrome://Ascent est leur opposé exact.
+
+> **Note** : versions précédentes du GDD citaient *Hollow Knight* Iselda/Sly et *Ghostrunner* upgrade screen comme références. Ces analogies étaient imprécises (Iselda est un PNJ avec dialogues, Ghostrunner upgrade screen est un skill tree connecté). Remplacées r2 pour éviter d'orienter mal l'art direction.
 
 ## Detailed Rules
 
@@ -121,9 +131,9 @@ Pour une upgrade `id` de coût `cost`, le cycle suit cette séquence stricte dan
    - `UpgradeSystem.apply_upgrade(id)` — activation de la capacité (appel SYNC idempotent).
    - Désactivation du `BuyButton` (`disabled = true`, label change en `"POSSÉDÉ"`).
    - Mise à jour de `CreditValueLabel` (déjà géré côté shop via signal `credits_changed` connecté en R-SHP-9 — pas besoin de pull explicite).
-6. **Feedback succès** — Tween pulse sur `UpgradeCard` (scale 1.0 → 1.03 → 1.0, 150 ms wall-clock, TRANS_SINE) + counter tween 300 ms (J.3) déclenché côté `credits_changed` handler. Aucun son MVP.
+6. **Feedback succès** — Tween pulse sur `UpgradeCard` (scale 1.0 → 1.03 → 1.0, 150 ms wall-clock, TRANS_SINE) + counter tween 300 ms (J.3) déclenché côté `credits_changed` handler. **Pas de flash cyan** sur counter (retiré r2 design-review — l'animation numérique 300 ms est suffisante comme livraison ; cohérent anti-fantasy "sobre" pas "silencieux"). Aucun son MVP.
 
-**Ordre 5a → 5b → 5c impératif** : la persistance précède `apply_upgrade` afin que, même si `apply_upgrade` lance une exception non fatale, l'état owned soit enregistré (évite la double-facturation au rechargement). Si `save_string_array` échoue, `push_error` est émis mais le cycle continue (apply se fait quand même — le crédit est déjà débité, le moins pire est d'activer l'upgrade).
+**Ordre 5a → 5b → 5c impératif** : la persistance précède `apply_upgrade` afin que, même si `apply_upgrade` lance une exception non fatale, l'état owned soit enregistré (évite la double-facturation au rechargement). Si `save_string_array` échoue, voir EC-SHP-9 (pattern Option C buffer retry — pas de "Risque Tier 1 admis").
 
 **R-SHP-7 — Idempotence : double-click et re-entry**
 
@@ -149,6 +159,8 @@ Le shop se connecte au signal `CreditEconomy.credits_changed(total, delta, sourc
 Cas initial (entre `_ready()` et premier emit) : le rendu initial appelle `CreditEconomy.get_total()` directement (pattern pull, cohérent ADR-0007 D-9 + Credit r1 R-CRD-7 boot hydration). Le signal met ensuite à jour en live à chaque event.
 
 **Note sur CONNECT_DEFERRED** : `credits_changed` peut être émis depuis `_physics_process` du Credit Economy (SYNC dans le call stack `try_spend`). Le shop étant une scène Control (pas de gameplay 3D), `CONNECT_DEFERRED` laisse le signal arriver à l'idle frame suivante — acceptable pour l'UI (pas de contrainte frame-precise ici, contrairement au gameplay 3D qui exige SYNC).
+
+> ⚠️ **CONNECT_DEFERRED est OBLIGATOIRE et VERROUILLÉ** (r2 design-review) : ce flag empêche le handler `_on_credits_changed` de s'exécuter dans le call stack du handler `pressed` du BuyButton. Si la connexion passait à `CONNECT_SYNC`, un autre handler de `credits_changed` (par exemple un Tier 2+ qui déclencherait une transition GSM) pourrait s'exécuter *entre* `try_spend` et `apply_upgrade`, cassant l'atomicité du cycle d'achat (cf. EC-SHP-23). **Tout passage à CONNECT_SYNC sur ce signal côté Shop = audit chaîne d'appel obligatoire + amendement Shop r3.** AC-SHP-4 verrouille le flag.
 
 **R-SHP-10 — Bouton "Continuer" : transition GSM**
 
@@ -239,9 +251,11 @@ Le shop s'ouvre sur réception d'un signal `etage_completed` émis par Level Sys
 
 ---
 
-**F-SHP-1 — Cost Lookup (délégation à F-CRD-3)**
+**F-SHP-1 — Cost Lookup (délégation à F-CRD-3, convention unifiée r2 0-based)**
 
 Le Shop ne calcule pas le coût d'une upgrade — il délègue à la courbe linéaire définie par F-CRD-3 dans Credit Economy. Aucune constante `BASE_UPGRADE_COST` ni `TIER_COST_STEP` n'est redéfinie ici.
+
+> **Convention `n` r2 unifiée 0-based** (correction design-review) : F-CRD-3 a été amendée r2 (Credit GDD) pour passer de 1-based (rang) à 0-based (index) — alignement avec F-SHP-1. Les deux GDDs utilisent désormais `n ∈ [0, N_UPGRADES - 1]`. Avant amendement, Credit utilisait `cost_n = B + S × (n - 1)` ; après : `cost_n = B + S × n`. Arithmétiquement équivalent (rang 1 = index 0), évite le bug d'impl cross-GDD.
 
 ```
 cost_at_index(n) := F-CRD-3 = BASE_UPGRADE_COST + TIER_COST_STEP × n
@@ -313,9 +327,11 @@ affordable_n = CreditEconomy.get_total() >= cost_at_index(n)
 
 ---
 
-**F-SHP-3 — Total Spend Budget Validation (Pillar 2 sanity check)**
+**F-SHP-3 — Total Spend Budget Validation (Pillar 2 sanity check, MVP 2 étages)**
 
-Validation économique statique (design-time + test-time, non runtime). Vérifie que la somme des coûts de toutes les upgrades MVP est atteignable sans grind. Garantit Pillar 2 : un joueur qui joue bien doit pouvoir acheter toutes les upgrades MVP.
+Validation économique statique (design-time + test-time, non runtime). Vérifie que la somme des coûts de toutes les upgrades MVP est atteignable **sur le cumul des 2 étages MVP** sans grind cross-session. Garantit Pillar 2 : un joueur explorateur qui joue bien doit pouvoir acheter toutes les upgrades MVP en complétant les 2 étages playable MVP.
+
+> **Scope MVP confirmé r2** : MVP = **2 étages playable** (cohérent F-CRD-4 yield range `[8, 100] cr cumul étage 1+2`). Une visite shop par étage (2 visites possibles total). L'étage 1 finance typiquement la 1ère upgrade ; l'étage 2 finance la 2e. Le yield 85 cr est le scenario optimal cumul, pas un seul étage.
 
 ```
 total_cost_MVP = Σ cost_at_index(n)  pour n ∈ [0, N_UPGRADES_MVP - 1]
@@ -334,25 +350,37 @@ margin = session_yield_max_MVP - total_cost_MVP
 
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
-| `N_UPGRADES_MVP` | N | `int` | 2 | Nombre d'upgrades MVP. Figé game-concept ligne 271. |
+| `N_UPGRADES_MVP` | N | `int` | 2 | Nombre d'upgrades MVP. Figé game-concept. |
 | `total_cost_MVP` | C | `int` | 60 | Somme des coûts. Dérivé F-SHP-1 × N. |
-| `session_yield_max_MVP` | Y | `int` | 85 | Rendement maximal session 2 étages (F-CRD-4). Source de vérité Credit GDD. |
-| `margin` | m | `int` | 25 | Crédits résiduels après achat de toutes upgrades MVP en scénario optimal. |
+| `session_yield_max_MVP` | Y | `int` | 85 | Rendement maximal **cumul 2 étages MVP** (F-CRD-4). Source de vérité Credit GDD. |
+| `margin` | m | `int` | 25 | Crédits résiduels après achat de toutes upgrades MVP en scénario optimal cumul 2 étages. |
 
 **Output Range :** `margin >= 0` est la condition de validité économique. `margin < 0` → violation Pillar 2 + anti-pillar grinding.
 
-**Interprétation de la marge 25 cr** :
+**Profils de joueur — affordability réelle MVP (analyse r2 economy-designer)** :
 
-1. **Confort de jeu** : un joueur qui rate quelques secrets (rendement < 85 cr) peut quand même financer les 2 upgrades s'il atteint ≈ 60 cr — la marge absorbe l'imperfection sans forcer le grind.
-2. **Anticipation Tier 2+** : les crédits résiduels s'accumulent sur le compteur permanent. Quand l'upgrade n=2 (Tier 2+ `wall_run_long` à 60 cr) sera disponible, le joueur sera déjà partiellement financé — la progression se voit avant même que l'upgrade n'existe.
-3. **Non-trivialité** : 25 cr ne suffisent pas pour une 3e upgrade fictive (n=2 = 60 cr > 25 cr) — pas de "tout acheter sans effort" même en session parfaite. Tension économique réelle préservée.
+| Profil | Étage 1 yield approx | Cumul 2 étages | n=0 affordable étage 1 ? | n=1 affordable cumul ? |
+|--------|---------------------|----------------|--------------------------|------------------------|
+| Q25 (combat-only, 0 secrets) | ~8 cr | ~16 cr | NON (16 < 20) | NON (16 < 40) |
+| Q50 (médian, ~50% secrets) | ~21 cr | ~42 cr | OUI (étage 1) | OUI (cumul) |
+| Q75 (explorateur normal, 3 secrets mix) | ~33 cr | ~66 cr | OUI confortable | OUI confortable |
+| Q95 (expert, tous secrets) | ~55 cr | ~85 cr | OUI + restes | OUI + marge 25 cr |
+
+**Interprétation r2** :
+
+1. **Q25 friction Pillar 2** : un joueur strictement combat-only (0 secret trouvé) ne peut acheter aucune upgrade MVP en 2 étages (16 cr < 20 cr). C'est une **conséquence designée** de l'asymétrie 5:1 secret/kill — le joueur est incité à explorer. Documenté comme tension intentionnelle, pas bug Pillar 2.
+2. **Q50–Q75 cible Pillar 2** : le profil médian achète n=0 étage 1 ou cumul, n=1 cumul 2 étages — la promesse "1 session = 1-2 upgrades" tient.
+3. **Q95 confort + Tier 2+ anticipation** : les 25 cr résiduels s'accumulent sur le compteur permanent (Credit R-CRD-12 persistance). Quand Tier 2+ ajoutera n=2 à 60 cr, le joueur Q95 sera déjà partiellement financé.
+4. **Non-trivialité** : 25 cr ne suffisent pas pour une 3e upgrade fictive (n=2 = 60 cr > 25 cr) — pas de "tout acheter sans effort" même en session parfaite. Tension économique réelle préservée.
 
 **Invariant de santé économique** : à chaque extension Tier 2+ qui ajoute une upgrade, vérifier que `session_yield_max(nouveau_tier) - total_cost(nouveau_N) >= 0`. Si négatif, retuner `BASE_UPGRADE_COST`/`TIER_COST_STEP` (Credit) ou augmenter rendement (nouveaux ennemis, secrets).
 
 **Sanity checks de non-boucle économique :**
 
-- Pas de gain → dépense → regain : `try_spend` est sink pur, sources non régénérables, étage déjà complété ne peut pas être regrindé (anti-pillar).
+- Pas de gain → dépense → regain : `try_spend` est sink pur, sources non régénérables **dans une même run d'étage** (kills une seule fois, secrets une seule fois). 
 - Pas d'inflation : courbe F-CRD-3 linéaire, croissance bornée à 20 cr par rang, pas de "wall final" exponentiel.
+
+> **⚠️ Re-run d'étage = grinding mou (r2 design-review honnêteté)** : si le joueur quitte au menu et relance étage 1, les ennemis et secrets sont **reset au prochain `level_active`** (Enemy GDD `_credited_this_run` vidé). Donc en théorie, le joueur peut farmer crédits via re-runs. **Cette possibilité n'est pas verrouillée par lock système au MVP** (pas de "level seal"). C'est un compromis assumé : plutôt que d'introduire une mécanique de verrou anti-replay (qui casserait Pillar 4 — "rejouer pour explorer"), on accepte que le joueur motivé puisse ré-accumuler. La vraie protection anti-grinding au MVP est la quantité limitée d'upgrades (2) — pas un verrou de re-run. Tier 2+ : si playtest révèle un comportement de re-run mécanique cumulatif, considérer une OQ "level completion seal" ou "diminishing returns sur re-credit".
 
 ---
 
@@ -377,7 +405,9 @@ ordre_upgrade = f(prix_croissant, impact_gameplay_croissant, pillar_2_visibilit�
 | 0 | `double_jump` | 20 cr | Très élevé — franchit gaps impossibles, visible au premier saut post-achat | Moyen — ouvre verticalité | **Premier** |
 | 1 | `dash_horizontal` | 40 cr | Élevé — accélère traversée, impact moins immédiat sans level design dédié | Élevé — couvre distances latérales, esquive lasers | **Second** |
 
-**Justification double_jump en n=0** : le double_jump à 20 cr est délibérément le moins cher car il est la première preuve que "acheter change ce qu'on peut faire". Le moment où le joueur prend un élan, saute, et franchit un bord raté 5 fois avant l'achat est la démonstration de Pillar 2 la plus directe possible. Récompense immédiate, sans équipement supplémentaire, sans tutoriel. Le dash_horizontal (40 cr) demande compréhension du level design pour révéler son potentiel — correctement placé en second, une fois le modèle économique compris.
+**Justification double_jump en n=0** : le double_jump à 20 cr est délibérément le moins cher car (a) il est la première upgrade accessible économiquement (Q50+ peut l'acheter étage 1) et (b) son impact gameplay est *binaire et lisible* — le joueur acquiert une nouvelle capacité de mouvement vertical, observable au premier saut où il chooses de double-tapper. Le dash_horizontal (40 cr) demande compréhension du level design pour révéler son potentiel — correctement placé en second, une fois le modèle économique compris.
+
+> **Note dépendance level design (r2 design-review)** : l'attente "le joueur découvre l'upgrade par le premier déclenchement post-achat" suppose que le level design étage 2 (post-shop étage 1) contient un contexte où chaque upgrade est *utile* — pas nécessairement obligatoire, mais clairement applicable. Cette contrainte est **soft** côté Level GDD (pas un AC bloquant Level) mais devient un critère de playtest AC-SHP-50 (temps avant premier déclenchement post-achat < 60 sec sur 3/5 sessions playtest internes). Si playtest révèle que le joueur n'utilise jamais l'upgrade post-achat, F-SHP-4 ordering est à reconsidérer (priorité 4 nouvelle).
 
 **Roadmap Tier 2+ (indicative — non figée) :**
 
@@ -386,6 +416,8 @@ ordre_upgrade = f(prix_croissant, impact_gameplay_croissant, pillar_2_visibilit�
 | 2 | `wall_run_long` | 60 cr | Extension durée wall-run — traversées de façades longues |
 | 3 | `aerial_slow_mo` | 80 cr | Slow-mo en l'air — lecture tactique mid-air |
 | 4–7 | TBD Tier 2+ | 100–160 cr | À définir VS/Alpha selon playtest |
+
+> **⚠️ Note Tier 2+ anti-grinding (r2 design-review)** : avec 8 upgrades (n=0 à n=7) et Credit `total_credits` persistant cross-session (Credit R-CRD-12), le coût total Full Vision = 720 cr. Si yield_max/run reste à 85 cr (pas de nouveaux ennemis ni secrets Tier 2+), atteindre n=7 demande **8-9 runs**. Cette accumulation cross-session **n'est pas considérée comme grinding** au sens anti-pillar (game-concept) : l'anti-pillar interdit les **mécaniques de re-stock** (re-roll catalogue, upgrades consommables, multi-buy), pas la progression lente. Néanmoins, Tier 2+ doit valider, avant ajout de chaque upgrade au catalogue, que (a) le yield/run a augmenté en proportion (nouveaux secrets / nouveaux ennemis), OU (b) la fréquence des sessions assumée est compatible avec la durée de découverte attendue. Si ni (a) ni (b), retuner `BASE_UPGRADE_COST` / `TIER_COST_STEP` (Credit r2+) avant d'ajouter l'upgrade. **MVP r2 conserve l'anti-grinding strict** (2 upgrades, atteignables en 1-2 runs explorateur), Tier 2+ assume l'accumulation lente comme mécanique designée.
 
 ---
 
@@ -418,7 +450,17 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 **EC-SHP-8 — owned_upgrades contient un ID inconnu** : SI `_owned_upgrades` chargé depuis Save contient un StringName ne correspondant à aucune entrée du catalogue (upgrade retirée entre versions) ALORS l'ID est conservé silencieusement dans `_owned_upgrades` (idempotence de persistance — on ne purge pas ce qu'on ne reconnaît pas), mais aucune carte UI n'est générée pour lui. Il ne bloque pas l'achat d'autres upgrades valides. Au prochain `save_string_array`, l'ID inconnu est réécrit tel quel — forward-safe pour Tier 2+ restauration. Log `push_warning` si catalog lookup échoue.
 
-**EC-SHP-9 — SaveLoad.save_string_array échoue post-débit** : SI `try_spend(cost)` retourne `true` (crédits débités irréversiblement), upgrade ajoutée à `_owned_upgrades` en RAM, ET `save_string_array` échoue (disque plein, permissions) ALORS la session continue avec `_owned_upgrades` à jour en RAM — l'upgrade est active jusqu'à fin de session. Au redémarrage, `_owned_upgrades` rechargée depuis save non mis à jour : upgrade perdue, mais `total_credits` aura été débité (Credit persiste indépendamment au prochain quit-to-menu R-CRD-12). Résolution MVP : `push_error`, appliquer `apply_upgrade` normalement (session correcte), signal déjà émis. Tier 2+ : retry ou alerte UX. Risque de cohérence Tier 1 admis.
+**EC-SHP-9 — SaveLoad.save_string_array échoue post-débit (Option C buffer retry, r2)** : SI `try_spend(cost)` retourne `true` (crédits débités irréversiblement), upgrade ajoutée à `_owned_upgrades` en RAM, ET `save_string_array` échoue (disque plein, permissions, file lock) ALORS Shop applique le pattern **Option C buffer retry non-bloquant** :
+
+1. `push_error("ShopSystem: save_string_array failed for owned_upgrades — entering retry buffer")` (logguer mais pas bloquer).
+2. Append l'array `_owned_upgrades` courant dans une queue interne `_pending_save_retries: Array[Array[StringName]]`.
+3. Continuer le cycle d'achat normalement (`apply_upgrade` appelé, animations jouées) — le débit a eu lieu, l'upgrade est active en RAM.
+4. À chaque `_process` idle frame, si `_pending_save_retries` non vide, retenter `save_string_array` avec le dernier état. Maximum **3 tentatives** sur 5 secondes wall-clock (intervalle 1s exponentiel : 0.5s, 1.5s, 3s).
+5. Si une tentative réussit : `_pending_save_retries.clear()`, log `push_warning("ShopSystem: save retry succeeded after N attempts")`.
+6. Si les 3 tentatives échouent : log `push_error("ShopSystem: save retry exhausted — owned_upgrades will be re-attempted at quit-to-menu")`. L'upgrade reste active en RAM. L'écriture définitive est déléguée au save quit-to-menu (Credit R-CRD-12) qui re-écrira `total_credits` ET déclenchera un dernier `save_string_array` pour `owned_upgrades` (Shop hook `_on_pre_quit` connecté à GSM `state_changed(MENU)`).
+7. Si force-quit avant écriture quit-to-menu : upgrade perdue au redémarrage, mais débit crédit persisté indépendamment (Credit R-CRD-12 idempotent). Cas restant documenté en EC-SHP-24 (force-quit) — risque résiduel admis (~0.5% des cas selon ratio "save fail × force-quit imprédictible").
+
+**Couverture Option C** : ~95% des failures disque transitoires absorbées par retry + fallback quit-to-menu. Le pire cas (retry exhausted + force-quit avant menu) reste documenté et acceptable. Aucune notification UX joueur au MVP (l'upgrade fonctionne en RAM, le silence est cohérent Pillar 1) — Tier 2+ : alerte UX discrète si retry exhausted ("Sauvegarde retardée").
 
 **EC-SHP-10 — double-clic rapide avant disabled** : SI joueur double-clique sur un bouton affordable avant que Godot ait traité le premier clic et désactivé `BuyButton.disabled` ALORS deux events `pressed` passent dans la queue. Résolution : guard `_purchase_in_progress: bool` posé à `true` au premier clic, remis à `false` à la fin du tween post-achat. Le second event teste ce flag et est ignoré. Guard prioritaire sur `BuyButton.disabled` car Godot peut livrer les deux events avant le prochain `_process`.
 
@@ -438,7 +480,10 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 **EC-SHP-18 — request_scene_transition avec transition déjà en cours** : SI `GSM.request_scene_transition` est appelé alors qu'une transition GSM est déjà en cours (double-clic Continue, double-press ESC) ALORS GSM rejette le second appel silencieusement (ADR-0007 D-10 — état GSM déjà en transition). Shop ajoute un flag `_closing: bool` posé au premier appel et testé avant tout second appel à `request_scene_transition` (double-safeguard).
 
-**EC-SHP-19 — get_tree().paused = true résiduel** : SI `paused = true` appliqué par Menu System (pause overlay) et non remis à `false` avant chargement shop.tscn ALORS les nœuds Shop dont `process_mode != ALWAYS` seraient gelés. Résolution : tous nœuds interactifs Shop utilisent `PROCESS_MODE_ALWAYS` (R-SHP-16). Le shop est une scène de transition fullscreen — il ne doit pas hériter du pause state du level précédent. GSM doit garantir `paused = false` avant `change_scene_to_file` (à confirmer ADR-0007).
+**EC-SHP-19 — get_tree().paused = true résiduel** : SI `paused = true` appliqué par Menu System (pause overlay) et non remis à `false` avant chargement shop.tscn ALORS les nœuds Shop dont `process_mode != ALWAYS` seraient gelés. Résolution **double-couche r2** :
+
+1. **Niveau Shop (defensive)** : tous nœuds interactifs Shop utilisent `PROCESS_MODE_ALWAYS` (R-SHP-16). Le shop est une scène de transition fullscreen — il ne doit pas hériter du pause state du level précédent.
+2. **Niveau GSM (contrat)** : GSM doit garantir `paused = false` avant `change_scene_to_file`. **Ce contrat n'est pas encore confirmé dans ADR-0007** — voir nouvelle OQ-SHP-11 (audit GSM ADR-0007 D-? `paused` lifecycle pendant transitions). En attendant résolution OQ-SHP-11, la défense Shop niveau 1 (`PROCESS_MODE_ALWAYS` partout) est suffisante pour MVP.
 
 **EC-SHP-20 — Player.died émis depuis scène fantôme pendant shop** : SI un grunt dont le level n'a pas encore été déchargé émet `enemy_killed` ou si `Player.died` est émis pendant que le Shop est actif (scène Level non unloadée) ALORS Credit crédite normalement (indépendant de Shop), mais Shop n'écoute pas `died` directement. GSM reste PLAYING pendant shop. Si joueur "meurt" pendant shop par bug lifecycle, GSM reçoit signal et déclenche RESPAWNING → shop fermé prématurément. Cas pathologique indiquant un bug lifecycle Level — Level doit être entièrement déchargé avant shop.
 
@@ -447,6 +492,8 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 **EC-SHP-22 — autoload order : SaveLoad ou CreditEconomy non prêt au _ready()** : SI `Shop._ready()` s'exécute avant que SaveLoad ou CreditEconomy soit initialisé (ordre autoload incorrect) ALORS appels `load_string_array` ou `get_total()` échoueraient. Résolution : Godot 4.6 initialise autoloads dans l'ordre déclaré dans `project.godot`. Contrat de dépendance impose SaveLoad et CreditEconomy listés avant ShopSystem. Comme `shop.tscn` est scène transitoire (non-autoload), son `_ready()` s'exécute après tous les autoloads — ce cas n'existe que si Shop instancié prématurément hors flow GSM (bug d'intégration).
 
 **EC-SHP-23 — shop unloaded mid-purchase (fenêtre 1 frame)** : SI une unload de la scène shop survient dans la fenêtre entre `try_spend(cost) == true` et `apply_upgrade(id)` (un seul `await` ou yield entre les deux) ALORS upgrade non appliquée mais crédits débités. Résolution : aucun `await` ni `yield` autorisé entre `try_spend` et `apply_upgrade` — les deux appels dans le même call stack synchrone du handler `pressed`. Séquence atomique du point de vue GDScript (pas de suspension coroutine). Écriture Save immédiatement après dans le même handler (R-SHP-8).
+
+> **Renforcement r2** : l'atomicité repose sur le fait qu'**aucun handler tiers** ne peut s'exécuter dans le call stack du `pressed` handler. Cette garantie est tenue uniquement si `credits_changed` est connecté en `CONNECT_DEFERRED` (R-SHP-9 verrouillage). Si un futur contributeur passait à `CONNECT_SYNC`, le handler `_on_credits_changed` s'exécuterait *entre* `try_spend` (qui émet le signal) et `apply_upgrade`, ouvrant une fenêtre de réentrance potentiellement catastrophique (transition GSM, reload Save, etc.). **AC-SHP-4 verrouille CONNECT_DEFERRED comme invariant testable.** Tout passage à SYNC = audit chaîne d'appel obligatoire + amendement Shop r3.
 
 **EC-SHP-24 — force-quit application pendant shop** : SI joueur force-quit (Alt+F4, SIGKILL) pendant shop ouvert ALORS `_notification(NOTIFICATION_WM_CLOSE_REQUEST)` peut ne pas être reçu. Si achat eu lieu, `save_string_array` déjà écrit synchrone post-achat (R-SHP-8) — upgrade persistée. Si Credit a écrit `save_int` au même moment (R-CRD-12), cohérence garantie. Si force-quit exactement entre débit crédit et écriture save UpgradeSystem, EC-SHP-9 s'applique. Risque Tier 1 admis (force-kill OS ne garantit pas point de sauvegarde).
 
@@ -472,21 +519,37 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 **EC-SHP-35 — localization MVP : texte FR hardcoded** : SI texte UI Shop ("POSSÉDÉ", "Continuer", "CRÉDITS :") hardcoded en français MVP ALORS aucune localization runtime au MVP. Tier 2+ : extraction strings vers fichier i18n (Godot tr() pattern), flag pour Tier 2+ Localization team. Police monospace fallback : si TTF target absent, Godot fallback sur police système monospace.
 
+---
+
+### Edge Cases ajoutés r2 (design-review systems-designer)
+
+**EC-SHP-36 — double `etage_completed` (bug Level)** : SI Level System émet `etage_completed` deux fois consécutives par bug (ex. handler dupliqué) ALORS GSM reçoit le second signal alors que la transition shop est déjà en cours (état LOADING ou ACTIVE). Résolution attendue côté GSM : `request_scene_transition` rejette silencieusement si une transition est déjà en cours (idempotence GSM ADR-0007 D-10, à confirmer audit). Côté Shop : aucune action requise — Shop n'écoute pas `etage_completed` directement (R-SHP-15). Si GSM ne rejette pas le second appel, cas pathologique = double instanciation shop.tscn → bug architecture GSM, hors scope Shop. Flag pour bidirectional check GSM r2.
+
+**EC-SHP-37 — `Player.died` pendant LOADING shop (race lifecycle Level)** : SI Level System a émis `etage_completed` et GSM a lancé `change_scene_to_file("shop.tscn")` MAIS le Level n'est pas entièrement déchargé encore et un ennemi fantôme tue le joueur ALORS `Player.died` est émis, GSM peut tenter une transition RESPAWNING en parallèle de la transition shop. Résolution attendue : GSM doit **prioriser la transition en cours** (transition shop reste prioritaire sur respawn pendant LOADING). Si RESPAWNING prime, le joueur arrive au respawn point sans avoir vu le shop — état cohérent mais surprenant. **Contrat à clarifier dans GSM r2** (audit ADR-0007 lifecycle priority). Côté Shop : aucune action MVP — Shop ne gère pas le respawn flow.
+
+**EC-SHP-38 — BuyButton + ContinueButton dans le même frame (ordre déterministe)** : SI joueur clique BuyButton (upgrade affordable) ET ContinueButton dans la même frame (input spam, accessibilité externe, double-tap) ALORS Godot délivre les deux `pressed` dans l'ordre de la scene tree. Comme `BuyButton` est déclaré avant `ContinueButton` dans `shop.tscn` (R-SHP-2 hiérarchie), son handler s'exécute en premier — achat complété atomiquement. Puis ContinueButton handler s'exécute, déclenche `request_scene_transition`. Le flag `_closing: bool` (EC-SHP-18) absorbe tout second appel `request_scene_transition` éventuel. Résultat : achat valide + transition propre. Documenter explicitement que **l'ordre de déclaration dans shop.tscn est l'ordre de traitement des `pressed`** (non-obvious pour futurs contributeurs Godot).
+
+**EC-SHP-39 — String vs StringName dans `_owned_upgrades` (cast safety)** : SI `SaveLoad.load_string_array` retourne un Array contenant des Strings au lieu de StringNames (sérialisation JSON typique : pas de StringName natif en JSON) ALORS le cast `String("double_jump") → StringName(&"double_jump")` est **équivalent** pour `has()` en Godot 4.6 — les StringNames sont internés, l'égalité fonctionne. EC-SHP-7 doit donc **convertir** les Strings valides plutôt que les rejeter : `for elem in raw_array: if elem is String: _owned_upgrades.append(StringName(elem)) ; elif elem is StringName: _owned_upgrades.append(elem) ; else: push_warning("invalid type")`. Comportement défensif et forward-compatible avec sérialisations JSON futures.
+
+**EC-SHP-40 — réentrance CONNECT_DEFERRED (modèle threading GDScript)** : SI deux handlers DEFERRED de `credits_changed` sont connectés (ex. Shop UI + futur Tier 2+ telemetry) ET émis dans la même frame ALORS GDScript exécute les handlers DEFERRED **séquentiellement à la prochaine idle frame**, pas en parallèle (modèle single-thread garanti). Aucune réentrance possible : le second handler ne peut pas modifier `_owned_upgrades` pendant que le premier itère `_CATALOG`. **Non-risque prouvé par modèle threading GDScript single-thread + DEFERRED séquentiel.** Documenté ici pour lever toute ambiguïté future.
+
+**EC-SHP-41 — ESC réflexe sans achat (joueur 19 cr ou hover annulé)** : SI joueur ouvre shop avec solde insuffisant pour toute upgrade (ex. 19 cr, EC-SHP-15) OU joueur a hover-cliqué une carte DISABLED puis presse ESC par réflexe d'annulation ALORS R-SHP-11 spec ESC = Continuer direct (sortie immédiate, pas de re-entry MVP). **Comportement assumé — pas de garde-fou MVP.** Justification (r2 design-review) : Pillar 1 anti-friction prime sur protection contre sortie accidentelle. Le joueur sans crédit ne peut rien acheter de toute façon — la sortie immédiate est rationnelle. Le joueur qui veut "annuler le hover" voit que la carte cliquée n'a rien fait (DISABLED no-op) et peut continuer à hover. Si playtest AC-SHP-51 révèle ≥ 1/5 sortie accidentelle non désirée, considérer pattern alternatif (1er ESC focus Continue + pulse, 2nd ESC trigger) en r3. **Risque MVP assumé.**
+
 ## Dependencies
 
 ### Hard dependencies (Shop ne peut pas fonctionner sans)
 
 | Système | Status | Direction | Interface | Risque si absent |
 |---------|--------|-----------|-----------|------------------|
-| **Credit Economy** | ✅ Designed r1 | Bidir (Shop appelle + écoute) | `try_spend(amount: int) -> bool` SYNC atomique (R-CRD-4) ; signal `credits_changed(total, delta, source: SourceKind)` SYNC ; getter `get_total() -> int` ; constantes `BASE_UPGRADE_COST=20`, `TIER_COST_STEP=20` (F-CRD-3). | Shop non fonctionnel — pas de débit possible, catalogue n'a aucun coût utilisable. |
-| **Game State Manager** | ✅ APPROVED r1 | Out (Shop appelle) + indirect In (instanciation par GSM) | `request_scene_transition(scene_path: String)` (ADR-0007 D-10, l'un des 5 verbes publics figés) ; instanciation Shop déclenchée par `etage_completed` → GSM → `change_scene_to_file`. | Shop ne peut être lancé ni fermé proprement — pas de transition de scène orchestrée. |
-| **Save/Load System** | ⚠️ Not Started (PROVISIONAL) | Bidir (Shop lit + écrit) | `save_string_array(key: StringName, array: Array[StringName]) -> void` ; `load_string_array(key: StringName, default: Array[StringName]) -> Array[StringName]`. Clé `"owned_upgrades"`. | Pas de persistance owned_upgrades — Shop perd l'état entre sessions, joueur peut re-acheter (perte de crédits). Voir OQ-SHP-3. |
+| **Credit Economy** | ✅ Designed r1 (F-CRD-3 amendée r2 0-based, OQ-CRD-2 RESOLVED) | Bidir (Shop appelle + écoute) | `try_spend(amount: int) -> bool` SYNC atomique (R-CRD-4) ; signal `credits_changed(total, delta, source: SourceKind)` SYNC ; getter `get_total() -> int` ; constantes `BASE_UPGRADE_COST=20`, `TIER_COST_STEP=20` (F-CRD-3 r2 0-based). | Shop non fonctionnel — pas de débit possible, catalogue n'a aucun coût utilisable. |
+| **Game State Manager** | ✅ APPROVED r1 | Out (Shop appelle) + indirect In (instanciation par GSM) | `request_scene_transition(scene_path: String)` (ADR-0007 D-10, l'un des 5 verbes publics figés) ; instanciation Shop déclenchée par `etage_completed` → GSM → `change_scene_to_file`. **Audit pending OQ-SHP-11** : `paused = false` garanti avant change_scene_to_file. | Shop ne peut être lancé ni fermé proprement — pas de transition de scène orchestrée. |
+| **Save/Load System** | ✅ Designed r1 (OQ-SHP-3 RESOLVED 2026-04-27) | Bidir (Shop lit + écrit) | `save_string_array(key: StringName, value: Array[StringName]) -> void` ; `load_string_array(key: StringName, default: Array[StringName]) -> Array[StringName]`. Clé `"owned_upgrades"`. **Atomicité** : Save/Load r1 ConfigFile write-through synchrone ; atomic write temp+rename différé Tier 2+ (OQ-SAV-4). Shop EC-SHP-9 Option C buffer retry couvre la majorité des failures transitoires. | LOCKED — contrat verrouillé par Save/Load r1, atomicité MVP best-effort. |
 
 ### Soft dependencies (Shop est réduit / dégradé sans)
 
 | Système | Status | Direction | Interface | Comportement dégradé |
 |---------|--------|-----------|-----------|---------------------|
-| **Upgrade System** | ⚠️ Not Started (PROVISIONAL) | Out (Shop appelle) | `apply_upgrade(id: StringName) -> void` SYNC idempotent | Achat marqué owned + persisté, mais capacité gameplay non activée. EC-SHP-16 + EC-SHP-17 décrivent le comportement défensif. Voir OQ-SHP-2. |
+| **Upgrade System** | ⚠️ Not Started (PROVISIONAL — pattern `_pending_upgrades` requis) | Out (Shop appelle) | `apply_upgrade(id: StringName) -> void` SYNC idempotent. **Contrainte normative r2** : si `apply_upgrade` est appelé alors qu'aucun Player n'est instancié (shop chargé directement depuis MENU sans Level actif), UpgradeSystem doit (a) maintenir une queue `_pending_upgrades: Array[StringName]` et (b) flush la queue automatiquement au prochain signal de cycle de vie Player approprié (à définir lors de `/design-system upgrade-system` Sprint A continuation). | Achat marqué owned + persisté, mais capacité gameplay non activée. EC-SHP-16 + EC-SHP-17 décrivent le comportement défensif Shop côté caller. Voir OQ-SHP-2. |
 | **Audio System** | ✅ APPROVED r2.1 (peer Tier 2+ pour SFX shop) | Out (Shop appelle Tier 2+) | Tier 2+ : `AudioSystem.play_sfx(id, bus="SHOP_UI" \| "UI")` après amendement Audio r2.2 | MVP : zéro SFX, shop silencieux côté audio. Cohérent Audio r2.1 scope. Voir OQ-SHP-4. |
 | **Input System** | ✅ Designed r4 (peer events UI) | In (events) | `_unhandled_input` Godot standard ; action `ui_cancel` via InputMap ; jamais d'accès direct `Input.*` (Input Core Rule 1 conformity) | Shop conforme par défaut Godot UI routing. Pas de risque. |
 | **Menu System** | ⚠️ Not Started (sibling) | Sibling (séquence GSM) | Aucun appel direct. Coordination par GSM `request_scene_transition` (Shop → Menu MVP, Menu → Shop Tier 2+ via boutons menu). | MVP : transition vers `main_menu.tscn` (en cours d'écriture côté Menu). Au pire fallback : retour direct `main_scene.tscn`. |
@@ -511,22 +574,24 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 ### Bidirectional check
 
-- Credit Economy r1 §Interactions table cite Shop comme aval consommateur de `try_spend` ✅
-- Credit Economy r1 §Open Questions OQ-CRD-2 : "contrat try_spend Shop" — **resolved by this GDD** : Shop confirme l'API `try_spend(amount: int) -> bool` SYNC atomique à l'identique (recommandation Phase 5 : Credit GDD peut promote OQ-CRD-2 RESOLVED en amendement r2 ou laisser le statut, le contrat est verrouillé)
-- GSM r1 §Dependencies cite Shop dans "ShopSystem (inferred, Not Started) → Hard (Tier 2+) — Shop scene chargée via `request_scene_transition`" ✅
+- Credit Economy r1 (F-CRD-3 amendée r2 0-based) §Interactions table cite Shop comme aval consommateur de `try_spend` ✅
+- Credit Economy r1 §Open Questions OQ-CRD-2 : "contrat try_spend Shop" — ✅ **RESOLVED 2026-04-27** par ce GDD r2 + design-review : Credit GDD a marqué OQ-CRD-2 RESOLVED, le contrat `try_spend(amount: int) -> bool` SYNC atomique est verrouillé à l'identique
+- GSM r1 §Dependencies cite Shop dans "ShopSystem (inferred, Not Started) → Hard (Tier 2+) — Shop scene chargée via `request_scene_transition`" ✅. **Bidirectional update r2** : GSM r1 doit promote `Not Started` → `Designed r2` lors du commit landed.
 - HUD r1 §Interactions soft Tier 2+ : pas de couplage direct mais comportement HUD R-6 SPEND_SHOP hard-set est cohérent avec philosophie Shop (HUD silencieux pendant transactions shop)
-- Save/Load (Not Started) : Shop fournira contrat `save_string_array` à confirmer lors design Save/Load #3
-- Upgrade System (Not Started) : Shop fournira contrat `apply_upgrade` à confirmer lors design Upgrade #13
+- Save/Load (Not Started) : Shop fournit contrats normatifs `save_string_array` (atomicité requise) + `load_string_array` à confirmer lors design Save/Load #3. **Bidirectional pending** : Save/Load GDD futur doit citer Shop comme consumer + valider atomicité contract.
+- Upgrade System (Not Started) : Shop fournit contrat normatif `apply_upgrade(id) -> void` SYNC idempotent + pattern `_pending_upgrades` queue à confirmer lors design Upgrade #13. **Bidirectional pending** : Upgrade GDD futur doit citer Shop comme caller + implémenter la queue pending.
 - Menu System (Not Started) : sibling — aucun contrat à confirmer côté Shop, GSM orchestre
+- Audio r2.1 (APPROVED) : aucun amendement requis MVP (zéro SFX shop). **Tier 2+ amendement r2.2** pour bus `SHOP_UI` ou réutilisation `UI` (OQ-SHP-4 `RESOLVED MVP zéro SFX`, mais dependency Tier 2+ resté ouvert).
 
 ### Provisional contracts résumé
 
 | Contrat | Owner provider | Owner consumer | Status |
 |---------|----------------|----------------|--------|
-| `UpgradeSystem.apply_upgrade(id: StringName) -> void` SYNC idempotent | Upgrade System (Not Started) | Shop | PROVISOIRE — OQ-SHP-2 |
-| `SaveLoad.save_string_array(key, array)` + `load_string_array(key, default)` | Save/Load (Not Started) | Shop | PROVISOIRE — OQ-SHP-3 |
-| `AudioSystem.play_sfx(id, bus="SHOP_UI" \| "UI")` Tier 2+ | Audio (APPROVED r2.1) | Shop | PROVISOIRE Tier 2+ — OQ-SHP-4 |
+| `UpgradeSystem.apply_upgrade(id: StringName) -> void` SYNC idempotent + queue `_pending_upgrades` | Upgrade System (Not Started) | Shop | PROVISOIRE — OQ-SHP-2 (chain-blocked Sprint 1, exigence Sprint 2 designed) |
+| `SaveLoad.save_string_array(key, value) -> void` + `load_string_array(key, default)` | Save/Load ✅ Designed r1 | Shop | LOCKED — OQ-SHP-3 RESOLVED par Save/Load r1, atomicité MVP best-effort + EC-SHP-9 Option C buffer retry |
+| `AudioSystem.play_sfx(id, bus="SHOP_UI" \| "UI")` Tier 2+ | Audio (APPROVED r2.1) | Shop | PROVISOIRE Tier 2+ — OQ-SHP-4 (RESOLVED MVP zéro SFX, dependency Tier 2+ resté open) |
 | Shop `etage_completed → GSM → request_scene_transition(shop.tscn)` | Level r3 + GSM r1 | Shop (consumer indirect) | LOCKED — pas de contrat Shop direct |
+| `RunContext` autoload (current_etage_id, next_etage_id) Tier 2+ | RunContext (Not Started Tier 2+) | Shop | PROVISOIRE Tier 2+ — OQ-SHP-5 (RESOLVED design pattern) |
 
 ## Tuning Knobs
 
@@ -867,7 +932,7 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 **AC-SHP-11 [Logic] [BLOCKING]** : GIVEN solde 15 et double_jump non owned (cost 20), WHEN tentative achat, THEN `try_spend` NON appelé, `_owned_upgrades` inchangé, `save_string_array` NON appelé, `apply_upgrade` NON appelé. *Mécanisme* : unit GUT — mocks avec compteurs, forcer solde<cost, assert tous compteurs == 0.
 
-**AC-SHP-12 [Integration] [BLOCKING]** : GIVEN shop ACTIVE et émission `credits_changed(15, -5, SPEND_SHOP)`, WHEN handler invoqué, THEN `CreditValueLabel.text == "15"` ET `BuyButton_double_jump.disabled == true` (15<20) ET `BuyButton_dash_horizontal.disabled == true` (15<40). *Mécanisme* : integration scene — émettre signal manuellement, assert labels et boutons même frame.
+**AC-SHP-12 [Integration] [BLOCKING]** (révisé r2) : GIVEN shop ACTIVE et émission `credits_changed(15, -5, SPEND_SHOP)`, WHEN handler invoqué (idle frame suivante via CONNECT_DEFERRED — voir R-SHP-9), THEN `CreditValueLabel.text == "15"` ET `BuyButton_double_jump.disabled == true` (15<20) ET `BuyButton_dash_horizontal.disabled == true` (15<40). *Mécanisme* : integration scene GUT — émettre `credits_changed` manuellement, `await get_tree().process_frame` (laisse passer l'idle frame DEFERRED), assert labels et boutons. **Note r2** : la version r1 disait "même frame" — incompatible avec CONNECT_DEFERRED qui reporte à l'idle frame suivante. Corrigé.
 
 ### Groupe C — Idempotence
 
@@ -915,7 +980,7 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 **AC-SHP-30 [Lint] [BLOCKING]** : GIVEN shop.tscn, WHEN inspecté, THEN `ShopRoot.process_mode == PROCESS_MODE_ALWAYS`. *Mécanisme* : lint static — grep "process_mode" assert valeur 4 ; ou integration test.
 
-**AC-SHP-31 [Logic] [BLOCKING]** : GIVEN Tween créé dans ShopControllerScript, WHEN inspecté, THEN `tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)` appelé. *Mécanisme* : lint static — grep `create_tween()`, vérifier `.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)` dans 5 lignes suivantes.
+**AC-SHP-31 [Logic] [BLOCKING]** (révisé r2) : GIVEN Tween créé dans ShopControllerScript, WHEN inspecté, THEN `set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)` appelé sur chaque tween créé. *Mécanisme* : (a) **Unit GUT** (préféré) — spy sur `create_tween()` retournant un mock Tween, assert `set_pause_mode` appelé avec `Tween.TWEEN_PAUSE_PROCESS` avant toute `tween_property` ou `tween_callback` sur ce tween. (b) **Lint static** (fallback robuste) — count `grep -c "create_tween()"` sur ShopControllerScript ; count `grep -c "set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)"` ; assert counts égaux. **Note r2** : la version r1 utilisait "5 lignes suivantes" — fragile si variable intermédiaire ou chaining sur 6+ lignes. Corrigé.
 
 **AC-SHP-32 [Visual] [ADVISORY]** : GIVEN shop.tscn ouvert éditeur, WHEN background ColorRect inspecté, THEN aucun AnimationPlayer connecté, ColorRect statique sans keyframe. *Mécanisme* : voir AC-SHP-39.
 
@@ -923,7 +988,7 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 ### Groupe H — Performance
 
-**AC-SHP-34 [Performance] [BLOCKING]** : GIVEN `load("res://scenes/shop/shop.tscn")` + instanciation + `_ready()` complet, WHEN mesuré wall-clock, THEN durée < 100 ms sur machine référence (laptop entrée gamme). *Mécanisme* : integration test headless GUT — `Time.get_ticks_msec()` avant/après, assert delta < 100.
+**AC-SHP-34 [Performance] [BLOCKING]** (révisé r2) : GIVEN `load("res://scenes/shop/shop.tscn")` + instanciation + `_ready()` complet, WHEN mesuré wall-clock en CI headless Ubuntu 22.04 4-core (runner GitHub Actions standard), THEN durée < 200 ms (tolérance CI absorbant jitter runner) ; baseline locale dev machine target < 100 ms. *Mécanisme* : integration test headless GUT — `Time.get_ticks_msec()` avant/après, assert delta < 200 ms (CI gate) ; baseline développeur enregistrée dans `tests/performance/baselines/shop_load_baseline.json` avec target < 100 ms et tolerance ±50% pour absorber variance hardware. **Note r2** : "machine référence (laptop entrée gamme)" était non reproductible cross-runner. Corrigé en CI runner spécifique + baseline file.
 
 **AC-SHP-35 [Performance] [BLOCKING]** : GIVEN shop ACTIVE, WHEN achat déclenché (`_on_buy_pressed → try_spend → save → apply → render`), THEN durée totale wall-clock < 16.6 ms (1 frame 60 fps). *Mécanisme* : integration test — tick avant/après cycle complet, assert delta < 16.6 ms ; mocks synchrones imposés.
 
@@ -945,37 +1010,46 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 **AC-SHP-43 [Lint] [ADVISORY]** : GIVEN shop.tscn et ShopControllerScript, WHEN inspectés, THEN zéro `AudioStreamPlayer` dans scène et zéro instanciation script. *Mécanisme* : lint static — grep `AudioStreamPlayer` deux fichiers assert == 0.
 
-**AC-SHP-44 [Lint] [BLOCKING]** : GIVEN ShopControllerScript, WHEN inspecté pour accès singleton `Input`, THEN zéro `Input.*` hors `_unhandled_input` (Input GDD Core Rule 1, conforme rule `input-singleton-main-thread-only`). *Mécanisme* : lint static — extraire bodies fonctions hors `_unhandled_input`, grep `\bInput\.` assert zéro.
+**AC-SHP-44 [Lint] [BLOCKING]** (révisé r2) : GIVEN ShopControllerScript, WHEN inspecté pour accès singleton `Input`, THEN zéro `Input.*` hors `_unhandled_input` (Input GDD Core Rule 1, conforme rule `input-singleton-main-thread-only`). *Mécanisme* : lint static — extraire bodies fonctions hors `_unhandled_input`, `grep -nE '\bInput\.'` filtré `grep -v '^\s*#'` (exclure commentaires GDScript) et `grep -v '^\s*"'` (exclure strings littérales avec "Input."), assert zéro match. Conforme enforcement rule `.claude/rules/input-singleton-main-thread-only.md`.
 
 **AC-SHP-45 [Lint] [ADVISORY]** : GIVEN ShopControllerScript, WHEN inspecté, THEN zéro appel `UpgradeSystem.*` hors bloc `if try_spend(...):` (couplage minimal). *Mécanisme* : lint static — grep `UpgradeSystem\.apply_upgrade`, vérifier contexte branche true uniquement.
 
 ### Groupe J — Bidirectional contracts validation
 
-**AC-SHP-46 [Integration] [BLOCKING]** : GIVEN Credit r1 verrouillé, WHEN `try_spend` appelé depuis ShopControllerScript, THEN contrat SYNC respecté (retour même frame, sans await, sans signal intermédiaire). *Mécanisme* : integration test + lint static — `grep -n "await.*try_spend"` zéro match ; assert signal `credits_changed` reçu même frame.
+**AC-SHP-46 [Integration] [BLOCKING]** (révisé r2) : GIVEN Credit r1 verrouillé, WHEN `try_spend` appelé depuis ShopControllerScript, THEN contrat SYNC respecté du côté Credit (retour `bool` même frame, sans await, sans signal intermédiaire dans le call stack `try_spend`) ET le signal `credits_changed` est émis SYNC par CreditEconomy ; côté Shop, le handler `_on_credits_changed` est invoqué à l'idle frame suivante via CONNECT_DEFERRED (R-SHP-9 verrou). *Mécanisme* : integration test + lint static — `grep -n "await.*try_spend"` zéro match ; assert `try_spend` retourne `bool` immédiatement ; `await get_tree().process_frame` puis assert handler invoqué exactement 1 fois. **Note r2** : la version r1 disait "credits_changed reçu même frame" — incompatible avec CONNECT_DEFERRED côté Shop. Corrigé pour distinguer émission SYNC (Credit) vs réception DEFERRED (Shop).
 
 **AC-SHP-47 [Integration] [BLOCKING]** : GIVEN GSM r1 verrouillé, WHEN `request_scene_transition` appelé, THEN transition commence (état GSM change) même frame (ADR-0007 D-10 SYNC). *Mécanisme* : integration test — mock GSM, assert shop passe état CLOSING même frame.
 
-**AC-SHP-48 [Logic] [PROVISIONAL — chain-blocked OQ-SHP-2]** : GIVEN UpgradeSystem (Not Started), WHEN contrat `apply_upgrade(id) -> void` SYNC idempotent confirmé par UpgradeSystem r1, THEN shop peut appeler sans await ni vérification retour. *Mécanisme* : CHAIN-BLOCKED jusqu'à UpgradeSystem Designed r1. Placeholder mock SYNC idempotent ; à re-tester avec impl réelle. Flag OQ-SHP-2.
+**AC-SHP-48 [Logic] [PROVISIONAL — chain-blocked OQ-SHP-2]** (workflow r2) : GIVEN UpgradeSystem (Not Started), WHEN contrat `apply_upgrade(id) -> void` SYNC idempotent + queue `_pending_upgrades` confirmé par UpgradeSystem r1, THEN shop peut appeler sans await ni vérification retour. *Mécanisme* : CHAIN-BLOCKED jusqu'à UpgradeSystem Designed r1. **Workflow Sprint 1** : Shop implémenté avec **mock SYNC idempotent** UpgradeSystem (test double dans `tests/unit/shop/mocks/mock_upgrade_system.gd`). AC-SHP-48 marqué `PENDING-ACTIVATION` dans rapport sprint. À l'activation (UpgradeSystem r1 mergé), re-run integration tests Shop contre impl réelle. Story Shop marquée `Done-Provisional` jusqu'alors. Flag OQ-SHP-2. **Sprint 2 exigence** : UpgradeSystem GDD Designed avant Sprint 2 (pas après).
 
-**AC-SHP-49 [Logic] [PROVISIONAL — chain-blocked OQ-SHP-3]** : GIVEN SaveLoad (Not Started), WHEN contrats `save_string_array` et `load_string_array` confirmés par SaveLoad r1, THEN comportement erreur shop (AC-22, AC-23) validé contre API réelle. *Mécanisme* : CHAIN-BLOCKED — tests AC-22/23 utilisent mocks ; re-valider avec SaveLoad r1. Flag OQ-SHP-3.
+**AC-SHP-49 [Logic] [BLOCKING]** (révisé r2 — OQ-SHP-3 RESOLVED) : GIVEN SaveLoad ✅ Designed r1, WHEN contrats `save_string_array` + `load_string_array` confirmés par SaveLoad r1, THEN comportement erreur shop (AC-22, AC-23, EC-SHP-9 buffer retry Option C) validé contre API réelle. *Mécanisme* : integration test GUT — instancier autoload SaveLoad réel (pas mock) en headless, vérifier roundtrip + behavior corruption (EC-SHP-6/7/8) + behavior write fail (mock disk full sur ConfigFile en pré-injectant exception). **Note r2** : ce AC était PROVISIONAL chain-blocked en r1 ; promu BLOCKING suite à Save/Load r1 résolution.
 
 ### Groupe K — Manual Playtest (ADVISORY)
 
-**AC-SHP-50 [Manual-Playtest] [ADVISORY]** : GIVEN 5 sessions playtest joueurs n'ayant pas vu le shop, WHEN observées, THEN au moins 1/5 sessions présente joueur restant 5+ secondes avant clic (sentiment "décision réelle" Pillar 2). *Mécanisme* : manual — observateur chronomètre, `production/qa/evidence/shop-playtest-decision-time.md`, sign-off game designer.
+**AC-SHP-50 [Manual-Playtest] [ADVISORY]** (révisé r2) : GIVEN **2 sessions playtest internes MVP** (game-designer + 1 testeur interne) joueurs n'ayant pas vu le shop, WHEN observées, THEN au moins 1/2 sessions présente joueur restant 5+ secondes avant clic (sentiment "décision réelle" Pillar 2) ET temps avant premier déclenchement de l'upgrade post-achat < 60 sec sur 2/2 sessions (vérif F-SHP-4 ordering). *Mécanisme* : manual — observateur chronomètre, `production/qa/evidence/shop-playtest-decision-time.md`, sign-off game designer. **Note r2** : seuil 5 sessions externes recommandé pre-Alpha — abaissé à 2 internes pour MVP advisory.
 
-**AC-SHP-51 [Manual-Playtest] [ADVISORY]** : GIVEN 5 sessions playtest, WHEN joueurs doivent quitter shop, THEN zéro joueur demande "comment je sors ?" ou cherche visuellement > 3 secondes ESC/Continue. *Mécanisme* : manual — observation + verbatim, `production/qa/evidence/shop-playtest-esc-intuitif.md`.
+**AC-SHP-51 [Manual-Playtest] [ADVISORY]** (révisé r2) : GIVEN 2 sessions playtest internes MVP, WHEN joueurs doivent quitter shop, THEN zéro joueur demande "comment je sors ?" ou cherche visuellement > 3 secondes ESC/Continue ET zéro joueur ressort accidentellement sans avoir consulté les cartes (vérif EC-SHP-41 ESC réflexe). *Mécanisme* : manual — observation + verbatim, `production/qa/evidence/shop-playtest-esc-intuitif.md`. **Note r2** : si ≥ 1/2 sortie accidentelle, considérer pattern alt ESC (focus Continue + 2nd ESC) en r3.
 
-**AC-SHP-52 [Manual-Playtest] [ADVISORY]** : GIVEN tween counter 300 ms, WHEN achat effectué, THEN retour qualitatif neutre/positif (zéro "trop lent" ni "trop rapide" mentionné par > 2/5 joueurs). *Mécanisme* : manual — questionnaire post-session, `production/qa/evidence/shop-playtest-tween-feel.md`.
+**AC-SHP-52 [Manual-Playtest] [ADVISORY]** (révisé r2) : GIVEN tween counter 300 ms, WHEN achat effectué, THEN retour qualitatif neutre/positif (zéro "trop lent" ni "trop rapide" mentionné par > 1/2 joueurs en MVP internes). *Mécanisme* : manual — questionnaire post-session, `production/qa/evidence/shop-playtest-tween-feel.md`.
+
+### Groupe L — ACs ajoutés r2 (design-review qa-lead)
+
+**AC-SHP-53 [Logic] [ADVISORY]** : GIVEN shop.tscn instancié et `_ready()` complété, WHEN aucune action utilisateur effectuée, THEN le focus UI initial est positionné sur ContinueButton (cohérent avec accessibilité clavier J.8 — l'élément le plus universellement accessible est focalisé par défaut). *Mécanisme* : unit GUT — assert `get_viewport().gui_get_focus_owner() == ContinueButton` après `_ready()` + `await get_tree().process_frame`. **Justification** : l'AC manquait dans r1 — la spec J.8 mentionne `Tab` navigue rows + Continue mais ne précise pas l'élément initialement focalisé.
+
+**AC-SHP-54 [Integration] [ADVISORY]** : GIVEN shop.tscn instancié une première fois et achat effectué, scene libérée (free), WHEN shop.tscn instancié une deuxième fois dans la même session de jeu (Tier 2+ multi-étages, ou test re-entry), THEN `_owned_upgrades` de la nouvelle instance contient uniquement ce que `SaveLoad.load_string_array("owned_upgrades", [])` retourne — aucune donnée leak de l'instance précédente. *Mécanisme* : integration test GUT — instance 1 achète (mock SaveLoad capture array), instance 1 free, instance 2 créée avec mock SaveLoad retournant `[]`, assert `_owned_upgrades == []` côté instance 2. **Justification** : risque réel si `_owned_upgrades` est déclaré `static` par erreur ou si autoload conserve l'état.
+
+**AC-SHP-55 [Integration] [ADVISORY]** (méta-AC propagation) : GIVEN CreditEconomy r2+ amende le contrat `try_spend` (signature, valeur de retour, comportement erreur), WHEN shop-system est re-testé contre Credit r2+, THEN tous ACs groupe B (AC-SHP-6 à 14) et groupe J (AC-SHP-46) re-passent sans modification du code shop. *Mécanisme* : note de propagation — à l'entrée de chaque sprint modifiant CreditEconomy, re-runner l'intégralité du groupe B + J automatiquement (CI suffit si tests indépendants bien mockés). Si fail, amendement Shop r3 requis. **Justification** : méta-AC de régression inter-système, absente du r1.
 
 ---
 
-**Total : 52 ACs**
-- BLOCKING : 32 (groupes A-B-C-D-E-F-G-H-I partiel + J)
-- ADVISORY : 20 (groupes G visuels, H perf, I anti-patterns, K playtest)
-- PROVISIONAL chain-blocked : 2 (AC-SHP-48 OQ-SHP-2 UpgradeSystem r1, AC-SHP-49 OQ-SHP-3 SaveLoad r1)
-- AUTO : 41 (Logic + Integration + Lint + Performance auto)
+**Total : 55 ACs (r2)**
+- BLOCKING : 33 (groupes A-B-C-D-E-F-G-H-I partiel + J — incluant AC-SHP-49 promu BLOCKING suite à Save/Load r1 RESOLVED)
+- ADVISORY : 22 (groupes G visuels, H perf, I anti-patterns, K playtest, L ajouts r2 + AC-55 méta)
+- PROVISIONAL chain-blocked : 1 (AC-SHP-48 OQ-SHP-2 UpgradeSystem r1 — seul restant)
+- AUTO : 43 (Logic + Integration + Lint + Performance auto)
 - MANUAL : 8 (Visual + Manual-Playtest)
-- PROVISIONAL : 3
+- PROVISIONAL : 1 (réduit de 3 à 1 par r2 — Save/Load r1 + OQ-SHP-4 RESOLVED MVP)
+- META-PROPAGATION : 1 (AC-SHP-55, surveille amendements Credit r2+)
 
 ## Open Questions
 
@@ -983,27 +1057,31 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 |----|----------|--------|----------------|-------|---------|
 | **OQ-SHP-1** | Faut-il un état dédié `SHOPPING` dans GSM enum (ADR-0007 D-2) si Tier 2+ apporte un shop overlay sur gameplay 3D (au lieu de scène container) ? | OPEN — Tier 2+ uniquement | MVP : pas de nouvel état (R-SHP-5 décidé, scène container suffit). Tier 2+ : si shop overlay envisagé, amendement ADR-0007 D-2 + GSM r2 requis (ajouter SHOPPING state). | Game-designer + technical-director | Tier 2+ |
 | **OQ-SHP-2** | Contrat exact `UpgradeSystem.apply_upgrade(id: StringName) -> void` : signature, timing, comportement si Player non instancié (shop.tscn n'a pas de Player) ? | OPEN — bloquant impl | À résoudre lors de `/design-system upgrade-system` (Systems Index #13). Recommandation guard provisoire : si UpgradeSystem.apply_upgrade appelé hors PLAYING 3D, flag upgrade comme "pending apply au prochain `level_active`". Idempotence confirmée par contrat. | Game-designer + Upgrade GDD author | Bloquant impl Sprint 1 |
-| **OQ-SHP-3** | API exacte `SaveLoad.save_string_array(key, array)` + `load_string_array(key, default)` : type retour, gestion corruption (valeur non-Array), atomicité écriture, multi-profile prefix Tier 2+ ? | OPEN — bloquant impl | À résoudre lors de `/design-system save-load-system` (Systems Index #3). Comportement défensif Shop déjà spécifié (EC-SHP-6/7/8/9). | Game-designer + Save/Load GDD author | Bloquant impl Sprint 1 |
-| **OQ-SHP-4** | Audio bus `SHOP_UI` Tier 2+ : créer dédié OU réutiliser `UI` existant (Audio r2.1 hierarchy figée) ? Quels SFX MVP→Tier 2+ (purchase/denied/continue) ? | OPEN — Tier 2+ | Recommandation : zéro SFX MVP (cohérent Audio r2.1 + Pillar 1 anti-bruit). Tier 2+ : amendement Audio r2.2 ajoutera bus `SHOP_UI` dédié OU réutilisation `UI` (décision audio-director Tier 2+). | Audio-director + Shop GDD r2 | Tier 2+ |
-| **OQ-SHP-5** | Mécanisme de passage `next_etage_id` du Level (ou GSM) vers Shop pour Tier 2+ multi-étages ? Param scène, autoload state-bag, signal payload, instance `Shop.set_next_etage(id)` post-init ? | OPEN — Tier 2+ | MVP : non-applicable (1 étage). Tier 2+ recommandation : autoload `RunContext` simple (`current_etage_id: int`, `next_etage_id: int`), Shop lit au `_ready()`. Évite couplage scène-à-scène. | Game-designer + GSM r2 author | Tier 2+ |
+| **OQ-SHP-3** | API exacte `SaveLoad.save_string_array(key, array)` + `load_string_array(key, default)` : type retour, gestion corruption (valeur non-Array), atomicité écriture, multi-profile prefix Tier 2+ ? | ✅ **RESOLVED 2026-04-27** par Save/Load System Designed r1 (Systems Index #3, batch commit Sprint A). Save/Load r1 confirme l'API `save_string_array(key, value) -> void` + `load_string_array(key, default) -> Array[StringName]` à l'identique du contrat provisoire Shop r1. **Atomicité** : Save/Load r1 écrit via `ConfigFile` write-through synchrone, atomic write temp+rename **différé Tier 2+** (OQ-SAV-4) — MVP accepte le risque crash-mid-write, mitigé par Shop EC-SHP-9 Option C buffer retry. Multi-profile prefix Tier 2+ délégué à Save/Load `set_active_profile(id)` transparent (OQ-SAV-6). AC-SHP-49 peut être validé contre Save/Load r1 réel (plus PROVISIONAL chain-blocked). | RESOLVED via Save/Load r1 |
+| **OQ-SHP-4** | Audio bus `SHOP_UI` Tier 2+ : créer dédié OU réutiliser `UI` existant (Audio r2.1 hierarchy figée) ? Quels SFX MVP→Tier 2+ (purchase/denied/continue) ? | ✅ **RESOLVED 2026-04-27 (MVP partiel)** | **MVP : zéro SFX shop confirmé** (cohérent Audio r2.1 + Pillar 1 anti-bruit + anti-fantasy "achat sobre"). **Tier 2+ : OPEN** — amendement Audio r2.2 décidera bus dédié `SHOP_UI` vs réutilisation `UI` quand audio-director designera l'extension. Aucun blocage MVP, aucun blocage /create-epics. | Audio-director Tier 2+ | RESOLVED MVP / OPEN Tier 2+ |
+| **OQ-SHP-5** | Mécanisme de passage `next_etage_id` du Level (ou GSM) vers Shop pour Tier 2+ multi-étages ? Param scène, autoload state-bag, signal payload, instance `Shop.set_next_etage(id)` post-init ? | ✅ **RESOLVED 2026-04-27** | Décision tranchée : **autoload `RunContext`** (singleton léger, state-bag) exposant `current_etage_id: int`, `next_etage_id: int`. Shop lit `RunContext.next_etage_id` au `_ready()` Tier 2+ et l'utilise dans `_on_continue_pressed()` pour `request_scene_transition` chaîné. Justification : évite le couplage scène-à-scène (Shop→Level direct), évite param scène fragile, cohérent avec pattern projet (autoloads pour state cross-scene). MVP : non-applicable (2 étages MVP gérés par séquence Level1→Shop→Level2→Shop→Menu sans `RunContext`). Tier 2+ : RunContext à créer lors de l'ajout du 3e étage. Aucun blocage /create-epics MVP. | Game-designer + GSM r2 author | RESOLVED |
 | **OQ-SHP-6** | Faut-il introduire un système d'upgrades consommables (potions, boost runs) Tier 3 ? | DEFERRED — Tier 3 design space | Recommandation : NON. Anti-pillar grinding strict (game-concept anti-pillar inventory). Si Tier 3 introduit méta-progression cross-run, ré-évaluer. | Creative-director Tier 3 | Tier 3 (probablement jamais) |
 | **OQ-SHP-7** | Faut-il un mode "preview" upgrade sur hover (animation Player démontrant l'effet en miniature) ? | DEFERRED — Tier 2+ | Recommandation : NON MVP (Pillar 1 anti-distraction). Tier 2+ envisageable comme video clip 2-3s sur hover prolongé > 1s. | UX-designer Tier 2+ | Tier 2+ |
 | **OQ-SHP-8** | Sécurité save tampering Tier 3 : HMAC/signature sur `owned_upgrades` pour prévenir édition manuelle ? | DEFERRED — Tier 3 | Recommandation : NON MVP (solo offline, pas de leaderboard). Tier 3 si speedrun leaderboard introduit, signature requise (Save/Load extension). | Security-engineer Tier 3 | Tier 3 |
 | **OQ-SHP-9** | Localization MVP : strings hardcoded FR ("POSSÉDÉ", "Continuer", "CRÉDITS :") — pattern `tr()` Godot ou skip i18n MVP ? | OPEN — extraction Tier 2+ | Recommandation : skip MVP (FR-only game-concept). Extraction `tr()` Tier 2+ via `/localize` skill quand Localization team établie. | Localization-lead Tier 2+ | Tier 2+ |
 | **OQ-SHP-10** | Multi-profile saves (slot 1/2/3) : préfixage clé `"profile_{N}.owned_upgrades"` côté Shop ou côté SaveLoad ? | OPEN — Tier 2+ | Recommandation : côté SaveLoad (préfixage transparent via `set_active_profile(id)`). Shop reste agnostique. | Save/Load GDD author Tier 2+ | Tier 2+ |
+| **OQ-SHP-11** (nouveau r2) | Audit GSM ADR-0007 D-? : `paused = false` est-il garanti avant `change_scene_to_file` lors d'une transition vers une scène container (shop, menu) ? EC-SHP-19 dépend de cette garantie. Aujourd'hui non confirmé dans ADR-0007. | OPEN — bloquant impl Sprint 1 (low severity) | Audit GSM r2 ADR-0007 D-? lors du `/design-system upgrade-system` ou `/design-system save-load-system` Sprint A continuation. Si non garanti, GSM doit ajouter une décision explicite (D-N) imposant `get_tree().paused = false` avant tout `change_scene_to_file`. Couverture Shop niveau 1 (PROCESS_MODE_ALWAYS partout) suffit MVP. | GSM author + technical-director | Sprint A continuation |
+| **OQ-SHP-12** (nouveau r2) | Tier 2+ : si playtest révèle un comportement de re-run mécanique cumulatif (joueur farm crédits via re-runs étage 1), considérer "level completion seal" (étage marqué COMPLETED dans Save, pas regrindable) OU "diminishing returns" sur re-credit. Aujourd'hui aucun verrou. | OPEN — Tier 2+ playtest dependent | MVP : aucune action — accepté comme compromis Pillar 4 (rejouer pour explorer reste possible). Tier 2+ : décision basée sur playtest data. | Game-designer + creative-director | Tier 2+ |
 
 ---
 
-### Résolutions induites par ce GDD
+### Résolutions induites par ce GDD r2
 
-- **OQ-CRD-2 (Credit r1)** : "contrat `try_spend` Shop" — ✅ **RESOLVED** par ce GDD. Shop confirme l'API `CreditEconomy.try_spend(amount: int) -> bool` SYNC atomique à l'identique du contrat provisoire Credit r1. Recommandation Phase 5 : Credit GDD peut promote OQ-CRD-2 RESOLVED en amendement r2 ou laisser le statut tel quel (le contrat est verrouillé).
+- **OQ-CRD-2 (Credit r1)** : "contrat `try_spend` Shop" — ✅ **RESOLVED 2026-04-27** par ce GDD r2. Shop confirme l'API `CreditEconomy.try_spend(amount: int) -> bool` SYNC atomique à l'identique du contrat provisoire Credit r1. Credit GDD a marqué OQ-CRD-2 RESOLVED dans son §Open Questions.
+- **F-CRD-3 convention `n` (Credit r1)** : amendée r2 (1-based → 0-based) pour aligner avec F-SHP-1. Bug d'impl cross-GDD éliminé.
 
-### Bidirectional updates requises (Phase 5 / Sprint A continuation)
+### Bidirectional updates appliquées r2
 
-- **Credit r1 §Open Questions** : marquer OQ-CRD-2 RESOLVED (Shop confirme contrat).
-- **GSM r1 §Dependencies** : `ShopSystem (inferred, Not Started)` → `ShopSystem (Designed r1)` quand ce GDD landed.
+- ✅ **Credit r1 §Open Questions** : OQ-CRD-2 RESOLVED ; F-CRD-3 amendée r2 0-based.
+- ⚠️ **GSM r1 §Dependencies** : `ShopSystem (inferred, Not Started)` → `ShopSystem (Designed r2)` à propager lors du commit landed (action Phase 5).
 - **HUD r1** : aucun amendement requis — zéro couplage direct (architecture séparée scène).
-- **Audio r2.1** : amendement r2.2 Tier 2+ pour bus `SHOP_UI` (OQ-SHP-4).
-- **Upgrade GDD #13** : devra citer Shop comme caller `apply_upgrade` (OQ-SHP-2).
-- **Save/Load GDD #3** : devra citer Shop comme consumer `save/load_string_array` (OQ-SHP-3).
+- **Audio r2.1** : aucun amendement requis MVP. Tier 2+ : amendement r2.2 pour bus `SHOP_UI` (OQ-SHP-4 Tier 2+ resté open).
+- **Upgrade GDD (Not Started, Systems Index #13)** : devra citer Shop comme caller `apply_upgrade` + implémenter pattern `_pending_upgrades` queue (OQ-SHP-2).
+- **Save/Load GDD (Not Started, Systems Index #3)** : devra citer Shop comme consumer `save/load_string_array` + garantir atomicité écriture (OQ-SHP-3 contrainte normative).
+- **Level r3** : aucun amendement requis MVP. Tier 2+ : si seal de niveau introduit (OQ-SHP-12), Level r4 amendement.
 - **Level GDD r3** : aucun amendement MVP requis (Level émet `etage_completed` consommé par GSM, pas Shop direct). Tier 2+ : payload `next_etage_id` à passer (OQ-SHP-5).
