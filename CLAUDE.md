@@ -5,11 +5,11 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Technology Stack
 
-- **Engine**: [CHOOSE: Godot 4 / Unity / Unreal Engine 5]
-- **Language**: [CHOOSE: GDScript / C# / C++ / Blueprint]
+- **Engine**: Godot 4.6
+- **Language**: GDScript
 - **Version Control**: Git with trunk-based development
-- **Build System**: [SPECIFY after choosing engine]
-- **Asset Pipeline**: [SPECIFY after choosing engine]
+- **Build System**: SCons (engine), Godot Export Templates
+- **Asset Pipeline**: Godot Import System + custom resource pipeline
 
 > **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
 > dedicated sub-specialists. Use the set matching your engine.
@@ -32,13 +32,26 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Collaboration Protocol
 
-**User-driven collaboration, not autonomous execution.**
-Every task follows: **Question -> Options -> Decision -> Draft -> Approval**
+**Auto-approve recommended proposals by default.** When an agent or skill presents
+a recommended option (the one it considers best), proceed with that recommendation
+without asking the user to confirm. Only pause for explicit user input when:
 
-- Agents MUST ask "May I write this to [filepath]?" before using Write/Edit tools
-- Agents MUST show drafts or summaries before requesting approval
-- Multi-file changes require explicit approval for the full changeset
-- No commits without user instruction
+- The decision is irreversible or destructive (deletion, force-push, prod changes)
+- Multiple options are genuinely equivalent with no clear recommendation
+- The choice materially changes the product vision (pillar-level design decisions)
+- Credentials, authentication, or external approvals are required
+
+For routine work — writing design docs, editing code, updating configs, creating
+stories, running reviews — execute the recommendation immediately and report the
+outcome. The user will course-correct if needed.
+
+Every task still follows: **Question -> Options -> Recommendation -> Execute -> Report**
+(not "wait for approval between each step").
+
+- Agents may Write/Edit files that fit the agreed task scope without asking
+- Show the draft in the output when writing, so the user can review after the fact
+- Multi-file changes: execute in one pass, summarise the full changeset at the end
+- No commits without user instruction (commits remain explicit-approval only)
 
 See `docs/COLLABORATIVE-DESIGN-PRINCIPLE.md` for full protocol and examples.
 
@@ -52,3 +65,61 @@ See `docs/COLLABORATIVE-DESIGN-PRINCIPLE.md` for full protocol and examples.
 ## Context Management
 
 @.claude/docs/context-management.md
+
+## Godot CLI Safety (multi-session environment)
+
+**Critical context** : the user runs **multiple Claude Code sessions in parallel**
+(typically 5–8). A misbehaving `godot` CLI invocation in one session pops native
+macOS dialog alerts that interrupt every other session. **Never** invoke the
+`godot` binary in a way that may produce a GUI alert.
+
+### Mandatory rules
+
+1. **Always pass `--headless` AND `--script <path.gd>`** when running Godot from
+   the CLI. The script form bypasses scene resolution entirely — no risk of
+   "no main scene" alerts.
+   ```bash
+   godot --headless --script tools/lint/run_level_lint.gd  # ✅ SAFE
+   ```
+
+2. **Never use `--main-scene` pointing to a stub or empty `.tscn`.** If a scene
+   is incomplete, run via `--script` instead.
+   ```bash
+   godot --headless --main-scene tests/performance/foo.tscn  # ❌ FORBIDDEN if foo.tscn is a stub
+   ```
+
+3. **Never invoke `godot` without arguments** or with only `--path`. Both
+   trigger `OS::alert()` ("Couldn't detect whether to run the editor…").
+
+4. **Never wrap a `godot` invocation in `run_in_background: true` with
+   self-killing loops** (`godot ... & sleep N; kill $!`). If the background
+   process gets orphaned, it pops alerts on every subsequent shell that touches
+   the project. If you genuinely need a long-running godot process, run it
+   foreground with a hard timeout, or document it with an explicit cleanup
+   step.
+
+5. **`OS::alert()` fires on macOS even with `--headless`** (Godot bug). The
+   only reliable mitigation is to ensure the godot invocation **cannot fail
+   into the alert paths above**. Defensive arg construction > defensive
+   exception handling.
+
+### If alerts appear anyway
+
+Run this immediately to clear orphaned processes — safe in any session:
+
+```bash
+pkill -9 -f "godot" && pkill -9 -f "level_ccd"
+```
+
+Then locate the offending invocation in the conversation that spawned it
+(grep for `run_in_background.*godot` in recent agent output) and fix the
+command before relaunching.
+
+### Source
+
+- Incident 2026-04-27 : story-014 background runner spawned `godot --headless
+  --path . --main-scene tests/performance/level_ccd_sweep_runner.tscn` (stub
+  `.tscn`), which popped alerts every ~90s across all parallel sessions.
+- `tests/performance/level_ccd_sweep_runner.gd` is documented as STUB until
+  Sprint 1 (see active.md tech debt #1) — must be invoked via `--script`,
+  never via `--main-scene`.
