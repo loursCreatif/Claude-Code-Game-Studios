@@ -1,7 +1,7 @@
 # Story 014: Mutual kill Hybrid M1 Option C `_death_pending`
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

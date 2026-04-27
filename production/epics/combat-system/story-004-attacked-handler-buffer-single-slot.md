@@ -1,7 +1,7 @@
 # Story 004: `attacked()` handler + buffer single-slot 80ms
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

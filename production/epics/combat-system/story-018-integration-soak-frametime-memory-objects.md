@@ -1,7 +1,7 @@
 # Story 018: Integration soak frametime + memory + OBJECT_COUNT
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

@@ -1,7 +1,7 @@
 # Story 016: Invariants runtime `_validate_invariants()` + smoke check ranges
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

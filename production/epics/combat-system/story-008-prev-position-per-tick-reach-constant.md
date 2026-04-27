@@ -1,7 +1,7 @@
 # Story 008: `_prev_position` per-tick update + reach constant
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

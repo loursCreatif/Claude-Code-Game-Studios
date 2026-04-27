@@ -1,7 +1,7 @@
 # Story 009: Anti-tunneling N=3 substeps + Jolt margin empirical
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

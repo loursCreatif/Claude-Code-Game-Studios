@@ -1,7 +1,7 @@
 # Story 015: Mid-swing state transitions + race Idle mitigation + pause spam
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

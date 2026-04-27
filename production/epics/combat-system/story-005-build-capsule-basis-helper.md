@@ -1,7 +1,7 @@
 # Story 005: `_build_capsule_basis()` helper + 100-sample sphere test
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

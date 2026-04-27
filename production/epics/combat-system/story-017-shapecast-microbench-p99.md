@@ -1,7 +1,7 @@
 # Story 017: ShapeCast microbench p99 ≤5ms
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

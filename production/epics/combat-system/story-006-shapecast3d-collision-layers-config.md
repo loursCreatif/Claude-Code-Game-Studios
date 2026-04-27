@@ -1,7 +1,7 @@
 # Story 006: ShapeCast3D node config + collision layers
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23

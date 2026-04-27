@@ -1,7 +1,7 @@
 # Story 003: Death/respawn lifecycle full reset
 
 > **Epic**: Player Combat System
-> **Status**: Ready
+> **Status**: Done
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
