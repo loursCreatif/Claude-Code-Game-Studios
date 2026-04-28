@@ -1,7 +1,7 @@
 # Story 003: Boot Hydrate `_owned_upgrades` from SaveLoad
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -118,3 +118,14 @@ func _hydrate_owned_upgrades() -> void:
 
 - Depends on: Story 002 (ShopController + catalogue)
 - Unlocks: Story 005 (cycle achat lit `_owned_upgrades`), Story 010 (write back symétrique), Story 015 (bidirectional)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-SHP-1 (single + multi propagation), AC-SHP-2 (empty → `[]`), AC-SHP-24 (unknown id `&"triple_jump"` conservé silencieusement), EC-SHP-39 (StringName round-trip via ConfigFile — `typeof == TYPE_STRING_NAME` post-load), mix MVP+unknown preservation. AC-SHP-15 (BuyButtons disabled UI) déférée à story-005 rendering.
+**Deviations**: ADVISORY (2)
+  - **Autoload name** : `SaveLoadSystem` (project.godot ligne 21) au lieu de `SaveLoad` mentionné spec — aligné avec implémentation save-load epic (même cas que upgrade-system story-005).
+  - **Code path AC-SHP-23 supprimé** : la défense profonde Shop-side contre `null` / non-Array est dead code — `SaveLoadSystem.load_string_array(key, default) -> Array[StringName]` est typed strict et fait déjà la défense profonde au load (R-SAV-12, ADR-0010 D-2). Validation par élément déjà appliquée par SaveLoadSystem (push_warning + skip). Côté Shop : single-line trust du retour typé.
+**Test Evidence**: Integration — `tests/integration/shop/boot_hydrate_owned_upgrades_test.gd` 6/6 PASSED (`reports/report_44/`).
+**Code Review**: Skipped (Solo mode).

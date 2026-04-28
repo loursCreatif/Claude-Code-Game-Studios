@@ -17,6 +17,8 @@ const _CATALOG: Array[Dictionary] = [
 const _BASE_COST_FALLBACK: int = 20
 const _TIER_COST_STEP_FALLBACK: int = 20
 
+const _SAVE_KEY: String = "owned_upgrades"
+
 var _owned_upgrades: Array[StringName] = []
 
 
@@ -24,9 +26,23 @@ func _ready() -> void:
 	if OS.has_feature("debug"):
 		assert(_CATALOG.size() == N_UPGRADES_MVP,
 			"Catalogue size %d != N_UPGRADES_MVP %d" % [_CATALOG.size(), N_UPGRADES_MVP])
-	# Story-003 : hydrate `_owned_upgrades` via SaveLoadSystem
+	_hydrate_owned_upgrades()
 	# Story-004 : credit display init via CreditEconomy.get_total_credits()
 	# Story-007 : connect credits_changed CONNECT_DEFERRED
+
+
+# Story-003 : boot hydration depuis SaveLoadSystem.
+# SaveLoadSystem.load_string_array filtre déjà les éléments non-StringName/String
+# côté SaveLoad (ADR-0010 D-2 + R-SAV-12), donc le retour typé Array[StringName]
+# est trusty. IDs inconnus (Tier 2+) conservés silencieusement (EC-SHP-8 forward-safe).
+func _hydrate_owned_upgrades() -> void:
+	_owned_upgrades = SaveLoadSystem.load_string_array(
+		_SAVE_KEY, [] as Array[StringName])
+
+
+# Test seam — get_owned_upgrades() lecture publique pour assert tests integration.
+func get_owned_upgrades() -> Array[StringName]:
+	return _owned_upgrades.duplicate() as Array[StringName]
 
 
 func _compute_cost(n: int) -> int:
