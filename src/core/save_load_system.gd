@@ -54,6 +54,20 @@ func is_ready() -> bool:
 	return _config_loaded
 
 
+## Retourne la version de schéma stockée dans le fichier de sauvegarde.
+## Default `_CURRENT_SAVE_VERSION` si fichier vide, absent, ou sans clé _save_version (R-SAV-14).
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## var v: int = SaveLoadSystem.get_save_version()  # → 1 au MVP
+## [/codeblock]
+func get_save_version() -> int:
+	_assert_main_thread()
+	if not _config_loaded:
+		return _CURRENT_SAVE_VERSION
+	return _config.get_value("data", _SAVE_VERSION_KEY, _CURRENT_SAVE_VERSION)
+
+
 ## Charge un entier depuis la section [data] du fichier de sauvegarde.
 ## Retourne [param default] si le fichier est absent, corrompu, ou si le type stocké n'est pas int.
 ## Émet [code]push_warning[/code] sur type mismatch (ADR-0010 D-2).
@@ -87,6 +101,7 @@ func save_int(key: String, value: int) -> void:
 	if not _config_loaded:
 		push_error("SaveLoadSystem: save_int('%s') called before _config_loaded" % key)
 		return
+	_ensure_save_version_set()
 	_config.set_value("data", key, value)
 	var err: Error = _config.save(SAVE_FILE_PATH)
 	if err != OK:
@@ -140,6 +155,7 @@ func save_string_array(key: String, value: Array[StringName]) -> void:
 	if not _config_loaded:
 		push_error("SaveLoadSystem: save_string_array('%s') called before _config_loaded" % key)
 		return
+	_ensure_save_version_set()
 	_config.set_value("data", key, value)
 	var err: int = _config.save(SAVE_FILE_PATH)
 	if err != OK:
@@ -148,6 +164,22 @@ func save_string_array(key: String, value: Array[StringName]) -> void:
 # =============================================================================
 # Private methods
 # =============================================================================
+
+## Lazy init R-SAV-15 : pose `_save_version=1` si absent. Idempotent.
+## Appelé avant chaque set_value dans les verbes save_* pour garantir la présence de la clé.
+func _ensure_save_version_set() -> void:
+	if not _config.has_section_key("data", _SAVE_VERSION_KEY):
+		_config.set_value("data", _SAVE_VERSION_KEY, _CURRENT_SAVE_VERSION)
+
+
+## Vérifie que la version du fichier chargé est <= _CURRENT_SAVE_VERSION.
+## Émet push_warning si la version est supérieure (fichier venant d'une version future du jeu).
+## Appelé depuis _ready() uniquement si err == OK (fichier existant).
+func _check_save_version_compatibility() -> void:
+	var version: int = _config.get_value("data", _SAVE_VERSION_KEY, _CURRENT_SAVE_VERSION)
+	if version > _CURRENT_SAVE_VERSION:
+		push_warning("SaveLoadSystem: save version %d > supported %d — partial read, missing keys return defaults" % [version, _CURRENT_SAVE_VERSION])
+
 
 ## Assertion de thread principal — gated en debug uniquement (ADR-0010 D-7).
 ## Empêche tout appel SaveLoad depuis Thread / WorkerThreadPool / call_deferred cross-thread.
