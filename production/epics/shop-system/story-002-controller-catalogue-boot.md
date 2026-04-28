@@ -1,7 +1,7 @@
 # Story 002: ShopController + Catalogue Constants
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -120,3 +120,14 @@ func _compute_cost(n: int) -> int:
 
 - Depends on: Story 001 (scene skeleton — script s'attache à ShopRoot)
 - Unlocks: Stories 003, 004, 005, 007
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (7/7) — `class_name ShopControllerScript` créé, `_CATALOG` 2 entrées exact (double_jump n=0, dash_horizontal n=1), `N_UPGRADES_MVP=2`, `_ready()` debug assert, `_compute_cost(0)→20`, `_compute_cost(1)→40`, `_compute_cost(-1)→0+warning`, `_compute_cost(99)→0+error`, edge boundary `_compute_cost(2)→0`.
+**Deviations**: ADVISORY (2)
+  - **Cost constants fallback** : `CreditEconomy.BASE_UPGRADE_COST` / `TIER_COST_STEP` non exposés actuellement → utilisation `_BASE_COST_FALLBACK=20` / `_TIER_COST_STEP_FALLBACK=20` locales avec TODO Sprint 2 cleanup (per spec instruction).
+  - **Test class_name preload** : `preload("res://src/ui/shop/shop_controller.gd")` au lieu de `class_name ShopControllerScript` direct — le `.godot/global_script_class_cache.cfg` CLI-headless ne résout pas les nouveaux class_name avant ouverture éditeur. Workaround stable, pattern déjà utilisé ailleurs.
+**Test Evidence**: Logic — `tests/unit/shop/shop_controller_catalogue_test.gd` 7/7 PASSED 53 ms (`reports/report_41/`).
+**Code Review**: Skipped (Solo mode).
