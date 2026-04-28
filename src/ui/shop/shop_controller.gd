@@ -146,3 +146,13 @@ func get_call_order_log() -> Array[String]:
 # Test seam — reset entre tests (autoload-free instance bare).
 func reset_call_order_log_for_test() -> void:
 	_call_order_log.clear()
+
+
+# Test seams story-006 — accès `_purchase_in_progress` pour simuler race
+# window in-flight (impossible en GDScript SYNC sans injection manuelle).
+func set_purchase_in_progress_for_test(value: bool) -> void:
+	_purchase_in_progress = value
+
+
+func get_purchase_in_progress_for_test() -> bool:
+	return _purchase_in_progress

@@ -1,7 +1,7 @@
 # Story 006: Idempotence Guards (Double-Click + Re-Entry)
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -120,3 +120,13 @@ func _on_buy_pressed(id: StringName, n_index: int) -> void:
 
 - Depends on: Story 005 (cycle achat — cette story renforce les guards)
 - Unlocks: Story 015 (bidirectional avec contracts validés)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (6/6) — AC-SHP-13 (2 calls consécutifs → 1 spend total), AC-SHP-14 (already owned → 0 spend), EC-SHP-10 (race window via `set_purchase_in_progress_for_test(true)` simule in-flight), EC-SHP-11 (5 spam clicks owned → 0 mutation), guard release garanti post-succès, guard untouched sur insufficient balance early return.
+**Deviations**: ADVISORY (1)
+  - **Test seam `set_purchase_in_progress_for_test`** : GDScript SYNC ne permet pas un vrai concurrent double-call ; le 1er call complète intégralement avant le 2e (qui voit alors `_owned_upgrades.has(id)==true` Étape 1, pas Étape 2). Pour vraiment tester EC-SHP-10 race window, test seam expose `_purchase_in_progress` en write/read. Limitation par construction GDScript SYNC, pas un défaut du guard.
+**Test Evidence**: Logic — `tests/unit/shop/idempotence_guards_test.gd` 6/6 PASSED 56 ms (`reports/report_79/`).
+**Code Review**: Skipped (Solo mode).
