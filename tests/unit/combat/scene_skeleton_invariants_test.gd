@@ -4,7 +4,7 @@
 # Chaque test crée sa propre instance — aucun état partagé.
 #
 # Story   : production/epics/combat-system/story-001-scene-skeleton-structural-invariants.md
-# ADR     : ADR-0006 D-1 (direct child) + D-2 (physics_process_priority == 0)
+# ADR     : ADR-0006 D-1 (direct child) + D-2 (process_physics_priority == 0)
 # Req     : TR-cmb-001, TR-cmb-002
 
 extends GdUnitTestSuite
@@ -88,7 +88,7 @@ func test_combat_parent_invariant_grandchild_of_player_push_error() -> void:
 # AC-2 — Priority invariant
 # ---------------------------------------------------------------------------
 
-## Positif : physics_process_priority par défaut (0) → aucun assert panic à _ready().
+## Positif : process_physics_priority par défaut (0) → aucun assert panic à _ready().
 func test_combat_priority_invariant_default_zero_no_panic() -> void:
 	# Arrange + Act
 	var player: CharacterBody3D = CharacterBody3D.new()
@@ -101,14 +101,14 @@ func test_combat_priority_invariant_default_zero_no_panic() -> void:
 	).is_not_push_error()
 
 	# Vérifier que la valeur est bien 0 après _ready()
-	assert_int(combat.physics_process_priority) \
-		.override_failure_message("AC-2: physics_process_priority doit être 0 après _ready()") \
+	assert_int(combat.process_physics_priority) \
+		.override_failure_message("AC-2: process_physics_priority doit être 0 après _ready()") \
 		.is_equal(0)
 
 	player.queue_free()
 
 
-## Négatif : muter physics_process_priority à 1 puis forcer un 2e _ready() → assert panic.
+## Négatif : muter process_physics_priority à 1 puis forcer un 2e _ready() → assert panic.
 ## Note : Godot ne rappelle pas _ready() automatiquement. On simule via call directe
 ## après mutation, ce qui est l'unique vecteur de test sans re-instancier.
 func test_combat_priority_invariant_nonzero_priority_push_error() -> void:
@@ -121,12 +121,12 @@ func test_combat_priority_invariant_nonzero_priority_push_error() -> void:
 	await get_tree().process_frame
 
 	# Act : muter la priorité à 1 (violation D-2)
-	combat.physics_process_priority = 1
+	combat.process_physics_priority = 1
 
 	# Assert : appel direct de _ready() après mutation → assert panic sur priority
 	assert_error(
 		func() -> void: combat._ready()
-	).is_push_error("Combat physics_process_priority must be default 0 (DFS preorder Rule 17)")
+	).is_push_error("Combat process_physics_priority must be default 0 (DFS preorder Rule 17)")
 
 	combat.get_parent().queue_free()
 

@@ -48,35 +48,10 @@ func _make_combat_from_scene() -> CombatSystem:
 
 
 # ---------------------------------------------------------------------------
-# AC-1 — Collision layer = Player bit only
-# ---------------------------------------------------------------------------
-
-## AC-1 : après _ready(), `set_collision_layer_value(1)` seul est true.
-func test_combat_shapecast_collision_layer_player_bit_only() -> void:
-	# Arrange
-	var combat: CombatSystem = _make_combat_from_scene()
-	var sc: ShapeCast3D = combat.get_node_or_null("ShapeCast3D") as ShapeCast3D
-	assert_object(sc).is_not_null()
-
-	# Assert — bit 1 true, bits 2..32 false
-	assert_bool(sc.get_collision_layer_value(CollisionLayers.LAYER_PLAYER)) \
-		.override_failure_message("AC-1: layer bit 1 (LAYER_PLAYER) doit être true") \
-		.is_true()
-
-	var stray_bits: Array[int] = []
-	for i: int in range(2, 33):
-		if sc.get_collision_layer_value(i):
-			stray_bits.append(i)
-	assert_int(stray_bits.size()) \
-		.override_failure_message(
-			"AC-1: aucun bit 2..32 ne doit être set sur collision_layer — stray: %s"
-			% str(stray_bits)
-		) \
-		.is_equal(0)
-
-	combat.get_parent().queue_free()
-
-
+# AC-1 retiré — ShapeCast3D n'a PAS de collision_layer en Godot 4.6 (n'est pas
+# CollisionObject3D). LAYER_PLAYER reste configurée sur le Player parent
+# CharacterBody3D, vérifié indirectement par les tests Player. Le test original
+# appelait `get_collision_layer_value` qui n'existe pas sur ShapeCast3D.
 # ---------------------------------------------------------------------------
 # AC-2 — Collision mask = Enemy bit only
 # ---------------------------------------------------------------------------
@@ -145,7 +120,9 @@ func test_combat_source_no_bitmask_literal() -> void:
 		var line: String = lines[i]
 		if line.strip_edges().begins_with("#"):
 			continue
-		# Exempt l'API 1-indexée légitime : set_collision_layer_value(...)
+		# Exempt l'API 1-indexée légitime : set_collision_mask_value(...)
+		# (ShapeCast3D n'a pas de set_collision_layer_value mais le scan reste
+		# tolérant pour les autres scripts qui pourraient en avoir.)
 		if "set_collision_layer_value" in line or "set_collision_mask_value" in line:
 			continue
 		if "get_collision_layer_value" in line or "get_collision_mask_value" in line:
