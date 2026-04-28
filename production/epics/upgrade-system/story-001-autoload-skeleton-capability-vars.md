@@ -5,6 +5,7 @@
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: ~2-3h — t-shirt **S** (autoload skeleton script-only + edit `project.godot` + 1 test Integration `autoload_skeleton_test.gd` + 1 test Unit `capability_vars_default_test.gd`). Risk LOW.
 
 ## Context
 
@@ -98,7 +99,7 @@ Ne **PAS** ajouter de logique `apply_upgrade` ni hydration ici — stories 003/0
 **AC-UPG-4** — Unit test
 - Given : autoload `Upgrade` initialisé.
 - When : lecture `Upgrade.process_mode` post-`_ready()`.
-- Then : `== Node.PROCESS_MODE_ALWAYS` (valeur `4` constante Godot 4.6).
+- Then : `== Node.PROCESS_MODE_ALWAYS` (valeur entière `3` Godot 4.6 — **erratum 2026-04-28 commit `1649049`** : `4` = `PROCESS_MODE_DISABLED`, jamais `ALWAYS`. Test doit asserter `== Node.PROCESS_MODE_ALWAYS` (constante symbolique) **ET** `== 3` (valeur entière) pour fail loud si l'enum est mal lu).
 
 ---
 

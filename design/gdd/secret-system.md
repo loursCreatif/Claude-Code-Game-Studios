@@ -1,8 +1,8 @@
 # Secret System
 
-> **Status**: In Design (r3 ciblée editorial — 2026-04-28 : 6 NB-SEC review r2 résolus ; pending fresh `/design-review` lean re-pass → APPROVED)
+> **Status**: **APPROVED r3** (2026-04-28 `/design-review secret-system --depth lean` solo auto-approve — fresh lean re-pass APPROVED, 6 NB-SEC r2 résolus vérifiés effectifs, completeness 8/8, cross-system 9/9, ACs counts stables 60. **Gate externe BLOCKING `/create-epics`** : amendement Checkpoint GDD r2 requis [GATE r2 B-1])
 > **Author**: Martin + agents (game-designer, level-designer, systems-designer, qa-lead, creative-director)
-> **Last Updated**: 2026-04-28 (r3 ciblée editorial after fresh /design-review r2 full)
+> **Last Updated**: 2026-04-28 (APPROVED r3 after fresh /design-review --depth lean)
 > **Implements Pillar**: **Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT)** primaire ; Pillar 2 (LA PROGRESSION SE VOIT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou
 > **Review history** :
 > - r1 (`secret-system-review-r1-2026-04-27.md`) — NEEDS REVISION → r2 résout B-1/B-2/B-3.

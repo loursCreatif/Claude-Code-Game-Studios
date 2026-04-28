@@ -10,7 +10,7 @@
 
 | # | Story | Type | Status | ADR governing |
 |---|-------|------|--------|---------------|
-| 001 | [Main Menu scene skeleton + boot lifecycle](story-001-main-menu-scene-skeleton.md) | UI | Ready | ADR-0007 D-5 §a + D-9 |
+| 001 | [Main Menu scene skeleton + boot lifecycle](story-001-main-menu-scene-skeleton.md) | UI | **Complete** (2026-04-28) | ADR-0007 D-5 §a + D-9 |
 | 002 | [Pause Overlay scene skeleton + lifecycle boot](story-002-pause-overlay-scene-skeleton.md) | UI | Ready | ADR-0007 D-4 |
 | 003 | [Trigger ESC `ui_cancel_pressed` pause/resume](story-003-ui-cancel-trigger-pause-resume.md) | Integration | Ready | ADR-0004 D-4 + ADR-0007 D-2 |
 | 004 | [State sync `state_changed` CONNECT_DEFERRED + guard](story-004-state-sync-connect-deferred.md) | Integration | Ready | ADR-0007 D-9 + r2 BLK-1/BLK-3 |

@@ -6,6 +6,54 @@
 
 ---
 
+## r3 — 2026-04-28 — `/design-review secret-system --depth lean` — Verdict: **APPROVED** ✅
+
+**Scope signal** : M (producer should verify — 1 autoload + 1 constants file, 60 ACs dont 33 BLOCKING + 30 AUTO, 3 hard deps APPROVED, pas de nouvel ADR).
+**Specialists spawned** : none (lean mode — single-session reviewer mémoire vide).
+**Re-review** : oui (3e passage — r1 NEEDS REVISION 2026-04-27, r2 NEEDS REVISION 2026-04-28, r3 ciblée editorial APPROVED).
+
+### Résolution r2 → r3 vérifiée (6 NB-SEC)
+
+| NB | Fix r3 | AC vérifiant | Statut |
+|----|--------|--------------|--------|
+| NB-SEC-1 | R-SEC-10 PULL canonique MVP / PUSH Tier 2+ + règle d'union (jamais surécrasement) ; ownership purge `request_new_run` clarifié | AC-SEC-NB-1 BLOCKING AUTO (union pull/push dans les deux ordres) | ✅ Tranché et testable |
+| NB-SEC-2 | R-SEC-13 5e bullet : `CollisionShape3D.disabled = true` détecté runtime → `push_warning` + connexion quand même | AC-SEC-NB-2 BLOCKING AUTO + AC-SEC-NB-2-LINT ADVISORY STATIC | ✅ Défense Pillar 4 silencieuse robuste sans dépendre OQ-SEC-7 |
+| NB-SEC-3 | AC-SEC-25 reformulé sans `is_physics_processing()` (faux pass GUT headless) → espion d'ordre d'appel SYNC + bridge AC-SEC-NB-3-MANUAL | AC-SEC-25 BLOCKING AUTO + AC-SEC-NB-3-MANUAL ADVISORY MANUAL | ✅ Distinction AUTO/MANUAL honnête |
+| NB-SEC-4 | AC-SEC-18 reformulé sans simulation overlap synchrone (non viable headless) → call_recorder spy ordre déconnexion-puis-connexion + bridge AC-SEC-NB-4-MANUAL | AC-SEC-18 BLOCKING AUTO + AC-SEC-NB-4-MANUAL ADVISORY MANUAL | ✅ Pragmatique |
+| NB-SEC-5 | §Tuning Knobs §Authoring Règle A distribution : `MAX_SECRETS_PER_ROOM=1` + `MIN_SECRETS_OUTSIDE_NOMINAL_PATH≥1` + `DISTRIBUTION_RECOMMENDED` + `MIN_SECRETS_REQUIRING_FUTURE_CAPABILITY≥1` | AC-SEC-NB-5 ADVISORY STATIC (lint Level Sprint 1) | ✅ Promesse de retour Pillar 4 §29 matérialisée |
+| NB-SEC-6 | §Tuning Knobs §Authoring Règle B défi mouvement obligatoire : `REQUIRED_MOVEMENT_CHALLENGE_TYPE` tag + cohérences tier=1/tier∈{2,3} | AC-SEC-NB-6 ADVISORY STATIC (lint Level Sprint 1) | ✅ Pillar 4 blindé contre pickup déguisé |
+
+### Completeness 8/8 sections vérifiée
+
+Overview · Player Fantasy · Detailed Rules · Formulas · Edge Cases · Dependencies · Tuning Knobs · Acceptance Criteria. Bonus utiles : Visual/Audio Requirements, UI Requirements, Open Questions.
+
+### Cross-system consistency vérifiée 9/9 GDDs
+
+Level r3 r4 ✓ · Credit r3 ✓ · GSM r1 ✓ · Audio r2.2 ✓ · Movement r3 ✓ · Combat r6 ✓ · Enemy r2 ✓ · Save/Load r1 ✓ · HUD (Not Started — cross-ref OQ-SEC-8 documentée). Aucune contradiction détectée.
+
+### Counts ACs r3 stables
+
+- Total : **60** | BLOCKING : **33** | ADVISORY : **27** | AUTO : 30 | MANUAL : 11 | STATIC : 11
+- Aucun nouvel AC vs r3 ciblée editorial — review confirme la couverture sans ajout.
+
+### Items non-bloquants RECOMMENDED
+
+1. **Propagation R-SEC-16 invariant `instance_id` stability** vers `level-system.md` r5 §Anti-dependencies + VFX GDD futur §Anti-dependencies. Cross-ref attendue déjà déclarée Secret GDD ligne 235-240.
+2. **Propagation Règles A/B authoring (NB-SEC-5/-6)** vers `level-system.md` r5 §Authoring Guidelines comme miroir (single source of truth = Secret).
+3. **Amendement GSM r2 §Interactions** ajouter Secret comme consumer de `state_changed` (cosmetic — contrat déjà APPROVED côté GSM ADR-0007 D-10).
+
+Ces 3 items sont hors scope APPROVED — ils sont des propagations cross-GDD à programmer comme amendements légers (~5 lignes chacun) au moment opportun. Aucun ne bloque `/create-epics secret-system`.
+
+### Gate externe BLOCKING `/create-epics`
+
+**[GATE r2 B-1] Amendement Checkpoint GDD r2 requis** — ajouter Secret System dans Checkpoint §Interactions + 3 verbes (`get_collected_secrets()`, `inject_collected_secrets(ids)`, `get_collected_ids()`) dans Published API. AC-SEC-12 + AC-SEC-33 restent PENDING tant que non appliqué (non-FAIL — bloqué dépendance externe documentée). Effort estimé : ~5 lignes Checkpoint, scope cosmetic ajout §Interactions.
+
+### Synthèse
+
+GDD r3 résout les 6 NB-SEC du r2 avec un changement éditorial minimal et une couverture testable forte. Player Fantasy exemplaire conservée à travers 3 révisions. Aucun item bloquant interne. **Débloque** : `/create-epics secret-system` (sous condition unique amendement Checkpoint r2).
+
+---
+
 ## r3 ciblée editorial — 2026-04-28 — Verdict: pending fresh `/design-review` lean re-pass
 
 **Scope signal** : XS/S (editorial — reformulations + ajouts §Authoring + 4 nouveaux ACs)
