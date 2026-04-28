@@ -1,7 +1,7 @@
 # Story 006: Tier 2+ verbs stubs (load_int_array / save_int_array) + get_save_version meta
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -32,13 +32,13 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-32** [Logic] [PROVISIONAL — chain-blocked OQ-SAV-1] : GIVEN Upgrade System designé (futur), WHEN contrats Save/Load consommés par Upgrade clarifiés (ou confirmés N/A), THEN amendement R-SAV-4 si verbes additionnels requis. Mécanisme : CHAIN-BLOCKED — re-valider à Upgrade GDD r1. **Story-006 livre les signatures figées** : aucun amendement R-SAV-4 attendu si Upgrade reste agnostique de Save/Load (hypothèse Save/Load r1).
+- [x] **AC-SAV-32** [Logic] [PROVISIONAL — chain-blocked OQ-SAV-1] : GIVEN Upgrade System designé (futur), WHEN contrats Save/Load consommés par Upgrade clarifiés (ou confirmés N/A), THEN amendement R-SAV-4 si verbes additionnels requis. Mécanisme : CHAIN-BLOCKED — re-valider à Upgrade GDD r1. **Story-006 livre les signatures figées** : aucun amendement R-SAV-4 attendu si Upgrade reste agnostique de Save/Load (hypothèse Save/Load r1).
 
 **Note story-specific** : pas d'AC-SAV-* directement labellé pour les stubs Tier 2+ dans le GDD r1 — story-006 est défensive (ADR-0010 D-2 verrouille les signatures, story-006 vérifie qu'elles existent et fonctionnent). AC implicites :
 
-- [ ] **AC-006-1** [Logic] [BLOCKING-story] : GIVEN SaveLoadSystem ready, WHEN `save_int_array("k", [1, 2, 3])` puis `load_int_array("k", [])`, THEN retour `Array[int]([1, 2, 3])` (taille=3, types int, ordre préservé).
-- [ ] **AC-006-2** [Logic] [BLOCKING-story] : GIVEN clé existe avec Array hétérogène `[1, "string", null, 4]`, WHEN `load_int_array("k", [])`, THEN retour `[1, 4]` (2 éléments valides), 2 push_warning émis.
-- [ ] **AC-006-3** [Logic] [BLOCKING-story] : GIVEN signatures publiques inspectées via reflection / `script.get_method_list()`, THEN méthodes `load_int_array(key: String, default: Array[int]) -> Array[int]`, `save_int_array(key: String, value: Array[int]) -> void`, `get_save_version() -> int` toutes présentes avec types exacts.
+- [x] **AC-006-1** [Logic] [BLOCKING-story] : GIVEN SaveLoadSystem ready, WHEN `save_int_array("k", [1, 2, 3])` puis `load_int_array("k", [])`, THEN retour `Array[int]([1, 2, 3])` (taille=3, types int, ordre préservé).
+- [x] **AC-006-2** [Logic] [BLOCKING-story] : GIVEN clé existe avec Array hétérogène `[1, "string", null, 4]`, WHEN `load_int_array("k", [])`, THEN retour `[1, 4]` (2 éléments valides), 2 push_warning émis.
+- [x] **AC-006-3** [Logic] [BLOCKING-story] : GIVEN signatures publiques inspectées via reflection / `script.get_method_list()`, THEN méthodes `load_int_array(key: String, default: Array[int]) -> Array[int]`, `save_int_array(key: String, value: Array[int]) -> void`, `get_save_version() -> int` toutes présentes avec types exacts.
 
 ---
 
@@ -131,3 +131,33 @@
 - Depends on: **story-001** (skeleton), **story-004** (`_ensure_save_version_set` wrapper)
 - Unlocks: Secret System Tier 2+ persistance permanente (OQ-SEC-2 — pas activé MVP, signatures provisionnées)
 - **Provisional** : AC-SAV-32 chain-blocked sur Upgrade GDD r1 (futur) — si Upgrade exige verbes additionnels, amendement R-SAV-4 + story-006 v2.
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 3/3 passing (AC-006-1/2/3) + AC-SAV-32 PROVISIONAL chain-blocked closure (signatures figées comme requis)
+**Verdict**: COMPLETE
+
+**Tests run** :
+- `tests/unit/save_load/tier2_verbs_signature_test.gd` 7/7 PASSED (AC-006-1 roundtrip + 2 edges + AC-006-2 hetero/all-invalid/type-mismatch + AC-006-3 signatures Callable + arités + sanity get_save_version)
+- Suite save_load globale : 24/24 unit + 7/7 integration = **31/31 vert** 574 ms total. Zéro régression sur stories 001-005.
+
+**Files modified (2)** :
+- `src/core/save_load_system.gd` 219 → 274 L (+55 L) :
+  - `load_int_array(key, default) -> Array[int]` (pattern story-003 avec guard `has_section_key` pour éviter cross-type comparison Godot 4 strict)
+  - `save_int_array(key, value) -> void` (analogue `save_string_array` sans normalisation)
+  - `get_save_version()` déjà livré story-004, signature confirmée stable
+- `tests/unit/save_load/tier2_verbs_signature_test.gd` NEW 235 L : 7 tests pattern hermétique GdUnit4.
+
+**Deviations** :
+- **Pattern `if raw != default` remplacé par `if not has_section_key(...) return default`** : la spec ADR-0010 D-2 inline montrait `if raw != default: push_warning ; return default` mais ce pattern provoque un crash Godot 4 strict (`int != Array` invalid operator) — déjà identifié et corrigé story-003 array_verbs. Sémantiquement équivalent (clé absente = retour silencieux du default), aucune perte fonctionnelle.
+
+**Code Review** : Skipped (Solo mode — feedback_no_confirmation_apply_directly + production/review-mode.txt = solo)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **Secret System Tier 2+** persistance permanente (OQ-SEC-2) — `save_int_array` / `load_int_array` désormais consommables (signatures figées R-SAV-4)
+- **save-load story-007** lints static cross-system isolation
+- **save-load story-008** perf gate ConfigFile save budget
