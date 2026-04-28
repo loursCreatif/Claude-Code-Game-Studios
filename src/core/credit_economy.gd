@@ -54,7 +54,14 @@ var _is_hydrated: bool = false
 
 ## Tracks enemy instance_ids already rewarded this run to enforce idempotence
 ## (story 002). Key: instance_id (int), value: true.
+## Declared here in skeleton scope; populated in story-002 (Source KILL handler).
 var _credited_this_run: Dictionary[int, bool] = {}
+
+## Test-observable counter incremented every time try_spend rejects a negative
+## amount and emits a push_warning. AC-CRD-06 evidence seam: GUT cannot capture
+## push_warning directly, so tests assert this counter to prove the negative
+## branch (and its warning) was actually hit. Reset by tests in before_each.
+var _negative_amount_warning_count: int = 0
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -89,6 +96,7 @@ func try_spend(amount: int) -> bool:
 	if amount == 0:
 		return true  # silent no-op, AC-CRD-05
 	if amount < 0:
+		_negative_amount_warning_count += 1
 		push_warning("Credit Economy: try_spend with negative amount: %d" % amount)
 		return false
 	if amount > _total_credits:
