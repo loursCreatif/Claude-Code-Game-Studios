@@ -9,8 +9,9 @@ extends Node
 # =============================================================================
 
 const SAVE_FILE_PATH: String = "user://savegame.cfg"
-# Réservé story-004 (R-SAV-14/15 _save_version forward-only framework).
+# story-004 (R-SAV-14/15 _save_version forward-only framework).
 const _CURRENT_SAVE_VERSION: int = 1
+const _SAVE_VERSION_KEY: String = "_save_version"
 
 # =============================================================================
 # Private variables
