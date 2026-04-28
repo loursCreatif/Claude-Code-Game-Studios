@@ -1,7 +1,7 @@
 # Story 008: Visual/Feel HUD frame-perfect (ADVISORY)
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: **Blocked** — HARD UPSTREAM externe : aucun epic `hud-system` n'existe dans `production/epics/` (vérifié 2026-04-28). Le seul consumer actuel de `credits_changed` est `src/ui/shop/shop_controller.gd` (Shop epic). AC-CRD-46 nécessite un compteur HUD visible (HUD epic listener `_on_credits_changed` qui met à jour un node texte runtime). Tant que HUD epic n'est pas implémenté avec ce listener, cette story ne peut PAS produire l'evidence frame-by-frame. Action de déblocage : créer epic `hud-system` via `/create-epics ui` (ou équivalent) puis story HUD listener crédits avant de revenir à cette story-008.
 > **Layer**: Feature
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23

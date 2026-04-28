@@ -80,7 +80,7 @@ func _ready() -> void:
 
 **Story Type**: Integration
 **Required evidence**: `tests/integration/shop/boot_pull_credit_display_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 4/4 PASSED 54 ms (re-run 2026-04-28 `reports/report_62/`)
 
 ---
 

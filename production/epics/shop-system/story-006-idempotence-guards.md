@@ -112,7 +112,7 @@ func _on_buy_pressed(id: StringName, n_index: int) -> void:
 
 **Story Type**: Logic
 **Required evidence**: `tests/unit/shop/idempotence_guards_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 6/6 PASSED 49 ms (re-run 2026-04-28 `reports/report_80/`)
 
 ---
 

@@ -110,7 +110,7 @@ func test_purchase_persists_across_reload():
 
 **Story Type**: Logic
 **Required evidence**: `tests/unit/shop/saveload_write_sync_test.gd` + `tests/integration/shop/saveload_persistence_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] unit 5/5 PASSED 50 ms (`reports/report_94/`) + integration 5/5 PASSED 44 ms (`reports/report_96/`)
 
 ---
 

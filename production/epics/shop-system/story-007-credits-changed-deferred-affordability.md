@@ -122,7 +122,7 @@ func _ready() -> void:
 
 **Story Type**: Integration
 **Required evidence**: `tests/integration/shop/credits_changed_deferred_affordability_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 8/8 PASSED 81 ms (re-run 2026-04-28 `reports/report_87/`)
 
 ---
 

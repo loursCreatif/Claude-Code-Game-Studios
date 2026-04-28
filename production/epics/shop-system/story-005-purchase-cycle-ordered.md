@@ -142,7 +142,7 @@ func _on_buy_pressed(id: StringName, n_index: int) -> void:
 
 **Story Type**: Logic
 **Required evidence**: `tests/unit/shop/purchase_cycle_test.gd` — must exist and pass (avec mock UpgradeSystem)
-**Status**: [ ] Not yet created
+**Status**: [x] 9/9 PASSED 145 ms (re-run 2026-04-28 `reports/report_78/`)
 
 ---
 

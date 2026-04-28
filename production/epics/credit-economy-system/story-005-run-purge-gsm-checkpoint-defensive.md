@@ -144,3 +144,23 @@
 
 **Unblocks aval** :
 - **Credit Economy epic progress** : **7/8 stories Complete** (001 skeleton + 002 KILL + 003 SECRET + 004 Persistence + 005 Run-purge + 006 Perf + 007 Lints). Reste **008 Visual/Feel HUD frame-perfect** (manual evidence type Visual/Feel — pas de tests automatisés).
+
+---
+
+### Convergence update — session 2026-04-28 (review-driven improvements)
+
+Update appliqué après convergence parallèle, à partir d'un /code-review godot-gdscript-specialist + qa-tester :
+
+**Fichier test passé de 5 → 6 tests** :
+- Test #4 réécrit : `test_credit_economy_state_changed_respawning_does_not_purge_set_or_emit` (était `..._checkpoint_restore_simulation_preserves_set_and_total` — qa-tester a flagué le test "creux" sans Act ; remplacé par émission `state_changed(RESPAWNING)` qui prouve activement AC-CRD-50 phase c **et** couvre NB-CRD-4 forbidden trigger).
+- **Bonus edge case ajouté** : `test_credit_economy_request_new_run_from_non_boss_defeated_state_is_silent` (verbe GSM no-op + `new_run_requested` non émis + Credit set intact — garde-fou régression pour transitions illégales).
+
+**Fixes mineurs review** :
+- `src/core/credit_economy.gd` L127-130 : commentaire idx autoload corrigé (`idx 2/22` → `ligne 20/22 project.godot`) pour cohérence avec ligne 122.
+- `tests/integration/credit/credit_economy_run_purge_test.gd` L53 : `_saved_gsm_state: int` → `_saved_gsm_state: GameStateManagerScript.State` (typage strict).
+
+**Bug GSM préexistant fixé** : `src/core/game_state_manager.gd:116` typing `Array[State]` → `Array` + commentaire didactique. Bug jamais triggered avant story-005 car aucun test n'appelait `request_new_run()` depuis état BOSS_DEFEATED. Découvert par le nouveau test verb chain (`test_credit_economy_request_new_run_via_gsm_verb_emits_signal`).
+
+**Tests final** : 6/6 PASSED 59 ms (suite story-005 isolée). **Suite Credit Economy complète 56/56 PASSED** zéro régression.
+
+**Code Review** : Complete (Solo mode skip remplacé par /code-review explicite avec godot-gdscript-specialist + qa-tester en parallel).

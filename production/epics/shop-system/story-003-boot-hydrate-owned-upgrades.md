@@ -110,7 +110,7 @@ func _hydrate_owned_upgrades() -> void:
 
 **Story Type**: Integration
 **Required evidence**: `tests/integration/shop/boot_hydrate_owned_upgrades_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 6/6 PASSED 103 ms (re-run 2026-04-28 `reports/report_47/` — convergence avec run voisin `report_44/`)
 
 ---
 

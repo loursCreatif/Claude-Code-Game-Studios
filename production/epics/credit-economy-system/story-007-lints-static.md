@@ -1,10 +1,11 @@
 # Story 007: Lints/Static — credit_economy_lint_test.gd
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic (Lints/Static)
 > **Manifest Version**: 2026-04-23
+> **Estimate**: 2-3h (S — 6 tests statiques regex pattern aligné `movement_lint_test.gd` + 1 entrée CI YAML)
 
 ## Context
 
@@ -33,7 +34,7 @@
 *From GDD §Acceptance Criteria, scoped à cette story (Lints/Static — 6 ACs) :*
 
 - [ ] AC-CRD-20 [Lints/Static] (r2 B-5 fusion ex 20+21) — body de `try_spend(amount: int) -> bool` ne contient AUCUN : `await`, `.emit_signal(` async, `.call_deferred(`, `Thread.start(`, `WorkerThreadPool.add_task(`. Mécanisme : extraction body + grep regex absent.
-- [ ] AC-CRD-41 [Logic] — autoload singleton unique : `Engine.has_singleton("CreditEconomy") == true` ET deux appels `Engine.get_singleton("CreditEconomy")` retournent le même `get_instance_id()`.
+- [ ] AC-CRD-41 [Logic] — autoload singleton unique : deux lookups `Engine.get_main_loop().root.get_node("CreditEconomy")` retournent un `Node` non-null avec le même `get_instance_id()` (les autoloads GDScript ne sont PAS exposés via `Engine.has_singleton()` — réservé aux singletons C++ engine type `Input`/`OS`/`Time`).
 - [ ] AC-CRD-42 [Logic] — signal `credits_changed` : tous les params typés (`total: int`, `delta: int`, `source: SourceKind`). Mécanisme : grep `signal credits_changed` + regex match types.
 - [ ] AC-CRD-43 [Logic] — enum `SourceKind` MVP : exactement 4 valeurs `KILL`, `SECRET`, `SPEND_SHOP`, `BOOT_HYDRATE` — pas plus, pas moins. Mécanisme : `SourceKind.size()` ou `SourceKind.values().size() == 4` + assertions noms exacts.
 - [ ] AC-CRD-44 [Logic] — fichier `credit_economy.gd` : aucune signature publique avec `Variant` implicite (`try_spend(amount)` sans annotation `: int`, `get_total()` sans `-> int`). Mécanisme : grep regex sur signatures `func try_spend(`, `func get_total(`, `func _on_*(`.
@@ -102,9 +103,11 @@
 5. **Test AC-CRD-41 — autoload singleton** :
    ```gdscript
    func test_credit_autoload_singleton() -> void:
-       assert_bool(Engine.has_singleton("CreditEconomy")).is_true()
-       var ref_a := Engine.get_singleton("CreditEconomy")
-       var ref_b := Engine.get_singleton("CreditEconomy")
+       # Les autoloads GDScript sont accessibles via /root/<name>, PAS via Engine.has_singleton()
+       # (réservé aux singletons C++ engine — Input, OS, Time, etc.).
+       var ref_a: Node = Engine.get_main_loop().root.get_node("CreditEconomy")
+       var ref_b: Node = Engine.get_main_loop().root.get_node("CreditEconomy")
+       assert_object(ref_a).is_not_null()
        assert_int(ref_a.get_instance_id()).is_equal(ref_b.get_instance_id())
    ```
 
@@ -192,7 +195,7 @@
 ## QA Test Cases
 
 - **AC-CRD-20** : Given source `credit_economy.gd` valide, When extract body de `try_spend` + regex sur `await|call_deferred|Thread\.start|WorkerThreadPool\.add_task`, Then 0 match (hors commentaires).
-- **AC-CRD-41** : Given Credit autoload registered, When `Engine.has_singleton("CreditEconomy")` + 2 `get_singleton`, Then `true` + même `instance_id`.
+- **AC-CRD-41** : Given Credit autoload registered (`project.godot` `[autoload]` section), When 2× `Engine.get_main_loop().root.get_node("CreditEconomy")`, Then les 2 refs sont non-null ET ont le même `get_instance_id()`.
 - **AC-CRD-42** : Given source, When grep regex `signal credits_changed(total: int, delta: int, source: SourceKind)`, Then 1 match exact.
 - **AC-CRD-43** : Given enum `SourceKind`, When inspecter, Then size == 4 ET noms exacts == {KILL, SECRET, SPEND_SHOP, BOOT_HYDRATE} ET pas de valeurs Tier 2+ (BOSS_BONUS, ROOM_CLEAR_BONUS) déclarées MVP.
 - **AC-CRD-44** : Given source, When grep signatures publiques (`try_spend`, `get_total`, handlers `_on_*`), Then tous params typés `: type` ET return type `-> type` annoté.
@@ -207,7 +210,7 @@
 - `tests/static/credit_economy_lint_test.gd` (AC-20, 41, 42, 43, 44, 45) — must exist and pass GUT/GdUnit4.
 - Job CI `lint-credit-economy` configuré dans `.github/workflows/tests.yml` — must run on every PR.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — 7/7 tests PASSED 60 ms (GdUnit4 `--add tests/static/credit_economy_lint_test.gd --ignoreHeadlessMode`, run 2026-04-28).
 
 ---
 
@@ -215,3 +218,15 @@
 
 - Depends on: **Story 001** (skeleton — fichier source `credit_economy.gd` doit exister avec signal/enum/API). Peut tourner en parallèle de stories 002/003 (les patterns testés sont déjà en place dès la story 001).
 - Unlocks: aucune story (filet de sécurité statique du sprint).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: 6/6 passing (AC-CRD-20/41/42/43/44/45 — tous BLOCKING). AC-CRD-45 couvert par 2 tests complémentaires (whitelist positif + forbidden explicit).
+**Deviations**:
+- ADVISORY : AC-CRD-44 — handlers `_on_*` sans annotation non vérifiés par regex (story note 8 reconnaissait besoin de raffinement). Les 2 signatures publiques critiques (`try_spend(amount: int) -> bool`, `get_total() -> int`) sont validées strict.
+- ADVISORY : CI YAML job `lint-credit-economy` dans `.github/workflows/tests.yml` non intégré (déféré solo mode, TODO documenté dans header du test).
+**Test Evidence**: Logic (Lints/Static) — `tests/static/credit_economy_lint_test.gd` (7 tests / 0 errors / 0 failures / 60 ms, GdUnit4 headless 2026-04-28).
+**Code Review**: Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (S1 + S3 appliqués : `PackedStringArray()` init L90, suppression ternaire défensif L197-198) ; qa-tester TESTABLE (1 GAP mineur AC-CRD-44 handlers `_on_*` documenté ci-dessus).
+**Bug subtil corrigé pendant review** : priorité `%` > `+` dans concat string formaté (parenthèses ajoutées) — détecté par godot-gdscript-specialist sur draft initial.

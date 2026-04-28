@@ -62,4 +62,25 @@ Output :
 - Aucun script attaché (story-002 owne ShopController).
 - Aucun styling custom au-delà de la couleur Background (story-012 owne Chrome Zen styling).
 - Background color = `Color(0.0392157, 0.0392157, 0.0705882, 1)` = #0A0A12 SHOP_BG token.
-- Manual hierarchy check : à valider visuellement dans éditeur Godot — défère à `/story-done`.
+
+## Erratum 2026-04-28 — Bug structurel scene + parse-clean test
+
+**Bug identifié** : la version initiale de `shop.tscn` utilisait `parent="ShopCanvas"` (et chemins composés `"ShopCanvas/..."`) — paths absolus invalides en convention Godot 4. Les enfants étaient orphelins : `get_node("ShopRoot")` retournait null malgré scene parse-clean au load. Symptôme : test skeleton initial 1/3 PASSED + 15 orphan nodes warning + crash AC-SHP-30 runtime.
+
+**Fix** : `parent="ShopCanvas"` → `parent="."` ; `parent="ShopCanvas/<path>"` → `parent="<path>"` (convention Godot 4 root-relative). Aligné `scenes/menus/main_menu.tscn` (référence).
+
+**Test parse-clean automatisé** : `tests/static/shop_scene_skeleton_lint_test.gd` GdUnit4 — **5/5 PASSED 51 ms** (0 orphans) :
+
+| Test | Couvre |
+|---|---|
+| `test_shop_scene_parse_clean_root_is_canvaslayer` | scene load + instantiate non-null + root type CanvasLayer |
+| `test_shop_scene_ac_shp_29_canvas_layer_is_60` | AC-SHP-29 |
+| `test_shop_scene_ac_shp_30_shop_root_process_mode_is_always` | AC-SHP-30 (Node.PROCESS_MODE_ALWAYS=3 enum-named, anti-bug `=4`) |
+| `test_shop_scene_hierarchy_rshp2_all_nodes_present` | 14 nœuds R-SHP-2 walk + type check |
+| `test_shop_scene_background_color_is_shop_bg_token` | Background.color ≈ #0A0A12 (tolerance 1.5/255) |
+
+```bash
+godot --headless --script res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+  --add res://tests/static/shop_scene_skeleton_lint_test.gd --ignoreHeadlessMode
+# Statistics: 5 test cases | 0 errors | 0 failures | 0 orphans | PASSED 51ms
+```

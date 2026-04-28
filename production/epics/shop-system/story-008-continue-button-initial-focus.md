@@ -101,7 +101,7 @@ func _on_continue_pressed() -> void:
 
 **Story Type**: Logic
 **Required evidence**: `tests/unit/shop/continue_button_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 5/5 PASSED 40 ms (re-run 2026-04-28 `reports/report_89/`)
 
 ---
 
