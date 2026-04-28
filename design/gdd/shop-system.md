@@ -1,14 +1,14 @@
 # Shop System
 
-> **Status**: Designed r2 (revisions 2026-04-27 post design-review fresh — voir `reviews/shop-system-review-r1-2026-04-27.md`)
+> **Status**: Designed r2.1 (cosmetic amendment 2026-04-28 — propagation `BASE_UPGRADE_COST = 20 → 8 cr` depuis Credit Economy r2 B-2 ; résout NB-CRD-1 contradiction cross-GDD ; `cost_n=0 = 8 cr`, `cost_n=1 = 28 cr`. Aucun changement structurel, recalcul économique propagé F-SHP-3 + profils Q25/Q95 + ACs)
 > **Author**: Martin + main session (Opus 4.7) + subagents (game-designer, economy-designer, systems-designer, qa-lead, ux-designer)
-> **Last Updated**: 2026-04-27 (r2)
+> **Last Updated**: 2026-04-28 (r2.1 amendement cosmétique)
 > **Implements Pillar**: 2 (LA PROGRESSION SE VOIT) primaire ; 1 (FLOW) garde-fou transition ; anti-Pillar 4 (le shop est l'unique lieu de dépense — protège la sémantique "secrets = mouvement, pas marchandage")
 > **Quick reference** — Layer: `Feature/UI` · Priority: `MVP` · Key deps: `Credit Economy ✅ Designed r1 (locked try_spend, F-CRD-3 amendée r2 0-based, OQ-CRD-2 RESOLVED), Game State Manager ✅ APPROVED r1 (request_scene_transition), Save/Load System ✅ Designed r1 (save/load_string_array LOCKED, OQ-SHP-3 RESOLVED), Upgrade System ⚠️ Not Started (provisional apply_upgrade + _pending_upgrades pattern, OQ-SHP-2 chain-blocked Sprint 1), Menu System ⚠️ Not Started (sibling UI scene)`
 
 ## Overview
 
-Shop System est la **scène transitoire d'achat** entre étages : un Control fullscreen `res://scenes/shop/shop.tscn` chargé par GameStateManager (`request_scene_transition` ADR-0007 D-5) au signal `etage_completed` du Level System. Le shop expose un catalogue MVP de **2 upgrades binaires permanentes** (`double_jump` à 20 cr index n=0, `dash_horizontal` à 40 cr index n=1 — coûts dérivés de la courbe linéaire F-CRD-3 amendée r2 `cost_n = 20 + 20×n` 0-based owned par Credit Economy). Chaque achat est une transaction atomique : `CreditEconomy.try_spend(amount: int) -> bool` (R-CRD-4 locked) — si succès, l'état owned est immédiatement persisté via `SaveLoad.save_string_array("owned_upgrades", _owned_upgrades)` (provisional Save/Load, atomicité requise — voir Dependencies) puis `UpgradeSystem.apply_upgrade(id: StringName)` (provisional Upgrade — pattern `_pending_upgrades` si Player non instancié, voir EC-SHP-17) active la capacité dans la couche gameplay. Le shop est **idempotent** (chaque upgrade = achat unique, double-click bloqué par guard `_owned_upgrades.has(id)`), **sans grinding au MVP** (pas de re-stock, pas de stack, pas de re-roll ; cf. note Tier 2+ courbe F-SHP-1 sur l'accumulation cross-session), et **sans état SHOPPING dédié dans GSM** (le shop est une scène container PLAYING-state agnostic — voir R-SHP-5). Sa surface API est minimale : un nœud-local `ShopControllerScript` dans la scène (pas d'autoload), un signal interne `_on_continue_pressed()` qui déclenche `request_scene_transition` vers MENU au MVP (Tier 2+ : `start_etage(next_etage_id)` chaîné via autoload `RunContext`, OQ-SHP-5 RESOLVED). Le shop ferme le segment économique du core loop : sans lui, les crédits accumulés par Credit Economy n'ont pas de sortie, Pillar 2 (LA PROGRESSION SE VOIT) reste promesse. Le scope MVP couvre 2 upgrades, **2 étages playable MVP** (1 shop par étage = 2 visites possibles, F-CRD-4 yield_max 85 cr cumul cohérent F-SHP-3), persistance binaire owned/not_owned via Save/Load, et zéro SFX (Audio bus shop différé Tier 2+, OQ-SHP-4 RESOLVED).
+Shop System est la **scène transitoire d'achat** entre étages : un Control fullscreen `res://scenes/shop/shop.tscn` chargé par GameStateManager (`request_scene_transition` ADR-0007 D-5) au signal `etage_completed` du Level System. Le shop expose un catalogue MVP de **2 upgrades binaires permanentes** (`double_jump` à 8 cr index n=0, `dash_horizontal` à 28 cr index n=1 — coûts dérivés de la courbe linéaire F-CRD-3 amendée r2 B-2 `cost_n = 8 + 20×n` 0-based owned par Credit Economy). Chaque achat est une transaction atomique : `CreditEconomy.try_spend(amount: int) -> bool` (R-CRD-4 locked) — si succès, l'état owned est immédiatement persisté via `SaveLoad.save_string_array("owned_upgrades", _owned_upgrades)` (provisional Save/Load, atomicité requise — voir Dependencies) puis `UpgradeSystem.apply_upgrade(id: StringName)` (provisional Upgrade — pattern `_pending_upgrades` si Player non instancié, voir EC-SHP-17) active la capacité dans la couche gameplay. Le shop est **idempotent** (chaque upgrade = achat unique, double-click bloqué par guard `_owned_upgrades.has(id)`), **sans grinding au MVP** (pas de re-stock, pas de stack, pas de re-roll ; cf. note Tier 2+ courbe F-SHP-1 sur l'accumulation cross-session), et **sans état SHOPPING dédié dans GSM** (le shop est une scène container PLAYING-state agnostic — voir R-SHP-5). Sa surface API est minimale : un nœud-local `ShopControllerScript` dans la scène (pas d'autoload), un signal interne `_on_continue_pressed()` qui déclenche `request_scene_transition` vers MENU au MVP (Tier 2+ : `start_etage(next_etage_id)` chaîné via autoload `RunContext`, OQ-SHP-5 RESOLVED). Le shop ferme le segment économique du core loop : sans lui, les crédits accumulés par Credit Economy n'ont pas de sortie, Pillar 2 (LA PROGRESSION SE VOIT) reste promesse. Le scope MVP couvre 2 upgrades, **2 étages playable MVP** (1 shop par étage = 2 visites possibles, F-CRD-4 yield_max 85 cr cumul cohérent F-SHP-3), persistance binaire owned/not_owned via Save/Load, et zéro SFX (Audio bus shop différé Tier 2+, OQ-SHP-4 RESOLVED).
 
 ---
 
@@ -18,19 +18,19 @@ Shop System est la **scène transitoire d'achat** entre étages : un Control ful
 
 ### Le moment Shop
 
-Tu viens de finir l'étage. La caméra est encore essoufflée, l'écran fade au noir 200 ms, puis le shop apparaît. Le 3D world a disparu. Le silence est total — pas de musique d'ambiance qui te précipite, pas de timer qui te presse. Devant toi, **deux cartes**. À droite, ton compteur de crédits — le même chiffre que tu surveilles depuis le début, mais ici il a un poids différent : il est **convertible**. La carte du haut dit `Saut Double — 20 ₵`. Tu en as 33 (étage 1, trois secrets trouvés). Tu peux. La carte du bas dit `Dash Horizontal — 40 ₵`. Tu ne peux pas. Pas encore. À ta première visite, tu peux. Mais pas les deux — pas encore.
+Tu viens de finir l'étage. La caméra est encore essoufflée, l'écran fade au noir 200 ms, puis le shop apparaît. Le 3D world a disparu. Le silence est total — pas de musique d'ambiance qui te précipite, pas de timer qui te presse. Devant toi, **deux cartes**. À droite, ton compteur de crédits — le même chiffre que tu surveilles depuis le début, mais ici il a un poids différent : il est **convertible**. La carte du haut dit `Saut Double — 8 ₵`. Tu en as 33 (étage 1, trois secrets trouvés). Tu peux. La carte du bas dit `Dash Horizontal — 28 ₵`. Tu peux aussi — mais pas les deux : 8 + 28 = 36 et tu n'as que 33. Tu choisis.
 
-Et c'est exactement le point : **le shop est le seul moment du jeu où tu réfléchis pour avancer**. Partout ailleurs, tu réagis à 60 fps — un laser, un mur, un grunt. Ici, tu *décides*. Cette décision est légère (deux options MVP, pas un skill tree) et lourde à la fois (chaque upgrade change physiquement ce que tu peux faire dans le prochain étage). Il n'y a pas de modal "Are you sure?", pas de fanfare, pas de cinématique. Tu cliques, le compteur tombe de 33 à 13 en 300 ms, la carte vire au cyan désaturé qui dit `POSSÉDÉ`, et le bouton `CONTINUER` est toujours là, toujours prêt. La carte du dash reste ouverte — tu sais qu'au prochain étage, si tu trouves les bons secrets, elle deviendra à toi. Tu reprends ton souffle, tu cliques, et la tour t'attend de nouveau.
+Et c'est exactement le point : **le shop est le seul moment du jeu où tu réfléchis pour avancer**. Partout ailleurs, tu réagis à 60 fps — un laser, un mur, un grunt. Ici, tu *décides*. Cette décision est légère (deux options MVP, pas un skill tree) et lourde à la fois (chaque upgrade change physiquement ce que tu peux faire dans le prochain étage). Il n'y a pas de modal "Are you sure?", pas de fanfare, pas de cinématique. Tu cliques sur Saut Double, le compteur tombe de 33 à 25 en 300 ms, la carte vire au cyan désaturé qui dit `POSSÉDÉ`, et le bouton `CONTINUER` est toujours là, toujours prêt. La carte du dash reste ouverte — il te manque 3 cr, tu sais qu'au prochain étage, si tu trouves un seul secret, elle deviendra à toi. Tu reprends ton souffle, tu cliques, et la tour t'attend de nouveau.
 
-> **Honnêteté économique** (note design) : la tension décisionnelle "tu peux mais pas les deux" est la promesse de la **première visite** d'un joueur explorateur normal (yield étage 1 ≈ 21–38 cr selon profil, voir F-SHP-3). Pour le joueur expert qui finit les 2 étages MVP avec tous les secrets (yield_max 85 cr), la tension se résout en "tu peux les deux avec marge". Pour le joueur faible (yield ≤ 19 cr), aucun achat possible étage 1 — la fenêtre arrive étage 2. La fantasy est temporelle, pas invariante : le moment de tension existe à un instant précis dans la progression, pas à chaque visite.
+> **Honnêteté économique** (note design r2.1) : la tension décisionnelle "tu peux mais pas les deux" est la promesse de la **première visite** d'un joueur explorateur normal (yield étage 1 ≈ 21–38 cr selon profil, voir F-SHP-3 — `total_cost_MVP = 8 + 28 = 36 cr`, donc tension entre 8 et 36 cr de solde). Pour le joueur expert qui finit les 2 étages MVP avec tous les secrets (yield_max 85 cr), la tension se résout en "tu peux les deux avec marge confortable" (49 cr résiduels). Pour le joueur combat-only (Q25, ~8 cr étage 1), n=0 est atteignable pile-poil (8 = 8 cr) — c'est l'intention r2 B-2 anti soft-lock Pillar 2 : le combat strict débloque sa première upgrade sans secret obligatoire. La fantasy est temporelle, pas invariante : le moment de tension existe à un instant précis dans la progression, pas à chaque visite.
 
 ### Le pacte avec le crédit
 
-Pillar 2 (LA PROGRESSION SE VOIT) est tenu par un pacte simple : **le crédit que tu vois n'est pas un score, c'est un engagement signé**. Quand tu enchaînes 12 grunts pour 12 crédits, tu n'es pas en train de monter un compteur abstrait — tu es en train de constituer la mise d'un futur achat. Le shop est le moment où ce pacte se tient. Il transforme le crédit gagné dans la sueur du gameplay en capacité physique permanente, sans intermédiaire psychologique : pas de "you've earned a point, choose your reward" décoratif, pas de level-up scripted. Juste : *47 crédits → clic → -20 → tu as le double jump pour toujours*. La progression ne se promet pas, elle s'achète, et l'achat se voit dans le compteur qui descend.
+Pillar 2 (LA PROGRESSION SE VOIT) est tenu par un pacte simple : **le crédit que tu vois n'est pas un score, c'est un engagement signé**. Quand tu enchaînes 12 grunts pour 12 crédits, tu n'es pas en train de monter un compteur abstrait — tu es en train de constituer la mise d'un futur achat. Le shop est le moment où ce pacte se tient. Il transforme le crédit gagné dans la sueur du gameplay en capacité physique permanente, sans intermédiaire psychologique : pas de "you've earned a point, choose your reward" décoratif, pas de level-up scripted. Juste : *47 crédits → clic → -8 → tu as le double jump pour toujours*. La progression ne se promet pas, elle s'achète, et l'achat se voit dans le compteur qui descend.
 
 ### Le pacte avec Pillar 4 (SECRETS = MOUVEMENT)
 
-Le shop est aussi le seul endroit où l'asymétrie 5:1 entre crédit-secret et crédit-kill (F-CRD-2 vs F-CRD-1) prend son vrai sens. Quand tu vois la carte `Dash Horizontal — 40 ₵` et que tu te dis "je l'aurai au prochain étage si je trouve le secret tier 2 que j'ai vu briller derrière le wall-run impossible" — c'est **là** que Pillar 4 se matérialise. Le shop est l'écran où le secret devient une *promesse cible* : "atteins ce crédit-secret et la prochaine carte est à toi". Le dash horizontal ne s'achète pas avec 40 kills (40 secondes de combat banal) — il s'achète avec **2 secrets de mouvement** (deux moments de prise de risque verticale). Le shop ne dit pas ça en mots. Il le dit dans l'arithmétique du compteur.
+Le shop est aussi le seul endroit où l'asymétrie 5:1 entre crédit-secret et crédit-kill (F-CRD-2 vs F-CRD-1) prend son vrai sens. Quand tu vois la carte `Dash Horizontal — 28 ₵` et que tu te dis "je l'aurai au prochain étage si je trouve le secret tier 2 que j'ai vu briller derrière le wall-run impossible" — c'est **là** que Pillar 4 se matérialise. Le shop est l'écran où le secret devient une *promesse cible* : "atteins ce crédit-secret et la prochaine carte est à toi". Le dash horizontal ne s'achète pas avec 28 kills (28 secondes de combat banal) — il s'achète avec **2 à 3 secrets de mouvement** (T2 10 cr + T3 15 cr = 25 cr, plus un T1 5 cr = 30 cr ; ou autres combinaisons F-CRD-2). Le shop ne dit pas ça en mots. Il le dit dans l'arithmétique du compteur.
 
 ### Anti-fantasy (ce que le shop n'est pas)
 
@@ -95,7 +95,7 @@ const _CATALOG: Array[Dictionary] = [
 ]
 ```
 
-Le coût de chaque upgrade est **calculé dynamiquement** via la courbe F-CRD-3 du Credit Economy GDD : `cost_n = BASE_UPGRADE_COST(20) + n_index × TIER_COST_STEP(20)` → 20 cr (n=0), 40 cr (n=1).
+Le coût de chaque upgrade est **calculé dynamiquement** via la courbe F-CRD-3 du Credit Economy GDD r2 B-2 : `cost_n = BASE_UPGRADE_COST(8) + n_index × TIER_COST_STEP(20)` → 8 cr (n=0), 28 cr (n=1).
 
 Les valeurs `BASE_UPGRADE_COST` et `TIER_COST_STEP` ne sont pas hardcodées dans le script Shop : elles sont lues depuis `assets/data/shop_config.tres` (tuning knob G-1) ou exposées comme constantes Credit Economy si l'API y prévoit un getter. **Justification du choix hardcodé Array vs Resource externe** : avec 2 upgrades MVP, un fichier `.tres` séparé ajoute de la friction de tooling pour zéro gain de flexibilité. Tier 2+ (4+ upgrades) : migration vers `shop_catalog.tres` (Resource custom `ShopCatalogResource`) pour permettre l'édition en inspector Godot sans toucher le code.
 
@@ -259,7 +259,7 @@ Le Shop ne calcule pas le coût d'une upgrade — il délègue à la courbe lin�
 
 ```
 cost_at_index(n) := F-CRD-3 = BASE_UPGRADE_COST + TIER_COST_STEP × n
-                            = 20 + 20 × n
+                            = 8 + 20 × n
 ```
 
 **Variables :**
@@ -267,21 +267,21 @@ cost_at_index(n) := F-CRD-3 = BASE_UPGRADE_COST + TIER_COST_STEP × n
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
 | `n` | n | `int` | `[0, MAX_UPGRADE_INDEX]` | Index zero-based de l'upgrade dans la liste triée par prix croissant. `n = 0` est l'upgrade la moins chère. |
-| `BASE_UPGRADE_COST` | B | `int` | 20 (fixé Credit GDD) | Coût de l'upgrade à n=0. **Non redéfini ici — lire Credit F-CRD-3.** |
+| `BASE_UPGRADE_COST` | B | `int` | 8 (fixé Credit GDD r2 B-2) | Coût de l'upgrade à n=0. **Non redéfini ici — lire Credit F-CRD-3.** |
 | `TIER_COST_STEP` | S | `int` | 20 (fixé Credit GDD) | Incrément linéaire par rang. **Non redéfini ici — lire Credit F-CRD-3.** |
 | `MAX_UPGRADE_INDEX` | M | `int` | 1 (MVP) ; 7 (Full Vision 8 upgrades) | Index maximum légal. Toute valeur `n > M` doit déclencher une erreur. |
-| `cost_at_index(n)` | c | `int` | `[20, 40]` MVP ; `[20, 160]` Full Vision | Coût en crédits retourné pour l'index n. |
+| `cost_at_index(n)` | c | `int` | `[8, 28]` MVP ; `[8, 148]` Full Vision | Coût en crédits retourné pour l'index n. |
 
-**Output Range :** `[20, 40]` sous jeu normal MVP ; courbe non-bornée supérieurement en théorie mais plafonnée par `MAX_UPGRADE_INDEX`.
+**Output Range :** `[8, 28]` sous jeu normal MVP ; courbe non-bornée supérieurement en théorie mais plafonnée par `MAX_UPGRADE_INDEX`.
 
 **Table MVP :**
 
 | n | Upgrade | `cost_at_index(n)` |
 |---|---------|-------------------|
-| 0 | `double_jump` | 20 cr |
-| 1 | `dash_horizontal` | 40 cr |
+| 0 | `double_jump` | 8 cr |
+| 1 | `dash_horizontal` | 28 cr |
 
-**Exemple worked :** Shop affiche le coût de `dash_horizontal` → `cost_at_index(1) = 20 + 20 × 1 = 40`. Passe le résultat à F-SHP-2 et à l'UI.
+**Exemple worked :** Shop affiche le coût de `dash_horizontal` → `cost_at_index(1) = 8 + 20 × 1 = 28`. Passe le résultat à F-SHP-2 et à l'UI.
 
 **Edge cases :**
 
@@ -304,7 +304,7 @@ affordable_n = CreditEconomy.get_total() >= cost_at_index(n)
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
 | `CreditEconomy.get_total()` | T | `int` | `[0, +∞)` | Lecture passive du solde. Non-mutant. |
-| `cost_at_index(n)` | c | `int` | `[20, 40]` MVP | Coût de l'upgrade n via F-SHP-1. |
+| `cost_at_index(n)` | c | `int` | `[8, 28]` MVP | Coût de l'upgrade n via F-SHP-1. |
 | `affordable_n` | a | `bool` | `{false, true}` | `true` si le joueur peut acheter sans déficit. |
 
 **Output Range :** `{false, true}` déterministe pour un solde donné.
@@ -313,11 +313,11 @@ affordable_n = CreditEconomy.get_total() >= cost_at_index(n)
 
 | `T = get_total()` | `c = cost_at_index(n)` | `affordable_n` | État UI |
 |-------------------|----------------------|----------------|---------|
-| 15 cr | 20 cr (n=0) | `false` | Bouton DISABLED, cost rouge |
-| 20 cr | 20 cr (n=0) | `true` | Bouton NORMAL, glow cyan affordable |
-| 50 cr | 40 cr (n=1) | `true` | Bouton NORMAL |
-| 35 cr | 40 cr (n=1) | `false` | Bouton DISABLED |
-| 60 cr | 40 cr (n=1) | `true` | Bouton NORMAL, surplus 20 cr visible |
+| 5 cr | 8 cr (n=0) | `false` | Bouton DISABLED, cost rouge |
+| 8 cr | 8 cr (n=0) | `true` | Bouton NORMAL, glow cyan affordable (solde exact) |
+| 30 cr | 28 cr (n=1) | `true` | Bouton NORMAL |
+| 20 cr | 28 cr (n=1) | `false` | Bouton DISABLED |
+| 50 cr | 28 cr (n=1) | `true` | Bouton NORMAL, surplus 22 cr visible |
 
 **Edge cases :**
 
@@ -336,14 +336,14 @@ Validation économique statique (design-time + test-time, non runtime). Vérifie
 ```
 total_cost_MVP = Σ cost_at_index(n)  pour n ∈ [0, N_UPGRADES_MVP - 1]
               = cost_at_index(0) + cost_at_index(1)
-              = 20 + 40
-              = 60 cr
+              = 8 + 28
+              = 36 cr
 
 session_yield_max_MVP = 85 cr   (F-CRD-4 — run complète 2 étages, tous secrets trouvés)
 
 margin = session_yield_max_MVP - total_cost_MVP
-       = 85 - 60
-       = 25 cr
+       = 85 - 36
+       = 49 cr
 ```
 
 **Variables :**
@@ -351,9 +351,9 @@ margin = session_yield_max_MVP - total_cost_MVP
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
 | `N_UPGRADES_MVP` | N | `int` | 2 | Nombre d'upgrades MVP. Figé game-concept. |
-| `total_cost_MVP` | C | `int` | 60 | Somme des coûts. Dérivé F-SHP-1 × N. |
+| `total_cost_MVP` | C | `int` | 36 | Somme des coûts (r2.1 : 60 → 36 propagation B-2). Dérivé F-SHP-1 × N. |
 | `session_yield_max_MVP` | Y | `int` | 85 | Rendement maximal **cumul 2 étages MVP** (F-CRD-4). Source de vérité Credit GDD. |
-| `margin` | m | `int` | 25 | Crédits résiduels après achat de toutes upgrades MVP en scénario optimal cumul 2 étages. |
+| `margin` | m | `int` | 49 | Crédits résiduels après achat de toutes upgrades MVP en scénario optimal cumul 2 étages (r2.1 : 25 → 49 propagation B-2). |
 
 **Output Range :** `margin >= 0` est la condition de validité économique. `margin < 0` → violation Pillar 2 + anti-pillar grinding.
 
@@ -361,17 +361,17 @@ margin = session_yield_max_MVP - total_cost_MVP
 
 | Profil | Étage 1 yield approx | Cumul 2 étages | n=0 affordable étage 1 ? | n=1 affordable cumul ? |
 |--------|---------------------|----------------|--------------------------|------------------------|
-| Q25 (combat-only, 0 secrets) | ~8 cr | ~16 cr | NON (16 < 20) | NON (16 < 40) |
-| Q50 (médian, ~50% secrets) | ~21 cr | ~42 cr | OUI (étage 1) | OUI (cumul) |
+| Q25 (combat-only, 0 secrets) | ~8 cr | ~16 cr | OUI pile-poil (8 = 8) | NON (16 < 28) |
+| Q50 (médian, ~50% secrets) | ~21 cr | ~42 cr | OUI confortable | OUI (cumul, 42 ≥ 28) |
 | Q75 (explorateur normal, 3 secrets mix) | ~33 cr | ~66 cr | OUI confortable | OUI confortable |
-| Q95 (expert, tous secrets) | ~55 cr | ~85 cr | OUI + restes | OUI + marge 25 cr |
+| Q95 (expert, tous secrets) | ~55 cr | ~85 cr | OUI + restes | OUI + marge 49 cr |
 
 **Interprétation r2** :
 
-1. **Q25 friction Pillar 2** : un joueur strictement combat-only (0 secret trouvé) ne peut acheter aucune upgrade MVP en 2 étages (16 cr < 20 cr). C'est une **conséquence designée** de l'asymétrie 5:1 secret/kill — le joueur est incité à explorer. Documenté comme tension intentionnelle, pas bug Pillar 2.
-2. **Q50–Q75 cible Pillar 2** : le profil médian achète n=0 étage 1 ou cumul, n=1 cumul 2 étages — la promesse "1 session = 1-2 upgrades" tient.
-3. **Q95 confort + Tier 2+ anticipation** : les 25 cr résiduels s'accumulent sur le compteur permanent (Credit R-CRD-12 persistance). Quand Tier 2+ ajoutera n=2 à 60 cr, le joueur Q95 sera déjà partiellement financé.
-4. **Non-trivialité** : 25 cr ne suffisent pas pour une 3e upgrade fictive (n=2 = 60 cr > 25 cr) — pas de "tout acheter sans effort" même en session parfaite. Tension économique réelle préservée.
+1. **Q25 anti soft-lock Pillar 2 (r2.1 B-2)** : un joueur strictement combat-only (0 secret trouvé) atteint **pile-poil n=0** étage 1 (8 kills × 1 cr = 8 cr = 8 cr coût). C'est l'intention r2 B-2 — le combat strict débloque sa première upgrade sans secret obligatoire (anti soft-lock Pillar 2). n=1 reste hors de portée combat-only (16 cr cumul < 28 cr) → l'asymétrie 5:1 reste l'incitation à l'exploration pour la 2e upgrade. Marge zéro étage 1 : si tuner monte `BASE_UPGRADE_COST > 8`, soft-lock revient (cf. Cross-tuning Credit r2 l.384).
+2. **Q50–Q75 cible Pillar 2** : le profil médian achète n=0 étage 1 confortablement (21 cr ≥ 8), n=1 cumul 2 étages (42 cr ≥ 28) — la promesse "1 session = 1-2 upgrades" tient.
+3. **Q95 confort + Tier 2+ anticipation** : les 49 cr résiduels s'accumulent sur le compteur permanent (Credit R-CRD-12 persistance). Quand Tier 2+ ajoutera n=2 à 48 cr, le joueur Q95 pourra **financer la 3e upgrade en 1 session parfaite** (49 ≥ 48). Effet secondaire B-2 documenté : la non-trivialité n=2 doit être préservée par augmentation de yield (nouveaux secrets/ennemis Tier 2+) OU augmentation `TIER_COST_STEP` — voir invariant ci-dessous.
+4. **Non-trivialité r2.1** : la marge 49 cr autorise théoriquement une 3e upgrade Q95 mais pas une 4e (n=3 = 68 cr > 49 cr). La tension économique reste réelle pour le joueur Q50–Q75 ; pour Q95, Tier 2+ devra rétablir la friction par contenu plutôt que par coût.
 
 **Invariant de santé économique** : à chaque extension Tier 2+ qui ajoute une upgrade, vérifier que `session_yield_max(nouveau_tier) - total_cost(nouveau_N) >= 0`. Si négatif, retuner `BASE_UPGRADE_COST`/`TIER_COST_STEP` (Credit) ou augmenter rendement (nouveaux ennemis, secrets).
 
@@ -402,10 +402,10 @@ ordre_upgrade = f(prix_croissant, impact_gameplay_croissant, pillar_2_visibilit�
 
 | n | Upgrade | Prix | Impact perceptuel immédiat | Tactique étendue | Position |
 |---|---------|------|---------------------------|------------------|----------|
-| 0 | `double_jump` | 20 cr | Très élevé — franchit gaps impossibles, visible au premier saut post-achat | Moyen — ouvre verticalité | **Premier** |
-| 1 | `dash_horizontal` | 40 cr | Élevé — accélère traversée, impact moins immédiat sans level design dédié | Élevé — couvre distances latérales, esquive lasers | **Second** |
+| 0 | `double_jump` | 8 cr | Très élevé — franchit gaps impossibles, visible au premier saut post-achat | Moyen — ouvre verticalité | **Premier** |
+| 1 | `dash_horizontal` | 28 cr | Élevé — accélère traversée, impact moins immédiat sans level design dédié | Élevé — couvre distances latérales, esquive lasers | **Second** |
 
-**Justification double_jump en n=0** : le double_jump à 20 cr est délibérément le moins cher car (a) il est la première upgrade accessible économiquement (Q50+ peut l'acheter étage 1) et (b) son impact gameplay est *binaire et lisible* — le joueur acquiert une nouvelle capacité de mouvement vertical, observable au premier saut où il chooses de double-tapper. Le dash_horizontal (40 cr) demande compréhension du level design pour révéler son potentiel — correctement placé en second, une fois le modèle économique compris.
+**Justification double_jump en n=0** : le double_jump à 8 cr est délibérément le moins cher car (a) il est la première upgrade accessible économiquement (combat-only Q25 peut l'acheter étage 1 pile-poil — anti soft-lock B-2) et (b) son impact gameplay est *binaire et lisible* — le joueur acquiert une nouvelle capacité de mouvement vertical, observable au premier saut où il chooses de double-tapper. Le dash_horizontal (28 cr) demande compréhension du level design pour révéler son potentiel — correctement placé en second, une fois le modèle économique compris.
 
 > **Note dépendance level design (r2 design-review)** : l'attente "le joueur découvre l'upgrade par le premier déclenchement post-achat" suppose que le level design étage 2 (post-shop étage 1) contient un contexte où chaque upgrade est *utile* — pas nécessairement obligatoire, mais clairement applicable. Cette contrainte est **soft** côté Level GDD (pas un AC bloquant Level) mais devient un critère de playtest AC-SHP-50 (temps avant premier déclenchement post-achat < 60 sec sur 3/5 sessions playtest internes). Si playtest révèle que le joueur n'utilise jamais l'upgrade post-achat, F-SHP-4 ordering est à reconsidérer (priorité 4 nouvelle).
 
@@ -413,11 +413,11 @@ ordre_upgrade = f(prix_croissant, impact_gameplay_croissant, pillar_2_visibilit�
 
 | n | Upgrade (non finale) | Coût indicatif | Impact |
 |---|---------------------|----------------|--------|
-| 2 | `wall_run_long` | 60 cr | Extension durée wall-run — traversées de façades longues |
-| 3 | `aerial_slow_mo` | 80 cr | Slow-mo en l'air — lecture tactique mid-air |
-| 4–7 | TBD Tier 2+ | 100–160 cr | À définir VS/Alpha selon playtest |
+| 2 | `wall_run_long` | 48 cr | Extension durée wall-run — traversées de façades longues |
+| 3 | `aerial_slow_mo` | 68 cr | Slow-mo en l'air — lecture tactique mid-air |
+| 4–7 | TBD Tier 2+ | 88–148 cr | À définir VS/Alpha selon playtest |
 
-> **⚠️ Note Tier 2+ anti-grinding (r2 design-review)** : avec 8 upgrades (n=0 à n=7) et Credit `total_credits` persistant cross-session (Credit R-CRD-12), le coût total Full Vision = 720 cr. Si yield_max/run reste à 85 cr (pas de nouveaux ennemis ni secrets Tier 2+), atteindre n=7 demande **8-9 runs**. Cette accumulation cross-session **n'est pas considérée comme grinding** au sens anti-pillar (game-concept) : l'anti-pillar interdit les **mécaniques de re-stock** (re-roll catalogue, upgrades consommables, multi-buy), pas la progression lente. Néanmoins, Tier 2+ doit valider, avant ajout de chaque upgrade au catalogue, que (a) le yield/run a augmenté en proportion (nouveaux secrets / nouveaux ennemis), OU (b) la fréquence des sessions assumée est compatible avec la durée de découverte attendue. Si ni (a) ni (b), retuner `BASE_UPGRADE_COST` / `TIER_COST_STEP` (Credit r2+) avant d'ajouter l'upgrade. **MVP r2 conserve l'anti-grinding strict** (2 upgrades, atteignables en 1-2 runs explorateur), Tier 2+ assume l'accumulation lente comme mécanique designée.
+> **⚠️ Note Tier 2+ anti-grinding (r2 design-review, recalcul r2.1 B-2)** : avec 8 upgrades (n=0 à n=7) et Credit `total_credits` persistant cross-session (Credit R-CRD-12), le coût total Full Vision = **624 cr** (recalcul Credit r2 ligne 254 : `Σ (8 + 20 × i)` pour i ∈ [0, 7] = 64 + 560). Si yield_max/run reste à 85 cr (pas de nouveaux ennemis ni secrets Tier 2+), atteindre n=7 demande **7-8 runs** (624/85 = 7.34 → cible Credit r2 `N_SESSIONS_TARGET ∈ [8, 10]` ✅). Cette accumulation cross-session **n'est pas considérée comme grinding** au sens anti-pillar (game-concept) : l'anti-pillar interdit les **mécaniques de re-stock** (re-roll catalogue, upgrades consommables, multi-buy), pas la progression lente. Néanmoins, Tier 2+ doit valider, avant ajout de chaque upgrade au catalogue, que (a) le yield/run a augmenté en proportion (nouveaux secrets / nouveaux ennemis), OU (b) la fréquence des sessions assumée est compatible avec la durée de découverte attendue. Si ni (a) ni (b), retuner `BASE_UPGRADE_COST` / `TIER_COST_STEP` (Credit r2+) avant d'ajouter l'upgrade. **MVP r2.1 conserve l'anti-grinding strict** (2 upgrades, atteignables en 1-2 runs explorateur), Tier 2+ assume l'accumulation lente comme mécanique designée.
 
 ---
 
@@ -470,9 +470,9 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 **EC-SHP-13 — ESC ou Continue pendant counter tween post-achat** : SI joueur presse ESC ou Continue pendant le tween 300 ms post-achat (compteur animé, carte OWNED) ALORS `request_scene_transition` émis immédiatement. Tween interrompu (kill). État `_owned_upgrades` déjà persisté (R-SHP-8 écrit synchrone au clic, AVANT le tween). `apply_upgrade` déjà appelé. Transition safe à n'importe quel point du tween — aucun état critique n'est porté par l'animation.
 
-**EC-SHP-14 — solde 0 après achat, autres cartes DISABLED dans le même frame** : SI joueur avec 20 cr achète `double_jump` (cost=20, n=0) ALORS `total_credits` passe à 0, `credits_changed(0, -20, SPEND_SHOP)` émis SYNC. Dans le handler `_on_credits_changed`, Shop recalcule `affordable_n` (F-SHP-2) pour toutes les cartes restantes (`dash_horizontal`, cost=40). `0 >= 40` faux → `dash_horizontal.BuyButton.disabled = true` dans le même `_physics_process`. Aucune fenêtre où dash reste cliquable.
+**EC-SHP-14 — solde 0 après achat, autres cartes DISABLED dans le même frame** : SI joueur avec 8 cr achète `double_jump` (cost=8, n=0) ALORS `total_credits` passe à 0, `credits_changed(0, -8, SPEND_SHOP)` émis SYNC. Dans le handler `_on_credits_changed`, Shop recalcule `affordable_n` (F-SHP-2) pour toutes les cartes restantes (`dash_horizontal`, cost=28). `0 >= 28` faux → `dash_horizontal.BuyButton.disabled = true` dans le même `_physics_process`. Aucune fenêtre où dash reste cliquable.
 
-**EC-SHP-15 — joueur avec 19 cr (sous le seuil minimum)** : SI `total_credits < BASE_UPGRADE_COST` (19 < 20) à l'ouverture du shop ALORS `affordable_n(19)` retourne `false` pour toutes les upgrades. Toutes les BuyButtons disabled. Seul Continue actif et focalisé. État visuel des cartes DISABLED. Joueur peut sortir via Continue ou ESC. Aucun message d'erreur — état lisible par prix vs solde.
+**EC-SHP-15 — joueur avec 7 cr (sous le seuil minimum)** : SI `total_credits < BASE_UPGRADE_COST` (7 < 8) à l'ouverture du shop ALORS `affordable_n(7)` retourne `false` pour toutes les upgrades. Toutes les BuyButtons disabled. Seul Continue actif et focalisé. État visuel des cartes DISABLED. Joueur peut sortir via Continue ou ESC. Aucun message d'erreur — état lisible par prix vs solde.
 
 **EC-SHP-16 — UpgradeSystem.apply_upgrade exception post try_spend** : SI `try_spend(cost)` retourne `true` ET `apply_upgrade(id)` lève une exception ou panic ALORS crédits perdus sans upgrade appliquée. Résolution MVP : Shop enveloppe l'appel dans bloc défensif. Si échec : `_owned_upgrades` ne marque pas l'ID owned, `push_error` émis, upgrade reste achetable visuellement. Incohérence crédit/upgrade admise comme risque Tier 1 (contrat UpgradeSystem PROVISOIRE — voir OQ-SHP-2). Tier 2+ : retry ou compensation crédit.
 
@@ -541,7 +541,7 @@ Si Tier 3 introduit une progression méta (runs multiples, profil persistant ét
 
 | Système | Status | Direction | Interface | Risque si absent |
 |---------|--------|-----------|-----------|------------------|
-| **Credit Economy** | ✅ Designed r1 (F-CRD-3 amendée r2 0-based, OQ-CRD-2 RESOLVED) | Bidir (Shop appelle + écoute) | `try_spend(amount: int) -> bool` SYNC atomique (R-CRD-4) ; signal `credits_changed(total, delta, source: SourceKind)` SYNC ; getter `get_total() -> int` ; constantes `BASE_UPGRADE_COST=20`, `TIER_COST_STEP=20` (F-CRD-3 r2 0-based). | Shop non fonctionnel — pas de débit possible, catalogue n'a aucun coût utilisable. |
+| **Credit Economy** | ✅ Designed r2 (F-CRD-3 amendée r2 B-2 BASE 20→8, OQ-CRD-2 RESOLVED) | Bidir (Shop appelle + écoute) | `try_spend(amount: int) -> bool` SYNC atomique (R-CRD-4) ; signal `credits_changed(total, delta, source: SourceKind)` SYNC ; getter `get_total() -> int` ; constantes `BASE_UPGRADE_COST=8` (r2 B-2), `TIER_COST_STEP=20` (F-CRD-3 r2 0-based). | Shop non fonctionnel — pas de débit possible, catalogue n'a aucun coût utilisable. |
 | **Game State Manager** | ✅ APPROVED r1 | Out (Shop appelle) + indirect In (instanciation par GSM) | `request_scene_transition(scene_path: String)` (ADR-0007 D-10, l'un des 5 verbes publics figés) ; instanciation Shop déclenchée par `etage_completed` → GSM → `change_scene_to_file`. **Audit pending OQ-SHP-11** : `paused = false` garanti avant change_scene_to_file. | Shop ne peut être lancé ni fermé proprement — pas de transition de scène orchestrée. |
 | **Save/Load System** | ✅ Designed r1 (OQ-SHP-3 RESOLVED 2026-04-27) | Bidir (Shop lit + écrit) | `save_string_array(key: StringName, value: Array[StringName]) -> void` ; `load_string_array(key: StringName, default: Array[StringName]) -> Array[StringName]`. Clé `"owned_upgrades"`. **Atomicité** : Save/Load r1 ConfigFile write-through synchrone ; atomic write temp+rename différé Tier 2+ (OQ-SAV-4). Shop EC-SHP-9 Option C buffer retry couvre la majorité des failures transitoires. | LOCKED — contrat verrouillé par Save/Load r1, atomicité MVP best-effort. |
 
@@ -804,7 +804,7 @@ PanelContainer [upgrade_row]          ← état visuel via StyleBoxFlat swap
 #### DISABLED — hover
 
 - Curseur `CURSOR_ARROW`.
-- Tooltip `RichTextLabel` Godot natif `"[X] crédits manquants"` (ex. `"20 crédits manquants"`). Délai `400 ms` (knob `SHOP_HOVER_TOOLTIP_DELAY_MS`).
+- Tooltip `RichTextLabel` Godot natif `"[X] crédits manquants"` (ex. `"8 crédits manquants"`). Délai `400 ms` (knob `SHOP_HOVER_TOOLTIP_DELAY_MS`).
 - Tooltip background `#0A0A12`, texte `#6E6E8A`, sans bordure colorée.
 - Cost label `#FF4455` = signal primaire ; tooltip = secondaire.
 
@@ -874,7 +874,7 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 #### Tier 3 — Accessibilité avancée
 
 - **Reduce Motion** (`SHOP_REDUCE_MOTION = true`) : fade IN/OUT instant (0 ms), tween counter supprimé (hard-set immédiat), shake DISABLED supprimé.
-- **Screen reader** (Godot 4.5+ AccessKit) : `accessible_name` sur chaque row : `"[display_name], coût [X] crédits, [état]"`. Ex : `"Saut Double, coût 20 crédits, disponible"`.
+- **Screen reader** (Godot 4.5+ AccessKit) : `accessible_name` sur chaque row : `"[display_name], coût [X] crédits, [état]"`. Ex : `"Saut Double, coût 8 crédits, disponible"`.
 - **Font scale** : `SHOP_FONT_SCALE_FACTOR` via `theme_override_font_sizes` relatifs — aucun `px` hardcoded.
 
 ### J.9 — Anti-patterns Shop UI MVP (testables QA)
@@ -916,23 +916,23 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 **AC-SHP-4 [Lint] [BLOCKING]** : GIVEN `_ready()`, WHEN connexion à `credits_changed`, THEN flag `CONNECT_DEFERRED` présent. *Mécanisme* : lint static — grep `credits_changed.connect` dans ShopControllerScript, vérifier `CONNECT_DEFERRED` ; ou unit GUT via `signal.get_connections()` assert flag bitmask.
 
-**AC-SHP-5 [Integration] [BLOCKING]** : GIVEN `_owned_upgrades == ["double_jump"]` et solde 15, WHEN catalogue rendu après `_ready()`, THEN `double_jump` BuyButton.disabled=true OWNED visible, `dash_horizontal` BuyButton.disabled=true DISABLED (15<40). *Mécanisme* : integration scene — instancier shop.tscn avec mocks, assert états boutons.
+**AC-SHP-5 [Integration] [BLOCKING]** : GIVEN `_owned_upgrades == ["double_jump"]` et solde 15, WHEN catalogue rendu après `_ready()`, THEN `double_jump` BuyButton.disabled=true OWNED visible, `dash_horizontal` BuyButton.disabled=true DISABLED (15<28). *Mécanisme* : integration scene — instancier shop.tscn avec mocks, assert états boutons.
 
 ### Groupe B — Cycle d'achat (R-SHP-6)
 
-**AC-SHP-6 [Logic] [BLOCKING]** : GIVEN `dash_horizontal` affordable et non owned, WHEN click BuyButton, THEN `try_spend(40)` appelé exactement 1 fois. *Mécanisme* : unit GUT — mock CreditEconomy avec compteur, simuler `_on_buy_pressed("dash_horizontal")`, assert count==1.
+**AC-SHP-6 [Logic] [BLOCKING]** : GIVEN `dash_horizontal` affordable et non owned, WHEN click BuyButton, THEN `try_spend(28)` appelé exactement 1 fois. *Mécanisme* : unit GUT — mock CreditEconomy avec compteur, simuler `_on_buy_pressed("dash_horizontal")`, assert count==1.
 
-**AC-SHP-7 [Logic] [BLOCKING]** : GIVEN `try_spend(20)` retourne `true`, WHEN cycle s'exécute, THEN `_owned_upgrades.has("double_jump") == true` immédiatement. *Mécanisme* : unit GUT — assert `get_owned_upgrades().has("double_jump")` avant tout yield.
+**AC-SHP-7 [Logic] [BLOCKING]** : GIVEN `try_spend(8)` retourne `true`, WHEN cycle s'exécute, THEN `_owned_upgrades.has("double_jump") == true` immédiatement. *Mécanisme* : unit GUT — assert `get_owned_upgrades().has("double_jump")` avant tout yield.
 
 **AC-SHP-8 [Logic] [BLOCKING]** : GIVEN `try_spend` retourne true, WHEN cycle s'exécute, THEN `save_string_array` appelé AVANT `apply_upgrade`. *Mécanisme* : unit GUT — mocks avec séquence d'appels journalisée `_call_order: Array[String]`, assert `find("save") < find("apply")`.
 
-**AC-SHP-9 [Logic] [BLOCKING]** : GIVEN `try_spend(40)` retourne true, WHEN cycle dash_horizontal s'exécute, THEN `apply_upgrade("dash_horizontal")` appelé exactement 1 fois. *Mécanisme* : unit GUT — mock UpgradeSystem avec compteur, assert count==1.
+**AC-SHP-9 [Logic] [BLOCKING]** : GIVEN `try_spend(28)` retourne true, WHEN cycle dash_horizontal s'exécute, THEN `apply_upgrade("dash_horizontal")` appelé exactement 1 fois. *Mécanisme* : unit GUT — mock UpgradeSystem avec compteur, assert count==1.
 
-**AC-SHP-10 [Logic] [BLOCKING]** : GIVEN `try_spend(20)` retourne true et cycle complété, WHEN rendu post-achat, THEN `BuyButton_double_jump.disabled == true`. *Mécanisme* : unit GUT — assert état bouton après cycle.
+**AC-SHP-10 [Logic] [BLOCKING]** : GIVEN `try_spend(8)` retourne true et cycle complété, WHEN rendu post-achat, THEN `BuyButton_double_jump.disabled == true`. *Mécanisme* : unit GUT — assert état bouton après cycle.
 
-**AC-SHP-11 [Logic] [BLOCKING]** : GIVEN solde 15 et double_jump non owned (cost 20), WHEN tentative achat, THEN `try_spend` NON appelé, `_owned_upgrades` inchangé, `save_string_array` NON appelé, `apply_upgrade` NON appelé. *Mécanisme* : unit GUT — mocks avec compteurs, forcer solde<cost, assert tous compteurs == 0.
+**AC-SHP-11 [Logic] [BLOCKING]** : GIVEN solde 7 et double_jump non owned (cost 8), WHEN tentative achat, THEN `try_spend` NON appelé, `_owned_upgrades` inchangé, `save_string_array` NON appelé, `apply_upgrade` NON appelé. *Mécanisme* : unit GUT — mocks avec compteurs, forcer solde<cost, assert tous compteurs == 0.
 
-**AC-SHP-12 [Integration] [BLOCKING]** (révisé r2) : GIVEN shop ACTIVE et émission `credits_changed(15, -5, SPEND_SHOP)`, WHEN handler invoqué (idle frame suivante via CONNECT_DEFERRED — voir R-SHP-9), THEN `CreditValueLabel.text == "15"` ET `BuyButton_double_jump.disabled == true` (15<20) ET `BuyButton_dash_horizontal.disabled == true` (15<40). *Mécanisme* : integration scene GUT — émettre `credits_changed` manuellement, `await get_tree().process_frame` (laisse passer l'idle frame DEFERRED), assert labels et boutons. **Note r2** : la version r1 disait "même frame" — incompatible avec CONNECT_DEFERRED qui reporte à l'idle frame suivante. Corrigé.
+**AC-SHP-12 [Integration] [BLOCKING]** (révisé r2.1) : GIVEN shop ACTIVE et émission `credits_changed(7, -3, SPEND_SHOP)`, WHEN handler invoqué (idle frame suivante via CONNECT_DEFERRED — voir R-SHP-9), THEN `CreditValueLabel.text == "7"` ET `BuyButton_double_jump.disabled == true` (7<8) ET `BuyButton_dash_horizontal.disabled == true` (7<28). *Mécanisme* : integration scene GUT — émettre `credits_changed` manuellement, `await get_tree().process_frame` (laisse passer l'idle frame DEFERRED), assert labels et boutons. **Note r2** : la version r1 disait "même frame" — incompatible avec CONNECT_DEFERRED qui reporte à l'idle frame suivante. Corrigé. **Note r2.1** : montants ajustés post B-2 (solde 7 < BASE_UPGRADE_COST 8 garantit deux disabled).
 
 ### Groupe C — Idempotence
 
@@ -944,13 +944,13 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 ### Groupe D — Affordability dynamique (F-SHP-2)
 
-**AC-SHP-16 [Logic] [BLOCKING]** : GIVEN solde 19 et `_owned_upgrades == []`, WHEN catalogue évalué, THEN `BuyButton_double_jump.disabled == true` (19<20) ET `BuyButton_dash_horizontal.disabled == true` (19<40). *Mécanisme* : unit GUT — mock get_total 19, appeler update affordability, assert deux disabled.
+**AC-SHP-16 [Logic] [BLOCKING]** : GIVEN solde 7 et `_owned_upgrades == []`, WHEN catalogue évalué, THEN `BuyButton_double_jump.disabled == true` (7<8) ET `BuyButton_dash_horizontal.disabled == true` (7<28). *Mécanisme* : unit GUT — mock get_total 7, appeler update affordability, assert deux disabled.
 
-**AC-SHP-17 [Logic] [BLOCKING]** : GIVEN solde 20, WHEN double_jump acheté (try_spend(20)→true, Credit net=0), THEN solde effectif=0 et `BuyButton_dash_horizontal.disabled == true` (0<40). *Mécanisme* : unit GUT — séquence achat + signal credits_changed(0, -20, SPEND_SHOP), assert dash disabled.
+**AC-SHP-17 [Logic] [BLOCKING]** : GIVEN solde 8, WHEN double_jump acheté (try_spend(8)→true, Credit net=0), THEN solde effectif=0 et `BuyButton_dash_horizontal.disabled == true` (0<28). *Mécanisme* : unit GUT — séquence achat + signal credits_changed(0, -8, SPEND_SHOP), assert dash disabled.
 
-**AC-SHP-18 [Logic] [BLOCKING]** : GIVEN solde 60 et `_owned_upgrades == []`, WHEN double_jump acheté (try_spend(20)→true, credits_changed(40, -20, SPEND_SHOP)), THEN `BuyButton_dash_horizontal.disabled == false` état NORMAL (40>=40). *Mécanisme* : unit GUT — mock séquence, assert dash non disabled.
+**AC-SHP-18 [Logic] [BLOCKING]** : GIVEN solde 36 et `_owned_upgrades == []`, WHEN double_jump acheté (try_spend(8)→true, credits_changed(28, -8, SPEND_SHOP)), THEN `BuyButton_dash_horizontal.disabled == false` état NORMAL (28>=28). *Mécanisme* : unit GUT — mock séquence, assert dash non disabled.
 
-**AC-SHP-19 [Integration] [BLOCKING]** : GIVEN solde 60, WHEN deux upgrades achetées séquentiellement, THEN solde final=0, `_owned_upgrades == ["double_jump", "dash_horizontal"]`, deux boutons disabled OWNED. *Mécanisme* : integration scene — exécution séquentielle deux cycles, assert état final.
+**AC-SHP-19 [Integration] [BLOCKING]** : GIVEN solde 36, WHEN deux upgrades achetées séquentiellement, THEN solde final=0, `_owned_upgrades == ["double_jump", "dash_horizontal"]`, deux boutons disabled OWNED. *Mécanisme* : integration scene — exécution séquentielle deux cycles, assert état final.
 
 ### Groupe E — Persistance
 

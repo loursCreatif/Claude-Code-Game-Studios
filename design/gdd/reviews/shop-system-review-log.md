@@ -105,3 +105,74 @@
 1. (Recommandé) `/create-epics shop-system` — backlog Sprint 1 avec stub UpgradeSystem
 2. OU `/design-system upgrade-system` Sprint A continuation pour résoudre OQ-SHP-2 avant epics
 3. OU `/review-all-gdds` consistency sweep cross-GDD pré-/create-epics
+
+---
+
+## Amendement r2.1 — 2026-04-28 — Cosmetic propagation Credit r2 B-2
+
+**Mode** : amendement direct (sans /design-review re-run) — cosmétique factuel
+**Trigger** : NB-CRD-1 SHIP-CRITICAL identifié par fresh /design-review credit-economy-system r2 (3 specialists convergents : game-designer + economy-designer + systems-designer) — contradiction cross-GDD `BASE_UPGRADE_COST` Credit r2=8 vs Shop r2=20.
+**Scope signal** : XS (propagation factuelle constante + recalculs économiques dérivés, zéro changement structurel)
+**Re-review** : No — amendement non-éligible review (aucune décision design nouvelle)
+
+### Justification
+
+Credit r2 B-2 (2026-04-27) a abaissé `BASE_UPGRADE_COST` de 20 → 8 cr pour résoudre soft-lock Pillar 2 anti combat-only étage 1 (`8 kills × 1 cr = 8 cr ≥ BASE_UPGRADE_COST = 8 cr` ✅ pile-poil). La constante n'a **pas été propagée** dans Shop r2 GDD lors de la session Credit, créant une contradiction cross-GDD bloquante avant `/create-epics credit + secret`. Shop r2 référençait encore `BASE_UPGRADE_COST=20` et `cost_n=1=40` à 11 endroits (Quick Reference, R-SHP-3, F-SHP-1, F-SHP-2, F-SHP-3 worked example, F-SHP-4 ordering, EC-SHP-14/15, Dependencies table, ACs, UI examples).
+
+### Modifications appliquées (cosmétiques + recalculs dérivés)
+
+**Constantes propagées** :
+- `BASE_UPGRADE_COST` : 20 → 8 cr (r2 B-2)
+- `cost_n=0` (`double_jump`) : 20 → 8 cr
+- `cost_n=1` (`dash_horizontal`) : 40 → 28 cr
+- Range MVP : `[20, 40]` → `[8, 28]`
+- Range Full Vision (8 upgrades) : `[20, 160]` → `[8, 148]`
+
+**Recalculs économiques F-SHP-3** :
+- `total_cost_MVP` : 60 → 36 cr
+- `margin` (Q95 expert) : 25 → 49 cr
+- Roadmap Tier 2+ : Full Vision total 720 → 624 cr (cohérent Credit r2 ligne 254 : `Σ (8 + 20 × i)` i ∈ [0, 7] = 64 + 560)
+- Indicatifs Tier 2+ : n=2 60→48, n=3 80→68, n=4-7 100-160 → 88-148
+
+**Profils joueur révisés** :
+- Q25 (combat-only) : `n=0 affordable étage 1 ?` NON → **OUI pile-poil** (8 = 8) — anti soft-lock B-2 livré
+- Q50/Q75 confort : recalcul "OUI confortable" sur deux upgrades
+- Q95 marge : 25 → 49 cr résiduels — note non-trivialité Tier 2+ : Q95 peut financer n=2 (48 cr) en 1 session, friction à rétablir par contenu Tier 2+ (yield ↑) plutôt que coût
+
+**ACs ajustés** :
+- AC-SHP-5 : "(15<40)" → "(15<28)"
+- AC-SHP-6/9 : `try_spend(40)` → `try_spend(28)`
+- AC-SHP-7/10 : `try_spend(20)` → `try_spend(8)`
+- AC-SHP-11 : solde 15/cost 20 → solde 7/cost 8 (sinon double_jump deviendrait affordable)
+- AC-SHP-12 : `credits_changed(15, -5)` → `credits_changed(7, -3)` (préserver invariant deux disabled)
+- AC-SHP-16 : solde 19 → solde 7
+- AC-SHP-17 : solde 20, try_spend(20) → solde 8, try_spend(8)
+- AC-SHP-18 : solde 60, debit 20 → solde 36, debit 8 (préserver dash devient affordable post-achat)
+- AC-SHP-19 : solde 60 → solde 36 (= total_cost_MVP exact)
+
+**Player Fantasy retouches** :
+- "Saut Double — 20 ₵" → "Saut Double — 8 ₵"
+- "Dash Horizontal — 40 ₵" → "Dash Horizontal — 28 ₵"
+- "compteur tombe de 33 à 13" → "compteur tombe de 33 à 25"
+- Réécriture "tu peux mais pas les deux" : 33 cr < 36 cr (8+28) — tension préservée
+- Note honnêteté économique : Q25 combat-only désormais ligne anti soft-lock B-2 (pas friction Pillar 2 punitive)
+
+**Dependencies + UI examples** :
+- Table deps Credit Economy : `BASE_UPGRADE_COST=20` → `BASE_UPGRADE_COST=8` (r2 B-2)
+- Tooltip exemple : "20 crédits manquants" → "8 crédits manquants"
+- Screen reader : "Saut Double, coût 20 crédits" → "Saut Double, coût 8 crédits"
+
+### Status post-r2.1
+
+`Designed r2.1` — NB-CRD-1 ship-critical RÉSOLU côté Shop. Credit r3 (NEEDS REVISION ciblée) peut désormais référencer un Shop GDD aligné. Aucune action additionnelle requise sur Shop tant que Credit r3 ne ré-amende pas la formule F-CRD-3.
+
+### Propagations encore PENDING (hors scope D)
+
+- **production/epics/shop-system/EPIC.md** : peut contenir des montants 20/40 cr hérités de r2 — à auditer avant `/create-epics shop-system` re-run OU au moment du `/create-stories shop-system`. Sprint A backbone non-affecté tant que stories shop ne sont pas implémentées.
+- **production/epics/shop-system/story-XXX.md** : 16 stories existantes potentiellement avec montants 20/40 — refresh à faire avant Sprint shop activation.
+- **Test fixtures `tests/unit/shop/`** (futurs) : aucun test implémenté à ce jour, pas de risque immédiat.
+
+**Recommandation suite** :
+1. (Recommandé) Continuer batch B/C : `/design-system credit-economy-system` r3 (résout 6 NB-CRD restants) puis `/design-system secret-system` r3
+2. Audit Shop epic + stories avant Sprint shop (pas Sprint A backbone)
+3. Skip review log r2.1 — amendement cosmétique non-éligible /design-review
