@@ -1,7 +1,7 @@
 # Story 001: Scene Skeleton `shop.tscn`
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature (UI presentation primitives)
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
@@ -99,3 +99,14 @@ Pas de StyleBoxFlat custom dans cette story (story-012 owne le styling). Utilise
 
 - Depends on: None (Sprint 1 entry)
 - Unlocks: Story 002, 012
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-SHP-29 (`layer = 60`), AC-SHP-30 (`process_mode = 3` PROCESS_MODE_ALWAYS, anti-bug `=4` enum-named via `Node.PROCESS_MODE_ALWAYS`), hiérarchie R-SHP-2 complète (14 nœuds), Background `#0A0A12` (Color(0.0392157, 0.0392157, 0.0705882, 1)), parse-clean.
+**Deviations**: ADVISORY — naming PascalCase (`ShopTitle`, `FooterRow`) au lieu snake_case (`shop_title`, `footer`) spec — aligné convention projet PascalCase pour Nodes. Aucun impact fonctionnel.
+**Test Evidence**:
+  - UI walkthrough — `production/qa/evidence/shop/story-001-scene-skeleton.md` (incl. erratum 2026-04-28 `process_mode=4`→`=3` cross-fix).
+  - Automated lint — `tests/static/shop_scene_skeleton_lint_test.gd` 5/5 PASSED 47 ms (parse-clean + AC-29 + AC-30 + hierarchy walk + Background color tolerance check).
+**Code Review**: Skipped (Solo mode).

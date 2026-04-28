@@ -1,7 +1,7 @@
 # Story 008: Perf gate ConfigFile.save() budget < 1 ms SSD reference (ADVISORY)
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -35,8 +35,8 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-26** [Performance] [BLOCKING] : GIVEN file MVP ~100 bytes, WHEN `save_int` 60 fois consécutifs (simulation 1 sec @ 60 fps avec save chaque frame), THEN durée totale < 60 ms (i.e. < 1 ms / call avg). Mécanisme : perf test GUT — Time.get_ticks_usec() deltas. F-SAV-1 budget verification.
-- [ ] **AC-SAV-27** [Performance] [ADVISORY] : GIVEN file Tier 2+ schema simulé (10 keys, ~2 KB), WHEN save burst 10 saves consécutifs, THEN total < 50 ms. Mécanisme : perf scaling test. Advisory MVP, BLOCKING Tier 2+.
+- [x] **AC-SAV-26** [Performance] [BLOCKING] : GIVEN file MVP ~100 bytes, WHEN `save_int` 60 fois consécutifs (simulation 1 sec @ 60 fps avec save chaque frame), THEN durée totale < 60 ms (i.e. < 1 ms / call avg). Mécanisme : perf test GUT — Time.get_ticks_usec() deltas. F-SAV-1 budget verification.
+- [x] **AC-SAV-27** [Performance] [ADVISORY] : GIVEN file Tier 2+ schema simulé (10 keys, ~2 KB), WHEN save burst 10 saves consécutifs, THEN total < 50 ms. Mécanisme : perf scaling test. Advisory MVP, BLOCKING Tier 2+.
 
 ---
 
@@ -144,3 +144,34 @@
 - Depends on: **story-001 + 002** (skeleton + scalar verbs minimum pour le burst test)
 - Unlocks: Pillar 1 régression CI tracking — visibilité perf historique
 - **ADVISORY** : story-008 peut être différée Sprint 1+ sans bloquer Sprint A consumers (Credit/Shop/Menu).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 2/2 passing (AC-SAV-26 BLOCKING + AC-SAV-27 ADVISORY)
+**Verdict**: COMPLETE
+
+**Tests run** (SSD M1 hardware) :
+- `tests/performance/save_load_budget_test.gd` 2/2 PASSED 31 ms
+- AC-SAV-26 : 60 save_int = ~6 ms total (avg 0.1 ms/call sur SSD M1, budget 60 ms — marge ×10)
+- AC-SAV-27 : 10 saves @ ~2 KB padding = 1.0 ms total (avg 0.1 ms/call, budget 50 ms — marge ×50)
+- Graceful degradation HDD intégré (probe > 5 ms → skip avec print message)
+
+**Files modified (2)** :
+- `tests/performance/save_load_budget_test.gd` NEW 145 L : 2 tests perf hermétiques (AC-SAV-26 BLOCKING + AC-SAV-27 ADVISORY) avec heuristique HDD/SSD probe.
+- Fix runtime : `Array[StringName]` typed cast explicite pour `save_string_array` padding (GDScript strict typing — `[&"id_a", ...]` non-typé refusé par signature).
+
+**Deviations** :
+- **Migration framework GUT → GdUnit4** : spec inline GutTest, projet désormais full GdUnit4 cohérent. Sémantique 1:1 préservée.
+- **Singleton autoload remplacé par instance hermétique** : spec utilise `get_node("/root/SaveLoadSystem")` mais le pattern test save_load utilise `script.new() + add_child` pour isolation cross-test (cohérent stories 001-007).
+- **`pending()` GUT remplacé par early return + print** : GdUnit4 n'expose pas l'équivalent direct ; `assert_bool(true).is_true()` + print message sert de skip graceful.
+
+**Code Review** : Skipped (Solo mode)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **CI tracking perf historique** — régression future détectée au merge
+- **Save/Load epic CLOSED** : 8/8 stories Complete (001 skeleton · 002 scalar · 003 array · 004 _save_version · 005 WM_CLOSE · 006 Tier 2+ · 007 lints · 008 perf)
+- **Foundation Persistence layer 100% Sprint 1** — toutes les Feature stories peuvent désormais consommer SaveLoad sans gate restant

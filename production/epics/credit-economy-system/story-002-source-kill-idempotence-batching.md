@@ -1,7 +1,7 @@
 # Story 002: Source KILL — handler, idempotence, multi-kill batching
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic + Integration
 > **Manifest Version**: 2026-04-23
@@ -32,15 +32,15 @@
 
 *From GDD §Acceptance Criteria, scoped à cette story (source KILL — handler, idempotence, multi-kill batching, edge cases edge spawn) :*
 
-- [ ] AC-CRD-07 [Logic] — `enemy_killed(enemy, position)` → `total_credits += 1` ET `credits_changed(N+1, +1, KILL)` émis dans le même physics frame.
-- [ ] AC-CRD-08 [Logic] (r2 B-1) — 3 `enemy_killed` séquentiels dans le même tick + `BATCH_MULTI_KILL_EMIT == true` → `total_credits += 3`, **exactement 1** `credits_changed(N+3, +3, KILL)` en fin de chaîne.
-- [ ] AC-CRD-09 [Logic] — ré-émission `enemy_killed` même `instance_id` → ignoré silencieusement, `total_credits` stable, 0 emit.
-- [ ] AC-CRD-11 [Integration] — `MAX_KILLS_PER_SWING == 3` upstream Combat → exactement 3 increments par tick max.
-- [ ] AC-CRD-31 [Logic] (r2 B-1) — multi-kill 3 ennemis tick + batching ON → 1 seul payload final `(N+3, +3, KILL)` ; états intermédiaires `N+1`, `N+2` non observables côté listeners.
-- [ ] AC-CRD-33 [Integration] — Enemy System réel (ou stub minimal) émet `enemy_killed` ; Credit reçoit, increment, `credits_changed` émis avant fin du même `_physics_process`.
-- [ ] AC-CRD-47 [Logic] — `total_credits` valeur très haute (cap théorique 9 999 999) + nouveau gain → pas de crash (Godot int 64-bit, no overflow MVP).
-- [ ] AC-CRD-48 [Logic] — 2 ennemis distincts (`instance_id` distincts) même tick → `total_credits += 2` (pas de collision dans le set).
-- [ ] AC-CRD-49 [Integration] (r3 NB-CRD-4) — sur premier `level_active` session : (a) `_credited_this_run.size() == 0`, (b) `total_credits` intact, (c) tous nodes groupe `"enemies"` connectés. Sur `level_active` **suivant** (étage 2) : (d) `_credited_this_run` purgé, (e) `total_credits` inchangé.
+- [x] AC-CRD-07 [Logic] — `enemy_killed(enemy, position)` → `total_credits += 1` ET `credits_changed(N+1, +1, KILL)` émis dans le même physics frame.
+- [x] AC-CRD-08 [Logic] (r2 B-1) — 3 `enemy_killed` séquentiels dans le même tick + `BATCH_MULTI_KILL_EMIT == true` → `total_credits += 3`, **exactement 1** `credits_changed(N+3, +3, KILL)` en fin de chaîne.
+- [x] AC-CRD-09 [Logic] — ré-émission `enemy_killed` même `instance_id` → ignoré silencieusement, `total_credits` stable, 0 emit.
+- [x] AC-CRD-11 [Integration] — `MAX_KILLS_PER_SWING == 3` upstream Combat → exactement 3 increments par tick max.
+- [x] AC-CRD-31 [Logic] (r2 B-1) — multi-kill 3 ennemis tick + batching ON → 1 seul payload final `(N+3, +3, KILL)` ; états intermédiaires `N+1`, `N+2` non observables côté listeners.
+- [x] AC-CRD-33 [Integration] — Enemy System réel (ou stub minimal) émet `enemy_killed` ; Credit reçoit, increment, `credits_changed` émis avant fin du même `_physics_process`.
+- [x] AC-CRD-47 [Logic] — `total_credits` valeur très haute (cap théorique 9 999 999) + nouveau gain → pas de crash (Godot int 64-bit, no overflow MVP).
+- [x] AC-CRD-48 [Logic] — 2 ennemis distincts (`instance_id` distincts) même tick → `total_credits += 2` (pas de collision dans le set).
+- [x] AC-CRD-49 [Integration] (r3 NB-CRD-4) — sur premier `level_active` session : (a) `_credited_this_run.size() == 0`, (b) `total_credits` intact, (c) tous nodes groupe `"enemies"` connectés. Sur `level_active` **suivant** (étage 2) : (d) `_credited_this_run` purgé, (e) `total_credits` inchangé.
 
 ---
 
@@ -142,3 +142,34 @@
 
 - Depends on: **Story 001** (skeleton — autoload, signal, enum, state vars).
 - Unlocks: Story 005 (run-purge a besoin de `_credited_this_run` peuplé pour tester la purge), Story 006 (perf benchmark a besoin du chemin handler complet).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 9/9 passing (AC-CRD-07/08/09/11/31/33/47/48/49)
+**Verdict**: COMPLETE
+
+**Tests run** :
+- `tests/unit/credit/credit_economy_kill_source_test.gd` 7/7 PASSED 235 ms (AC-CRD-07/08/09/11/31/47/48)
+- `tests/integration/credit/credit_economy_kill_integration_test.gd` 3/3 PASSED 78 ms (AC-CRD-33 enemy_killed roundtrip + AC-CRD-49 a/b/c/d/e first/second level_active)
+- Suite credit globale : **22/22 vert** (12 unit + 10 integration) 377 ms total. Zéro régression sur story-001.
+
+**Files modified (2)** :
+- `tests/unit/credit/credit_economy_kill_source_test.gd` NEW (déjà créé skeleton story-001) : 7 tests pattern hermétique GdUnit4 + MockEnemy class + signal spy manual capture (SYNC mode).
+- `tests/integration/credit/credit_economy_kill_integration_test.gd` NEW : 3 tests level_active connection lifecycle.
+
+**Implementation pré-existante** : le code story-002 (handler `_on_enemy_killed`, `_on_level_active`, `_physics_process` flush, batching) était déjà livré dans `src/core/credit_economy.gd` lors de la closure story-001 (skeleton incluait les méthodes story-002 par anticipation). Story-002 livre uniquement les tests manquants.
+
+**Deviations** :
+- **`await get_tree().physics_frame` remplacé par `CreditEconomy._physics_process(0.0)` direct** : GdUnit4 test runner ne semble pas faire avancer le SceneTree des autoloads de manière fiable lors d'un `await physics_frame`. Le call direct est white-box mais déterministe et zéro race condition. Pattern aligné avec test-standards.md "Determinism: tests must produce the same result every run".
+
+**Code Review** : Skipped (Solo mode — feedback_no_confirmation_apply_directly + production/review-mode.txt = solo)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **credit-economy story-003** Source SECRET formula tier (handler analogue, base solide)
+- **credit-economy story-004** Persistence boot hydrate (chain Save/Load → Credit prêt — Save/Load epic 100% Complete)
+- **credit-economy story-005** Run-purge GSM checkpoint (`_credited_this_run` purge logic verrouillée)
+- **credit-economy story-006** Performance benchmark N=100 multi-kill (chemin handler complet validé)
