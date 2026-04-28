@@ -10,10 +10,10 @@ extends GutTest
 func test_no_change_scene_to_file_outside_gsm() -> void:
 	# AC-MNU-5 : src/gameplay/menu/ ne doit pas appeler change_scene_to_file,
 	# additive, ou add_child targeting main_menu.
+	var menu_dir: String = ProjectSettings.globalize_path("res://src/gameplay/menu/")
 	var output: Array = []
 	OS.execute("bash", ["-c",
-		"grep -rE 'change_scene_to_file|additive|add_child.*main_menu'" +
-		" /Users/magnes/Documents/TestClaudeGameStudio/src/gameplay/menu/ || true"
+		"grep -rE 'change_scene_to_file|additive|add_child.*main_menu' %s || true" % menu_dir
 	], output)
 	var matches: String = "\n".join(output).strip_edges()
 	assert_eq(
@@ -25,9 +25,10 @@ func test_no_change_scene_to_file_outside_gsm() -> void:
 
 func test_no_menu_autoload_declared() -> void:
 	# AC-MNU-5b : project.godot ne doit déclarer aucun autoload Menu* / MenuSystem.
+	var project_path: String = ProjectSettings.globalize_path("res://project.godot")
 	var output: Array = []
 	OS.execute("bash", ["-c",
-		"awk '/\\[autoload\\]/,/^\\[/' /Users/magnes/Documents/TestClaudeGameStudio/project.godot" +
+		"awk '/\\[autoload\\]/,/^\\[/' %s" % project_path +
 		" | grep -E '^(MenuSystem|MainMenuController|PauseMenuController|Menu)=' || true"
 	], output)
 	var matches: String = "\n".join(output).strip_edges()
@@ -35,4 +36,20 @@ func test_no_menu_autoload_declared() -> void:
 		matches,
 		"",
 		"AC-MNU-5b: project.godot must declare zero Menu autoload (R-MNU-1) — got: %s" % matches
+	)
+
+
+func test_main_scene_points_to_main_menu() -> void:
+	# AC-MNU-1 (lint static) : project.godot doit déclarer
+	# run/main_scene = "res://scenes/menus/main_menu.tscn".
+	var project_path: String = ProjectSettings.globalize_path("res://project.godot")
+	var output: Array = []
+	OS.execute("bash", ["-c",
+		"grep -E '^run/main_scene=' %s || true" % project_path
+	], output)
+	var line: String = "\n".join(output).strip_edges()
+	assert_eq(
+		line,
+		'run/main_scene="res://scenes/menus/main_menu.tscn"',
+		"AC-MNU-1: project.godot run/main_scene must point to main_menu.tscn (got: %s)" % line
 	)

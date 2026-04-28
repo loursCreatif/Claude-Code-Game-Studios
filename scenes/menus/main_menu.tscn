@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b1mnu001ctrl78" path="res://src/gameplay/menu/main_menu_controller.gd" id="1_ctrl"]
 
-[node name="MainMenuRoot" type="Control"]
+[node name="MainMenuController" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
