@@ -1,7 +1,7 @@
 # Story 005: Boot Hydration `_ready()` via SaveLoad
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -193,3 +193,12 @@ Run avec mock retournant 2-3 ids → assert `observed == [false, false, false]`,
 
 - Depends on : 001 (autoload), 002 (Logger DI), 003 (`apply_upgrade` body), Save/Load epic R-SAV-4 implémenté + autoload registré dans `project.godot`.
 - Unlocks : 006 (truncation step 2 dans `_ready()` body livré ici), 007 (Movement pull verifies post-boot state), 009 (anti-pattern grep `SaveLoad.save_*` zero — testé directement, mais cette story a livré le seul `SaveLoad.*` autorisé).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-7/8 (boot hydration + flags appliqués) + AC-UPG-23 (`_is_hydrated` lifecycle) couverts par `tests/integration/upgrade/boot_hydration_test.gd` + `forward_compat_test.gd` (story-009 complément AC-UPG-38 unknown ids).
+**Deviations**: ADVISORY — autoload name `SaveLoadSystem` (project.godot ligne 21) au lieu de `SaveLoad` mentionné dans la spec story. Aligné avec implémentation réelle save-load epic. Aucun impact fonctionnel.
+**Test Evidence**: Integration — `tests/integration/upgrade/boot_hydration_test.gd` + `forward_compat_test.gd` (PASSED suite 41/41).
+**Code Review**: Skipped (Solo mode).

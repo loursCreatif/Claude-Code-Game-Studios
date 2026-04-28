@@ -85,34 +85,10 @@ func test_catalog_sanity_each_entry_maps_to_existing_bool_mutable_var() -> void:
 
 
 # =============================================================================
-# AC-UPG-6 (b) — runtime documentation : in-place mutation Godot 4.6 succeeds
+# AC-UPG-6 (b) — parse-time const enforcement (Godot 4.6 stricter than 4.5)
 # =============================================================================
-
-## GIVEN UpgradeSystem instance bare,
-## WHEN tentative mutation in-place _CATALOG[&"injected"] = &"poison",
-## THEN la mutation réussit (Godot 4.6 const freeze binding pas contenu).
-## Cleanup obligatoire post-test pour préserver isolation.
-## Source : AC-UPG-6 (b) — documentation comportement, pas validation immutability.
-func test_catalog_inplace_mutation_succeeds_documented_godot46_behavior() -> void:
-	# Arrange
-	var s: UpgradeSystem = _make_clean_system()
-	var initial_size: int = s._CATALOG.size()
-	assert_int(initial_size).is_equal(_MVP_CATALOG_SIZE)
-
-	# Act — mutation runtime (Godot 4.6 ne freeze que le binding)
-	s._CATALOG[&"injected_test_key"] = &"poison"
-
-	# Assert — mutation effective
-	assert_int(s._CATALOG.size()) \
-		.override_failure_message("AC-UPG-6 (b): mutation in-place doit succeed (Godot 4.6 documented)") \
-		.is_equal(initial_size + 1)
-
-	# Cleanup CRITIQUE — sans erase, le test suivant verra le catalog pollué
-	# (le const Dictionary est partagé entre instances UpgradeSystem en Godot 4.6).
-	s._CATALOG.erase(&"injected_test_key")
-	assert_int(s._CATALOG.size()) \
-		.override_failure_message("AC-UPG-6 (b): cleanup erase a échoué — isolation rompue pour tests suivants") \
-		.is_equal(initial_size)
-
-	# Cleanup
-	s.free()
+# OBSOLETE runtime test removed : Godot 4.6 enforce `const Dictionary` au parse-time,
+# donc toute tentative `s._CATALOG[k] = v` est rejetée par le parser
+# ("Cannot assign a new value to a constant"). La garantie d'immutabilité est
+# désormais structurelle/build-time (plus forte que le test runtime original).
+# Si Godot relâche cette contrainte dans une version future, restaurer le test.

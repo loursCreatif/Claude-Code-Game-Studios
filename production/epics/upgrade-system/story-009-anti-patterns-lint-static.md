@@ -1,7 +1,7 @@
 # Story 009: Anti-Patterns Lint Static (Zero Signal/UI/Audio/Revoke/Persist)
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -225,3 +225,12 @@ func test_AC_UPG_39_tier2_catalog_sanity() -> void:
 - Depends on : 001 (autoload skeleton), 002 (Logger DI pour AC-38), 005 (boot hydration pour AC-38).
 - Soft : Shop epic story `try_buy` body pour AC-29 integration version. Sprint 1 fallback : grep statique seul.
 - Unlocks : aucune story directement bloquée.
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-29 (zero signal outbound), AC-UPG-30 (zero UI/Audio refs), AC-UPG-12 (zero `revoke_upgrade` function), AC-UPG-38 (forward-compat unknown ids), AC-UPG-22 (no `await`/`yield` dans `apply_upgrade`) couverts par `tests/static/upgrade_lint_test.gd` + `tests/static/apply_upgrade_no_await_test.gd` + `tests/integration/upgrade/forward_compat_test.gd`.
+**Deviations**: ADVISORY — Audio API regex narrowed à class names spécifiques (`AudioStreamPlayer*`, `AudioServer.*`) au lieu du pattern initial `play\s*\(|stream\s*=` qui causait des false-positives sur du code unrelated.
+**Test Evidence**: Logic — `tests/static/upgrade_lint_test.gd` + `tests/static/apply_upgrade_no_await_test.gd` + `tests/integration/upgrade/forward_compat_test.gd` (6+ tests PASSED suite 41/41).
+**Code Review**: Skipped (Solo mode).

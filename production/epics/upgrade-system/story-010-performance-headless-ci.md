@@ -1,7 +1,7 @@
 # Story 010: Performance Budget Headless CI
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -173,3 +173,12 @@ Si le seuil est dépassé en CI :
 
 - Depends on : 003 (apply_upgrade body), 005 (boot hydration `_ready()`), 006 (truncation — protège AC-44 5ms gate qui partage l'infrastructure).
 - Unlocks : aucune story directement — c'est le gate final perf avant Definition of Done epic.
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-40 ADVISORY (`_ready()` < 1 ms ; observé 284 µs / 1000 µs budget — 71% margin headless macOS) + AC-UPG-41 ADVISORY (`apply_upgrade` median < 100 µs sur 1000 calls ; observé median=0 µs, p99=11 µs, max=25 µs).
+**Deviations**: None — gates ADVISORY car cross-hardware variability ; mesures locales bien sous budget.
+**Test Evidence**: Logic — `tests/perf/upgrade/boot_perf_test.gd` + `tests/perf/upgrade/apply_upgrade_median_perf_test.gd` (PASSED suite 41/41 — commit `e45ecf8`).
+**Code Review**: Skipped (Solo mode).

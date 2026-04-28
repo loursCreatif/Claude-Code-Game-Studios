@@ -1,7 +1,7 @@
 # Story 006: Save Bloat Truncation Defense (R-UPG-5 step 2)
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -132,3 +132,12 @@ for i in 14:
 
 - Depends on : 005 (boot hydration `_ready()` body avec hooks step 2 placeholder), 002 (Logger DI pour capture warning).
 - Unlocks : 010 (perf headless CI bénéficie de la garantie sub-5ms même worst-case).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-9 (cap dur 14 = `MAX_CATALOG_SIZE_TIER_2 × 2`) + warning sur troncature couverts par `tests/unit/upgrade/save_bloat_truncation_test.gd`.
+**Deviations**: None
+**Test Evidence**: Logic — `tests/unit/upgrade/save_bloat_truncation_test.gd` (PASSED suite 41/41).
+**Code Review**: Skipped (Solo mode).

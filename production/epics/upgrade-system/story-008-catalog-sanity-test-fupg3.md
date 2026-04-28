@@ -1,7 +1,7 @@
 # Story 008: F-UPG-3 Catalog Sanity Test + Immutability Lint
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -193,3 +193,12 @@ func test_no_catalog_mutation_in_production_source() -> void:
 
 - Depends on : 001 (autoload skeleton + `_CATALOG` MVP déclaré).
 - Unlocks : 009 (anti-pattern lint share l'infrastructure `tests/static/upgrade_lint_test.gd`).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-15 BLOCKING (chaque entrée `_CATALOG` mappe à propriété bool mutable round-trip) couvert par `tests/integration/upgrade/catalog_sanity_test.gd`. AC-UPG-6 (a) statique couvert par `tests/static/upgrade_lint_test.gd`.
+**Deviations**: ADVISORY — AC-UPG-6 (b) runtime mutation test SUPPRIMÉ : Godot 4.6 enforce `const Dictionary` au parse-time ("Cannot assign a new value to a constant"), donc la mutation runtime que le test documentait n'est plus possible. La garantie d'immutabilité est désormais structurelle/build-time (plus forte que le test runtime original). Test marqué OBSOLETE in-file avec commentaire de ré-activation conditionnelle.
+**Test Evidence**: Integration — `tests/integration/upgrade/catalog_sanity_test.gd` (PASSED suite 41/41 après suppression du test obsolète).
+**Code Review**: Skipped (Solo mode).

@@ -1,7 +1,7 @@
 # Story 004: `apply_upgrade` Step 2 Resync Guard (Cas C/D)
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -123,3 +123,12 @@ Cette story résout le resync **via le path `apply_upgrade`** (re-call). Elle ne
 
 - Depends on : 003 (`apply_upgrade` body steps 1+3+4 existant + helper `_apply_flag`).
 - Unlocks : aucune story directement bloquée — le resync est défense en profondeur. Story 005 boot hydration bénéficie indirectement (EC-UPG-12 `_owned` rehydraté + flag re-set par helper SI désynchro résiduelle entre sessions).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-3 (resync guard cas C/D, owned dict + flag désynchro recovery) couvert par `tests/unit/upgrade/apply_upgrade_resync_test.gd`.
+**Deviations**: None
+**Test Evidence**: Logic — `tests/unit/upgrade/apply_upgrade_resync_test.gd` (PASSED suite 41/41).
+**Code Review**: Skipped (Solo mode).

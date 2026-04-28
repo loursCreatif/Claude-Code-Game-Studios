@@ -1,7 +1,7 @@
 # Story 002: Logger DI + Unknown Id Warning
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -124,3 +124,12 @@ func warn(msg: String) -> void:
 
 - Depends on : Story 001 (autoload skeleton existe + `_ready()` set process_mode).
 - Unlocks : 003 (apply_upgrade utilise `_logger.warn` step 1), 005 (boot hydration utilise `_logger.warn` pour ids inconnus + corrupt save).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: 2/2 passing (AC-UPG-10 unknown id warning + AC-UPG-11 empty StringName no-crash) — covered by `tests/unit/upgrade/logger_di_warning_test.gd`.
+**Deviations**: None
+**Test Evidence**: Logic — `tests/unit/upgrade/logger_di_warning_test.gd` (PASSED dans suite globale 41/41 447 ms).
+**Code Review**: Skipped (Solo mode).

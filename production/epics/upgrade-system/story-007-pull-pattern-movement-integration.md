@@ -1,7 +1,7 @@
 # Story 007: Pull Pattern Movement Integration (60 Hz Read)
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -202,3 +202,12 @@ func test_no_torn_read_intra_tick() -> void:
 - Depends on : 001 (autoload), 003 (apply_upgrade body), 005 (boot hydration — fixtures réinitialisées par scène test).
 - Soft : Movement r3 Rules 3/6/7 locked (déjà OK 2026-04-27). Caveat : si Movement r4 fresh re-review introduit push pattern, OQ-UPG-2-bis ouvert et amender cette story.
 - Unlocks : aucune dépendance directe — c'est le contrat downstream consommé par Movement epic stories.
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-24(a) (Movement reader observe flag post-apply), AC-UPG-25 (apply pendant despawn → new player), AC-UPG-26 ADVISORY (no torn read 100 lectures), AC-UPG-31 (apply pendant pause), AC-UPG-32 (reader PROCESS_MODE_ALWAYS pendant pause). AC-UPG-24(b) reportée (skip MVP — scène `player.tscn` réelle).
+**Deviations**: ADVISORY — AC-UPG-24(b) (real Player.tscn) skipped MVP, fixture `MockMovementReader` couvre le contrat 60 Hz pull. À reprendre quand Movement epic livre player.tscn.
+**Test Evidence**: Integration — `tests/integration/upgrade/pull_pattern_movement_test.gd` + helper `tests/helpers/mock_movement_reader.gd` (PASSED suite 41/41 — commit `5da56ca`).
+**Code Review**: Skipped (Solo mode).

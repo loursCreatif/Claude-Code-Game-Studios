@@ -1,7 +1,7 @@
 # Story 003: `_apply_flag` Helper + `apply_upgrade` SYNC Idempotent (Cas A/B)
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -172,3 +172,12 @@ assert_lt(elapsed_us / 100.0, 1.0)    # < 1 µs moyenne
 
 - Depends on : 001 (autoload + capability vars), 002 (`_logger.warn` API).
 - Unlocks : 004 (resync guard sur step 2 existant), 005 (boot hydration appelle `apply_upgrade`), 007 (Movement pull verifies flags mutés), 010 (perf budget mesure ce body).
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-UPG-1 (idempotence cas A/B), AC-UPG-2 (helper `_apply_flag` SYNC), AC-UPG-13 (no crash sur catalog access) couverts par `tests/unit/upgrade/apply_upgrade_test.gd` + `apply_upgrade_perf_test.gd`.
+**Deviations**: None
+**Test Evidence**: Logic — `tests/unit/upgrade/apply_upgrade_test.gd` + `tests/unit/upgrade/apply_upgrade_perf_test.gd` (PASSED suite 41/41).
+**Code Review**: Skipped (Solo mode).
