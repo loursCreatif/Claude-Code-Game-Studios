@@ -1,7 +1,7 @@
 # Story 014: Anti-Patterns Lint Static
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature (CI gate)
 > **Type**: Logic (lint-as-code)
 > **Manifest Version**: 2026-04-23
@@ -166,3 +166,15 @@ lint-shop-anti-patterns:
 
 - Depends on: Story 001 (shop.tscn existe), Story 002 (controller existe), Story 005 (UpgradeSystem call patterns), Story 008 (ContinueButton — no tooltip), Story 009 (`_unhandled_input` ESC seul accès Input)
 - Unlocks: gate CI pour merge Sprint 1
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (15/15) — AC-SHP-39 (no AnimationPlayer tscn), AC-SHP-40 (no TabContainer), AC-SHP-42 (no ScrollContainer), AC-SHP-43 (no AudioStreamPlayer tscn+gd), V.4 (no GPUParticles2D/3D + no AnimatedTexture + no play_music_stinger), J.9 (no AcceptDialog/ConfirmationDialog), AC-SHP-41 (no premium/gem labels), AC-SHP-44 BLOCKING (no Input.* hors `_unhandled_input` — extraction function-scoped), AC-SHP-37 ADVISORY (no `_process`/`_physics_process` hot paths côté ShopController), AC-SHP-45 ADVISORY (Upgrade.apply_upgrade uniquement après `try_spend`).
+**Deviations**: ADVISORY (3)
+  - **Lint format** : tests GdUnit4 (`tests/static/shop_anti_patterns_lint_test.gd`) au lieu de bash script `tools/lint/lint_shop_anti_patterns.sh` + Python helpers — pattern cohérent avec upgrade-system story-009 (`tests/static/upgrade_lint_test.gd`), single-runner GdUnit4 + pas de dépendance Python/CI. Spec-equivalent.
+  - **CI YAML job** non ajouté — tests intégrés dans suite GdUnit4 globale (`.github/workflows/tests.yml` exécute déjà l'add `tests/static/`). Equivalent à intégration directe.
+  - **AC-SHP-41 "coin"** : exclu du lint (potentiellement légitime dans comments explicatifs ex. "no coin imagery"). "premium"/"gem" sont strictement F2P-coded et lint-able sans false-positive.
+**Test Evidence**: Logic — `tests/static/shop_anti_patterns_lint_test.gd` 15/15 PASSED 113 ms (`reports/report_97/`).
+**Code Review**: Skipped (Solo mode).
