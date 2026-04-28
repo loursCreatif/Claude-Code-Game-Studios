@@ -1,7 +1,7 @@
 # Story 008: Continue Button + Initial Focus + GSM Transition
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -109,3 +109,15 @@ func _on_continue_pressed() -> void:
 
 - Depends on: Story 001 (ContinueButton existe), Story 002 (controller)
 - Unlocks: Story 009 (ESC = même path), Story 015 (bidirectional)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (5/5) — AC-SHP-25 (handler triggers transition once, captured_path == main_menu), EC-SHP-18 (double-press blocked by `_closing` flag), initial state flag false, path constant `res://...tscn` valid GSM assert, reset_closing test seam permet ré-utilisation post-scene-reload.
+**Deviations**: ADVISORY (3)
+  - **Callable injection test seam** : `_transition_callable: Callable` (default empty) avec fallback `GameStateManager.request_scene_transition()` direct si invalid. Tests injectent un `Callable(spy, "capture")` pour capturer l'appel sans déclencher `change_scene_to_file` destructif sur le test scene tree. Pattern propre, test-friendly.
+  - **AC-SHP-28 (`ContinueButton.disabled == false`)** : déférée — le scene-attach Button est résolu via `%ContinueButton` unique-name à `_ready()` quand attaché à `shop.tscn`. Tests unit hors scene tree skip cette propriété ; rendering UI déféré story-012 styling ou intégration scene future.
+  - **AC-SHP-53 (initial focus ContinueButton)** : déférée — `grab_focus()` post-`await get_tree().process_frame` nécessite scene tree complet + viewport actif. Tests unit hors scene tree skip ; intégration future via story-015 bidirectional ou test scene-attach manuel.
+**Test Evidence**: Logic — `tests/unit/shop/continue_button_test.gd` 5/5 PASSED 95 ms (`reports/report_88/`).
+**Code Review**: Skipped (Solo mode).

@@ -18,8 +18,15 @@ const _BASE_COST_FALLBACK: int = 20
 const _TIER_COST_STEP_FALLBACK: int = 20
 
 const _SAVE_KEY: String = "owned_upgrades"
+const _MAIN_MENU_SCENE_PATH: String = "res://scenes/menus/main_menu.tscn"
 
 var _owned_upgrades: Array[StringName] = []
+var _closing: bool = false    # story-008 — double-press guard EC-SHP-18
+
+# Story-008 test seam — callable indirection pour `GameStateManager.request_scene_transition`.
+# Production runtime : null → fallback appel direct GSM. Tests : injection d'une
+# Callable qui capture l'appel sans déclencher `change_scene_to_file` destructif.
+var _transition_callable: Callable = Callable()
 var _credit_display_text: String = ""    # story-004 — pull depuis CreditEconomy
 var _purchase_in_progress: bool = false  # story-005/006 — double-click guard
 
@@ -198,3 +205,29 @@ func get_purchase_in_progress_for_test() -> bool:
 # Test seam story-007 — lecture publique état affordability (post-recalc).
 func is_affordable(id: StringName) -> bool:
 	return _affordable_state.get(id, false)
+
+
+# Story-008 — Continue button handler (R-SHP-10 + EC-SHP-18 double-press guard).
+# Toujours actif (jamais disabled par état upgrade). Click → GSM scene transition
+# vers main menu. _closing flag bloque double-press dans la fenêtre transition.
+func _on_continue_pressed() -> void:
+	if _closing:
+		return    # EC-SHP-18 double-press silent guard
+	_closing = true
+	if _transition_callable.is_valid():
+		_transition_callable.call(_MAIN_MENU_SCENE_PATH)
+	else:
+		GameStateManager.request_scene_transition(_MAIN_MENU_SCENE_PATH)
+
+
+# Test seams story-008 — accès `_closing` flag + injection callable.
+func set_transition_callable_for_test(c: Callable) -> void:
+	_transition_callable = c
+
+
+func get_closing_for_test() -> bool:
+	return _closing
+
+
+func reset_closing_for_test() -> void:
+	_closing = false
