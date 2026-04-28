@@ -173,11 +173,11 @@ func _ready() -> void:
 		"Combat parent must be CharacterBody3D (Player)"
 	)
 
-	# ADR-0006 D-2 : physics_process_priority == 0 (défaut) est un invariant structurel.
+	# ADR-0006 D-2 : process_physics_priority == 0 (défaut) est un invariant structurel.
 	# Toute valeur non-nulle casse le DFS parent-before-child ordering (Rule 17).
 	assert(
-		physics_process_priority == 0,
-		"Combat physics_process_priority must be default 0 (DFS preorder Rule 17)"
+		process_physics_priority == 0,
+		"Combat process_physics_priority must be default 0 (DFS preorder Rule 17)"
 	)
 
 	# ADR-0006 Gap 8 (résolu 2026-04-23) : Jolt ignore ShapeCast3D.margin.

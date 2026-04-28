@@ -11,7 +11,7 @@ height = 1.8
 [node name="CombatSystem" type="Node3D"]
 ; CombatSystem root — direct child du Player CharacterBody3D.
 ; ADR-0006 D-1 : DFS preorder garantit Player._physics_process avant CombatSystem._physics_process.
-; ADR-0006 D-2 : physics_process_priority reste à 0 (défaut).
+; ADR-0006 D-2 : process_physics_priority reste à 0 (défaut).
 script = ExtResource("1_combatscript")
 
 [node name="ShapeCast3D" type="ShapeCast3D" parent="."]
