@@ -20,6 +20,7 @@ InputManager="*res://src/core/input_manager.gd"
 GameStateManager="*res://src/core/game_state_manager.gd"
 SaveLoadSystem="*res://src/core/save_load_system.gd"
 CreditEconomy="*res://src/core/credit_economy.gd"
+Upgrade="*res://src/gameplay/upgrade/upgrade_system.gd"
 LevelSystem="*res://src/gameplay/level/level_system.gd"
 
 [display]
