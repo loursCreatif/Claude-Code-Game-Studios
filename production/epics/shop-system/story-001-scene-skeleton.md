@@ -30,7 +30,7 @@
 ## Acceptance Criteria
 
 - [ ] **AC-SHP-29** : `shop.tscn` inspecté → `CanvasLayer.layer == 60`.
-- [ ] **AC-SHP-30** : `shop.tscn` inspecté → `ShopRoot.process_mode == PROCESS_MODE_ALWAYS`.
+- [ ] **AC-SHP-30** : `shop.tscn` inspecté → `ShopRoot.process_mode == PROCESS_MODE_ALWAYS` (valeur sérialisée `3` en Godot 4.6 — `4` = `PROCESS_MODE_DISABLED`, ne JAMAIS asseyer `4`).
 - [ ] Hiérarchie R-SHP-2 respectée : `ShopRoot(Control) → Background(ColorRect) → CreditDisplay(HBoxContainer) → UpgradeList(VBoxContainer × 2 cards) → ContinueButton(Button)`.
 - [ ] `Background.color = #0A0A12` (SHOP_BG token Chrome Zen).
 - [ ] Scene parse-clean : `godot --headless --check-only --script tools/lint/check_shop_scene.gd` (ou test GUT instancie scène, assert root != null).
@@ -76,10 +76,10 @@ Pas de StyleBoxFlat custom dans cette story (story-012 owne le styling). Utilise
   - Setup : ouvrir `shop.tscn`
   - Verify : `[node name="ShopRoot"]` parent CanvasLayer `layer = 60`
   - Pass : grep retourne exactement 1 match
-- **AC-SHP-30** : `Lint static — grep "process_mode = 4" scenes/shop/shop.tscn → 1 match`
+- **AC-SHP-30** : `Lint static — grep "process_mode = 3" scenes/shop/shop.tscn → 1 match`
   - Setup : ouvrir `shop.tscn`
-  - Verify : `process_mode = 4` (PROCESS_MODE_ALWAYS enum value) sur ShopRoot
-  - Pass : grep retourne exactement 1 match
+  - Verify : `process_mode = 3` (`Node.PROCESS_MODE_ALWAYS` en Godot 4.6) sur ShopRoot. **Attention** : `4` = `PROCESS_MODE_DISABLED` (désactive `_process`/`_input`/tweens) — bug runtime silencieux si erreur d'enum.
+  - Pass : grep retourne exactement 1 match sur `process_mode = 3`
 - **Manual hierarchy check** :
   - Setup : ouvrir scène dans éditeur Godot
   - Verify : tous les nœuds R-SHP-2 présents dans l'ordre exact

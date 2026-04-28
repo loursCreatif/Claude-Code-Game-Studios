@@ -978,7 +978,7 @@ Voir tableau Section "Tuning Knobs - Tuning visuels".
 
 **AC-SHP-29 [Lint] [BLOCKING]** : GIVEN shop.tscn, WHEN inspecté, THEN `CanvasLayer.layer == 60`. *Mécanisme* : lint static — grep `layer = ` shop.tscn assert == 60 ; ou test GUT instancier scène et `$CanvasLayer.layer`.
 
-**AC-SHP-30 [Lint] [BLOCKING]** : GIVEN shop.tscn, WHEN inspecté, THEN `ShopRoot.process_mode == PROCESS_MODE_ALWAYS`. *Mécanisme* : lint static — grep "process_mode" assert valeur 4 ; ou integration test.
+**AC-SHP-30 [Lint] [BLOCKING]** : GIVEN shop.tscn, WHEN inspecté, THEN `ShopRoot.process_mode == PROCESS_MODE_ALWAYS`. *Mécanisme* : lint static — grep "process_mode" assert valeur **3** (Godot 4.6 enum `Node.PROCESS_MODE_ALWAYS = 3` ; valeur 4 = `PROCESS_MODE_DISABLED`) ; ou integration test asseyant `$ShopRoot.process_mode == Node.PROCESS_MODE_ALWAYS` (préféré — robuste aux changements d'enum).
 
 **AC-SHP-31 [Logic] [BLOCKING]** (révisé r2) : GIVEN Tween créé dans ShopControllerScript, WHEN inspecté, THEN `set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)` appelé sur chaque tween créé. *Mécanisme* : (a) **Unit GUT** (préféré) — spy sur `create_tween()` retournant un mock Tween, assert `set_pause_mode` appelé avec `Tween.TWEEN_PAUSE_PROCESS` avant toute `tween_property` ou `tween_callback` sur ce tween. (b) **Lint static** (fallback robuste) — count `grep -c "create_tween()"` sur ShopControllerScript ; count `grep -c "set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)"` ; assert counts égaux. **Note r2** : la version r1 utilisait "5 lignes suivantes" — fragile si variable intermédiaire ou chaining sur 6+ lignes. Corrigé.
 
