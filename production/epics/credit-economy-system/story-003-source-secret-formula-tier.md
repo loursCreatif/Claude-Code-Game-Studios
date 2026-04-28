@@ -1,7 +1,7 @@
 # Story 003: Source SECRET — formula tier 1/2/3 + validation
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -31,12 +31,12 @@
 
 *From GDD §Acceptance Criteria, scoped à cette story (source SECRET — formula F-CRD-2, validation tier, pillar 4 ratio) :*
 
-- [ ] AC-CRD-12 [Logic] — secret tier 1 collecté → `delta == +5`, `source == SECRET`, payload `(N+5, +5, SECRET)`.
-- [ ] AC-CRD-13 [Logic] — secret tier 2 → `delta == +10`, payload `(N+10, +10, SECRET)`.
-- [ ] AC-CRD-14 [Logic] — secret tier 3 → `delta == +15`, payload `(N+15, +15, SECRET)`.
-- [ ] AC-CRD-15 [Logic] — tier invalide (`0`, `99`, `-1`) → aucun crédit, `total_credits` stable, `push_warning` loggé, 0 emit.
-- [ ] AC-CRD-16 [Logic] — Pillar 4 ratio plancher : `BASE_SECRET_CREDIT × 1 >= 5 × kill_credit["grunt"]` (5 ≥ 5 × 1).
-- [ ] AC-CRD-34 [Integration] — Secret System stub émet `secret_collected(mock_node, tier=2)` → `total_credits += 10`, `credits_changed(N+10, +10, SECRET)` émis.
+- [x] AC-CRD-12 [Logic] — secret tier 1 collecté → `delta == +5`, `source == SECRET`, payload `(N+5, +5, SECRET)`.
+- [x] AC-CRD-13 [Logic] — secret tier 2 → `delta == +10`, payload `(N+10, +10, SECRET)`.
+- [x] AC-CRD-14 [Logic] — secret tier 3 → `delta == +15`, payload `(N+15, +15, SECRET)`.
+- [x] AC-CRD-15 [Logic] — tier invalide (`0`, `99`, `-1`) → aucun crédit, `total_credits` stable, `push_warning` loggé, 0 emit.
+- [x] AC-CRD-16 [Logic] — Pillar 4 ratio plancher : `BASE_SECRET_CREDIT × 1 >= 5 × kill_credit["grunt"]` (5 ≥ 5 × 1).
+- [x] AC-CRD-34 [Integration] — Secret System stub émet `secret_collected(mock_node, tier=2)` → `total_credits += 10`, `credits_changed(N+10, +10, SECRET)` émis.
 
 ---
 
@@ -105,7 +105,7 @@
 - `tests/unit/credit/credit_economy_secret_source_test.gd` (AC-12, 13, 14, 15, 16) — must exist and pass GUT.
 - `tests/integration/credit/credit_economy_secret_integration_test.gd` (AC-34) — must exist and pass.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — 10/10 tests PASSED 134 ms (GdUnit4 `--add tests/unit/credit/credit_economy_secret_source_test.gd --add tests/integration/credit/credit_economy_secret_integration_test.gd --ignoreHeadlessMode`, run 2026-04-28). Sync rétroactif (story implémentée durant batch /story-done 002-010, section evidence non synchronisée — corrigée maintenant).
 
 ---
 
@@ -113,3 +113,27 @@
 
 - Depends on: **Story 001** (skeleton — enum `SourceKind`, signal `credits_changed`, state vars).
 - Unlocks: aucune autre story Credit (provisoire — quand Secret System epic sera implémenté, refactorer la connexion stub→réelle dans une follow-up story Tier 2).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 6/6 passing (AC-CRD-12/13/14/15/16/34)
+**Verdict**: COMPLETE
+
+**Tests run** : `tests/unit/credit/credit_economy_secret_source_test.gd` (8 tests) + `tests/integration/credit/credit_economy_secret_integration_test.gd` (2 tests) = 10/10 PASSED 161 ms. Suite credit globale **39/39 vert** 427 ms (incluant kill, try_spend, lints).
+
+**Files modified (3)** :
+- `src/core/credit_economy.gd` : ajout `BASE_SECRET_CREDIT: int = 5`, `KILL_CREDIT_GRUNT: int = 1` constants ; `_on_secret_collected(node, tier)` handler avec validation tier∈{1,2,3} + EC-CRD-9 ignore silencieux + warn ; `_ready()` assertion AC-CRD-16 plancher Pillar 4. Pas de batching (1 secret = 1 emit immédiat — distinct du multi-kill).
+- `tests/unit/credit/credit_economy_secret_source_test.gd` NEW 178 L : 8 tests AC-CRD-12/13/14/15 (4 sous-cas tier invalide : 0, -1, 4, 99) + AC-CRD-16.
+- `tests/integration/credit/credit_economy_secret_integration_test.gd` NEW 113 L : 2 tests AC-CRD-34 + edge multi-secret-no-batching via stub `StubSecretSystem extends Node` + signal `secret_collected(node, tier)`.
+
+**Deviations** : aucune. Connexion `get_node("/root/SecretSystem")` reportée — SecretSystem epic pas encore implémenté ; tests connectent directement au handler (pattern conforme story spec point 3).
+
+**Code Review** : Skipped (Solo mode)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **credit-economy story-004** Persistence (boot hydrate + state_changed PAUSED guards) — peut désormais ajouter les guards `_is_hydrated` / PAUSED sur `_on_secret_collected` AND `_on_enemy_killed`.
+- **Credit Economy epic progress** : 3/8 stories Complete (001 skeleton + 002 KILL + 003 SECRET).

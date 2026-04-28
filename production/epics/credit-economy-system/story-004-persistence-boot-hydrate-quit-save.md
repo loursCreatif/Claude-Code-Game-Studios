@@ -1,7 +1,7 @@
-# Story 004: Persistence — boot hydrate + quit save (BLOCKED on SaveLoadSystem)
+# Story 004: Persistence — boot hydrate + quit save
 
 > **Epic**: Credit Economy System
-> **Status**: **Blocked** — autoload `SaveLoadSystem` doit être registered dans `project.godot` AVANT `CreditEconomy` (ADR-0010 D-3 ordre #3). Le save-load epic doit être créé/implémenté préalablement OU au minimum le squelette autoload `SaveLoadSystem` avec API `load_int(key, default) -> int` + `save_int(key, value) -> void` doit exister. Tant que cet autoload n'est pas registered et le squelette API publié, **NE PAS commencer l'implémentation** de cette story (les handlers Save/Load référenceraient un singleton inexistant).
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -32,17 +32,17 @@
 
 *From GDD §Acceptance Criteria, scoped à cette story (persistence I/O + GSM observation + race boot) :*
 
-- [ ] AC-CRD-22 [Logic] — `_total_credits = 42` au moment d'un respawn ; Enemy `_restore_from_snapshot(was_dead=true)` n'émet PAS `enemy_killed` ; `_total_credits` reste `42`.
-- [ ] AC-CRD-23 [Integration] — `_total_credits == 42` + quit-to-menu → save écrit ; nouvelle session + boot hydrate → `_total_credits == 42`.
-- [ ] AC-CRD-24 [Integration] — boot reçoit `state_changed(PLAYING)` → hydrate depuis savegame + `credits_changed(loaded_value, 0, BOOT_HYDRATE)` émis exactement 1 fois.
-- [ ] AC-CRD-25 [Logic] — savegame absent ou corrompu → `_total_credits = 0`, `credits_changed(0, 0, BOOT_HYDRATE)` émis, pas de crash, `_is_hydrated == true`.
-- [ ] AC-CRD-26 [Integration] — `_total_credits = 30` + 5 cr gagnés (35) + mort + respawn → `_total_credits == 35` (progression préservée).
-- [ ] AC-CRD-27 [Logic] — round-trip save/load : valeur sauvegardée == valeur rechargée bit-pour-bit (int, no float trunc).
-- [ ] AC-CRD-30 [Logic] — `credits_changed(_, 0, BOOT_HYDRATE)` → `delta == 0` toujours.
-- [ ] AC-CRD-36 [Integration] — état PAUSED, signal `enemy_killed` émis (test défensif) → ignoré, `_total_credits` stable.
-- [ ] AC-CRD-37 [Logic] — état MENU initial → `get_total()` retourne `0` ou loaded value, pas de reset intempestif à transition MENU→PLAYING.
-- [ ] AC-CRD-38 [Logic] — séquence PLAYING → PAUSED → PLAYING → `_total_credits` identique avant/après pause.
-- [ ] AC-CRD-51 [Integration] (r2 B-7 race boot) — séquence : `level_active` à T0, `state_changed(PLAYING)` à T1>T0 ; AVANT T1 : connexions établies + `_is_hydrated == false` + signaux `enemy_killed` rejetés silencieusement ; APRÈS T1 : `_is_hydrated = true`, BOOT_HYDRATE émis 1 fois, signaux ultérieurs traités.
+- [x] AC-CRD-22 [Logic] — `_total_credits = 42` au moment d'un respawn ; Enemy `_restore_from_snapshot(was_dead=true)` n'émet PAS `enemy_killed` ; `_total_credits` reste `42`.
+- [x] AC-CRD-23 [Integration] — `_total_credits == 42` + quit-to-menu → save écrit ; nouvelle session + boot hydrate → `_total_credits == 42`.
+- [x] AC-CRD-24 [Integration] — boot reçoit `state_changed(PLAYING)` → hydrate depuis savegame + `credits_changed(loaded_value, 0, BOOT_HYDRATE)` émis exactement 1 fois.
+- [x] AC-CRD-25 [Logic] — savegame absent ou corrompu → `_total_credits = 0`, `credits_changed(0, 0, BOOT_HYDRATE)` émis, pas de crash, `_is_hydrated == true`.
+- [x] AC-CRD-26 [Integration] — `_total_credits = 30` + 5 cr gagnés (35) + mort + respawn → `_total_credits == 35` (progression préservée).
+- [x] AC-CRD-27 [Logic] — round-trip save/load : valeur sauvegardée == valeur rechargée bit-pour-bit (int, no float trunc).
+- [x] AC-CRD-30 [Logic] — `credits_changed(_, 0, BOOT_HYDRATE)` → `delta == 0` toujours.
+- [x] AC-CRD-36 [Integration] — état PAUSED, signal `enemy_killed` émis (test défensif) → ignoré, `_total_credits` stable.
+- [x] AC-CRD-37 [Logic] — état MENU initial → `get_total()` retourne `0` ou loaded value, pas de reset intempestif à transition MENU→PLAYING.
+- [x] AC-CRD-38 [Logic] — séquence PLAYING → PAUSED → PLAYING → `_total_credits` identique avant/après pause.
+- [x] AC-CRD-51 [Integration] (r2 B-7 race boot) — séquence : `level_active` à T0, `state_changed(PLAYING)` à T1>T0 ; AVANT T1 : connexions établies + `_is_hydrated == false` + signaux `enemy_killed` rejetés silencieusement ; APRÈS T1 : `_is_hydrated = true`, BOOT_HYDRATE émis 1 fois, signaux ultérieurs traités.
 
 ---
 
@@ -157,3 +157,44 @@
 
 - Depends on: **Story 001** (skeleton — `_is_hydrated`, signal, enum), **Story 002** (handler `_on_enemy_killed` à refactorer), **Story 003** (handler `_on_secret_collected` à refactorer pour guards). **HARD UPSTREAM** : autoload `SaveLoadSystem` registered dans `project.godot` (ordre #3, ADR-0010 D-3) AVEC API publiée `load_int(key: String, default: int) -> int` + `save_int(key: String, value: int) -> void` (ADR-0010 D-2).
 - Unlocks: Story 005 (run-purge — peut référencer `_total_credits` persistant), Story 006 (perf benchmark hydrate boot).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 11/11 passing (AC-CRD-22/23/24/25/26/27/30/36/37/38/51)
+**Verdict**: COMPLETE
+
+**Tests run** : `tests/integration/credit/credit_economy_persistence_test.gd` (12 tests AC-22/23/24/25/26/27/30/36/37/38 + AC-CRD-25 corrupt-type-mismatch path + BOSS_DEFEATED no-op) + `tests/integration/credit/credit_economy_race_boot_test.gd` (1 test 5-phases AC-CRD-51) = **13/13 PASSED 192 ms** post code-review fixes. Suite credit globale ≥ 52/52 vert.
+
+**Files modified (4)** :
+- `src/core/credit_economy.gd` :
+  - `_ready()` : ajout `GameStateManager.state_changed.connect(_on_state_changed)` (direct, autoload idx 20 < Credit idx 22).
+  - `_on_enemy_killed` (refactor story-002) : ajout 2 guards en tête — `if not _is_hydrated: return` (AC-CRD-51 c) + `if GSM.get_current_state() != PLAYING: return` (AC-CRD-36).
+  - `_on_secret_collected` (refactor story-003) : guards symétriques `_is_hydrated` + GSM PLAYING.
+  - `_on_state_changed(new_state)` NEW : match enum — PLAYING (hydrate UNE seule fois), MENU (persist), PAUSED/RESPAWNING/BOSS_DEFEATED (no-op).
+  - `_hydrate_from_save()` NEW : `SaveLoadSystem.load_int("total_credits", 0)` + emit `(loaded, 0, BOOT_HYDRATE)`.
+  - `_persist_to_save()` NEW : `SaveLoadSystem.save_int("total_credits", _total_credits)`, side-effect silencieux.
+- `tests/integration/credit/credit_economy_persistence_test.gd` NEW 268 L — 10 tests hermétiques (wipe `user://savegame.cfg` avant/après chaque test).
+- `tests/integration/credit/credit_economy_race_boot_test.gd` NEW 121 L — 1 test 5-phases AC-CRD-51 (level_active → pre-hydration kill rejected → state_changed(PLAYING) hydrate → post-hydration kill credited).
+- `tests/unit/credit/credit_economy_kill_source_test.gd`, `credit_economy_secret_source_test.gd`, `tests/integration/credit/credit_economy_kill_integration_test.gd`, `credit_economy_secret_integration_test.gd` : ajout `GameStateManager._current_state = State.PLAYING` dans `before_test` (white-box ; sinon nouveaux guards reject les kills/secrets).
+
+**Deviations** :
+- **ADVISORY** : `secret_collected` connection real `/root/SecretSystem` reportée — SecretSystem epic pas encore implémenté (cohérent avec story-003 deviation note). Connexion pratique : `_on_secret_collected` doit être abonné par SecretSystem ultérieurement, ou refactor minimal here when Secret epic lands.
+- **ADVISORY** : Test AC-CRD-23 utilise `SaveLoadSystem._config = ConfigFile.new()` + `_config.load()` direct au lieu d'instance hermétique `script.new()` — convergence avec pattern session voisine (modifie l'autoload state qu'on rétablit dans `before_test`).
+- **Pas de batching** sur `_on_state_changed` — émission BOOT_HYDRATE SYNC immédiate (pas via `_physics_process` flush) car c'est un événement boot one-shot, pas un hot-path.
+
+**Code Review** : `/code-review` 2026-04-28 → APPROVED. godot-gdscript-specialist + qa-tester findings :
+- W-1 typed Array : `_emit_calls: Array[Array]` appliqué les 2 fichiers (récurrent depuis story-002 finding).
+- GAP-1 BLOCKING qa-tester (AC-CRD-25 corrupt path) : test `test_credit_economy_corrupt_savegame_type_mismatch_hydrates_to_zero` ajouté (path `typeof(value) != TYPE_INT` du load_int).
+- BOSS_DEFEATED no-op : test `test_credit_economy_boss_defeated_transition_is_no_op` ajouté (couverture enum complète).
+- Phase 4b QL-TEST-COVERAGE + Phase 5 LP-CODE-REVIEW : skipped (Solo mode per `production/review-mode.txt`).
+
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **credit-economy story-005** Run-purge GSM checkpoint (en cours par session voisine — `_on_request_new_run` handler déjà ajouté dans `credit_economy.gd:299`).
+- **credit-economy story-006** Performance benchmark hydrate < 2 ms.
+- **shop-system** : `_total_credits` persistant désormais consommable.
+- **Credit Economy epic progress** : 4/8 stories Complete (001 skeleton + 002 KILL + 003 SECRET + 004 Persistence).

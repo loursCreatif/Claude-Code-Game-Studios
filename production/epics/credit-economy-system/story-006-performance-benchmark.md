@@ -1,7 +1,7 @@
 # Story 006: Performance benchmark N=100 (multi-kill + hydrate)
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Performance
 > **Manifest Version**: 2026-04-23
@@ -31,8 +31,8 @@
 
 *From GDD §Acceptance Criteria, scoped à cette story (Performance gate hardware-target) :*
 
-- [ ] AC-CRD-39 [Performance] (r3 NB-CRD-5) — multi-kill 3 + `BATCH_MULTI_KILL_EMIT == true`, mesure N=100 itérations : (a) **médiane** `< 1 ms`, (b) **P95** `< 3 ms`, (c) outliers `> 3 ms` exclus si plateforme non-reproductible. **Gate** : BLOCKING dev / ADVISORY CI (loggué dans rapport sans bloquer merge si variance CI).
-- [ ] AC-CRD-40 [Performance] — boot hydrate (lecture save + assign + emit BOOT_HYDRATE) : `< 2 ms`. Mécanisme : chrono `Time.get_ticks_usec()` avant/après `_hydrate_from_save()`.
+- [x] AC-CRD-39 [Performance] (r3 NB-CRD-5) — multi-kill 3 + `BATCH_MULTI_KILL_EMIT == true`, mesure N=100 itérations : (a) **médiane** `< 1 ms`, (b) **P95** `< 3 ms`, (c) outliers `> 3 ms` exclus si plateforme non-reproductible. **Gate** : BLOCKING dev / ADVISORY CI (loggué dans rapport sans bloquer merge si variance CI).
+- [x] AC-CRD-40 [Performance] — boot hydrate (lecture save + assign + emit BOOT_HYDRATE) : `< 2 ms`. Mécanisme : chrono `Time.get_ticks_usec()` avant/après `_hydrate_from_save()`.
 
 ---
 

@@ -15,6 +15,7 @@ extends Node
 ##
 ## Signal outbound (D-3) :
 ##   state_changed(new_state: State)                       # 1× par transition effective
+##   new_run_requested()                                   # après BOSS_DEFEATED → MENU via request_new_run()
 ##
 ## Pattern pull au boot (D-9) : aucun emit `state_changed(MENU)` au _ready ;
 ## les consumers lisent `get_current_state()` dans leur propre _ready.
@@ -22,6 +23,13 @@ extends Node
 enum State { MENU, PLAYING, PAUSED, RESPAWNING, BOSS_DEFEATED }
 
 signal state_changed(new_state: State)
+
+## Emis APRES la transition BOSS_DEFEATED → MENU effectuee par request_new_run().
+## Consume par CreditEconomy pour purger _credited_this_run (story-005 AC-CRD-10,
+## R-CRD-6, ADR-0007 D-8/D-10). Distinct de state_changed(MENU) car celui-ci est
+## emis aussi sur request_scene_transition (Pause → Main Menu) qui NE doit PAS
+## purger le set d'idempotence kill (B-6).
+signal new_run_requested()
 
 var _current_state: State = State.MENU
 
@@ -90,10 +98,13 @@ func start_etage(etage_id: int) -> void:
 
 
 func request_new_run() -> void:
-	# D-8 : BOSS_DEFEATED → MENU explicite.
+	# D-8 : BOSS_DEFEATED → MENU explicite. Emet new_run_requested apres
+	# transition pour signaler aux consumers (CreditEconomy R-CRD-6) qu'une
+	# nouvelle run logique demarre. ADR-0005 D-8 : mutation d'etat AVANT emit.
 	if _current_state != State.BOSS_DEFEATED:
 		return
 	_transition_to(State.MENU)
+	new_run_requested.emit()
 
 
 # ─── Privé ───────────────────────────────────────────────────────────
@@ -102,7 +113,11 @@ func _transition_to(new_state: State) -> void:
 	# D-2 : whitelist des transitions ; D-3 : émission unique par transition effective.
 	if new_state == _current_state:
 		return  # idempotent : pas de re-émission no-op
-	var legal: Array[State] = _LEGAL_TRANSITIONS.get(_current_state, [] as Array[State])
+	# NB story-005 : `legal` est `Array` (untyped) car les literals `[State.X]` du
+	# Dictionary const _LEGAL_TRANSITIONS sont inférés `Array` non-typé. Tenter
+	# `Array[State]` ici crash runtime ("Array to Array[int]") sur la première
+	# transition BOSS_DEFEATED → MENU triggered par request_new_run().
+	var legal: Array = _LEGAL_TRANSITIONS.get(_current_state, [])
 	if not legal.has(new_state):
 		assert(false, "illegal GSM transition: %s → %s" % [
 			State.keys()[_current_state], State.keys()[new_state]

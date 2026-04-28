@@ -48,6 +48,8 @@ func before_test() -> void:
 	CreditEconomy._credited_this_run.clear()
 	CreditEconomy._pending_kill_delta = 0
 	CreditEconomy._has_pending_kill = false
+	# Story 004 : guard GSM PLAYING (sinon kill handler reject silent).
+	GameStateManager._current_state = GameStateManager.State.PLAYING
 	_emit_calls = []
 	CreditEconomy.credits_changed.connect(_on_credits_changed_capture)
 

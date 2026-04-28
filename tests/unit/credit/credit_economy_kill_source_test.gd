@@ -50,6 +50,9 @@ func before_test() -> void:
 	CreditEconomy._pending_kill_delta = 0
 	CreditEconomy._has_pending_kill = false
 	CreditEconomy._negative_amount_warning_count = 0
+	# Story 004 : guard GSM PLAYING — forcer l'état white-box pour que les
+	# kills soient acceptés (sinon `_on_enemy_killed` reject silent en MENU).
+	GameStateManager._current_state = GameStateManager.State.PLAYING
 	_emit_calls = []
 	CreditEconomy.credits_changed.connect(_on_credits_changed_capture)
 

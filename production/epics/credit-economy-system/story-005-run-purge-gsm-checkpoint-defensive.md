@@ -1,7 +1,7 @@
 # Story 005: Run-purge GSM (request_new_run + checkpoint defensive)
 
 > **Epic**: Credit Economy System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -33,8 +33,8 @@
 
 *From GDD §Acceptance Criteria, scoped à cette story (run-purge GSM + checkpoint defensive Tier 2+) :*
 
-- [ ] AC-CRD-10 [Logic] (r3 NB-CRD-4) — set `_credited_this_run` peuplé (N entries), GSM émet `request_new_run()`, Credit traite `_on_request_new_run()` : (a) `_credited_this_run.size() == 0`, (b) `_total_credits` inchangé.
-- [ ] AC-CRD-50 [Integration] (r2 B-6) — Checkpoint Tier 2+ active `_restore_from_snapshot(was_dead=true)` côté Enemy : (a) `_credited_this_run.size()` reste à N (set non purgé), (b) `_total_credits` inchangé, (c) 0 emit `credits_changed` capturé pendant le restore, (d) si Combat re-émet `enemy_killed` pour un ID déjà présent, signal ignoré silencieusement (chained AC-CRD-09).
+- [x] AC-CRD-10 [Logic] (r3 NB-CRD-4) — set `_credited_this_run` peuplé (N entries), GSM émet `request_new_run()`, Credit traite `_on_request_new_run()` : (a) `_credited_this_run.size() == 0`, (b) `_total_credits` inchangé.
+- [x] AC-CRD-50 [Integration] (r2 B-6) — Checkpoint Tier 2+ active `_restore_from_snapshot(was_dead=true)` côté Enemy : (a) `_credited_this_run.size()` reste à N (set non purgé), (b) `_total_credits` inchangé, (c) 0 emit `credits_changed` capturé pendant le restore, (d) si Combat re-émet `enemy_killed` pour un ID déjà présent, signal ignoré silencieusement (chained AC-CRD-09).
 
 ---
 
@@ -119,3 +119,28 @@
 
 - Depends on: **Story 001** (state vars `_credited_this_run`), **Story 002** (handler `_on_enemy_killed` avec idempotence — AC-CRD-50 Phase d réutilise le code), **Story 004** (guards `_is_hydrated`, `state == PLAYING` — pour que les tests soient en état "hydrated PLAYING" cohérent). **POSSIBLE BLOCKER** : si GSM ADR-0007 D-10 n'expose pas de signal `new_run_requested`, requérir amendment GSM (coordonner avec gameplay-programmer en `/story-readiness`).
 - Unlocks: aucune autre story Credit (cette story finalise la machine d'état run-purge).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 2/2 passing (AC-CRD-10 + AC-CRD-50)
+**Verdict**: COMPLETE
+
+**Tests run** : `tests/integration/credit/credit_economy_run_purge_test.gd` 5/5 PASSED 82 ms (AC-CRD-10 phases a/b + AC-CRD-50 phases a/b/c/d).
+
+**Files modified (2)** — livrés par session voisine durant batch parallèle 2026-04-28 :
+- `src/core/credit_economy.gd` : ajout signal `new_run_requested` côté GSM (`game_state_manager.gd:32`) + handler `_on_request_new_run()` côté Credit (`credit_economy.gd:299`) + connexion direct dans `_ready()` (autoload idx 2 GSM avant idx 22 Credit).
+- `tests/integration/credit/credit_economy_run_purge_test.gd` NEW — 5 tests pattern hermétique (AC-CRD-10 trigger purge + AC-CRD-50 checkpoint defensive 4 phases).
+
+**Convergence parallèle** : closure faite par cette session après convergence — implementation et tests pré-existants (commits voisins). Re-run validation 5/5 vert + suite credit globale 59/59 vert.
+
+**Deviations** :
+- **Possible blocker résolu** : ADR-0007 a été amendé pour exposer signal `new_run_requested()` (vu dans `game_state_manager.gd:32`) — pas de pattern proxy `level_active` nécessaire, signal direct utilisé.
+
+**Code Review** : Skipped (Solo mode)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **Credit Economy epic progress** : **7/8 stories Complete** (001 skeleton + 002 KILL + 003 SECRET + 004 Persistence + 005 Run-purge + 006 Perf + 007 Lints). Reste **008 Visual/Feel HUD frame-perfect** (manual evidence type Visual/Feel — pas de tests automatisés).
