@@ -12,10 +12,14 @@ config_version=5
 
 config/name="Chrome Ascent"
 config/features=PackedStringArray("4.6", "Forward Plus")
+run/main_scene="res://scenes/menus/main_menu.tscn"
 
 [autoload]
 
 InputManager="*res://src/core/input_manager.gd"
+GameStateManager="*res://src/core/game_state_manager.gd"
+SaveLoadSystem="*res://src/core/save_load_system.gd"
+CreditEconomy="*res://src/core/credit_economy.gd"
 LevelSystem="*res://src/gameplay/level/level_system.gd"
 
 [display]
