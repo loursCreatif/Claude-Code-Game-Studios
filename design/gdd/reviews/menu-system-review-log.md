@@ -5,6 +5,134 @@
 
 ---
 
+## 2026-04-28 — `/design-system menu-system r2` PRE-IMPL/POLISH session (r2 cosmetic → r2 full)
+
+- **Trigger** : continuation Menu r2 cosmetic 2026-04-27. Adresse les 36 findings PRE-IMPL/POLISH différés du fresh `/design-review` r1 (G-3..G-15, S-3+S-5..S-13, U-1..U-10, Q-2..Q-14).
+- **Mode** : solo auto-approve, scope-bounded sur les 36 findings classés r1 review report.
+- **Verdict cible** : NEEDS REVISION (r1) → **r2 full pending fresh `/design-review` lean re-pass** (la r2 PRE-IMPL/POLISH résout tous les findings r1 différés).
+- **Note cross-session** : pendant que cette r2 PRE-IMPL/POLISH tournait, la **session voisine a lancé une fresh `/design-review` adversariale 5 specialists** (entrée du dessous). Les patches r2 PRE-IMPL/POLISH appliqués ici ont **résolu en parallèle ~10 findings explicitement** + ~3 partiellement de la fresh r3 voisine (cartographie post-cross-session voir entrée du dessous). Cette entrée documente uniquement les patches GDD r2 PRE-IMPL/POLISH ; les patches UX-spec G-02/G-06 sont owned par la session voisine.
+
+- **Findings r1 adressés (36 total)** :
+
+  **game-designer (12)** :
+  - **G-3** : sub-states LOADING/SHUTDOWN documentés explicitement dans table States (sous-section "Sub-states implicites non-GSM") avec colonnes "GSM réel pendant cette phase" + "Comportement Menu" + "Notes".
+  - **G-4** : pattern d'instanciation tranché — **authoring static via `.tscn` étage** (pas BaseEtage code). R-MNU-3b authoring lint formalisé.
+  - **G-5** : sub-state SHOPPING documenté (GSM reste PLAYING, Shop r1 R-SHP-9 first-handler ESC consume). AC-MNU-60 cross-GDD lint Shop ESC consume.
+  - **G-6** : EC-MNU-41 zero-instance Pause Overlay ajouté + AC-MNU-59 BLOCKING enforce `grep -c "pause_overlay" etage_*.tscn == 1`.
+  - **G-7** : R-MNU-17b → **R-MNU-19** (renommage pour disambiguation R-MNU-17 idempotence ESC ≠ R-MNU-19 save-on-quit). Note de migration ajoutée.
+  - **G-8** : `ResumeButton.grab_focus()` documenté explicitement dans `_apply_visibility(true)` exemple R-MNU-12 r2 cosmetic — confirmé.
+  - **G-9** : AC-MNU-59 BLOCKING zero-instance lint adresse aussi G-9 (couverture EC-MNU-41).
+  - **G-10** : R-MNU-20 ajouté — `set_mouse_captured(bool)` documenté comme API publique stable d'InputManager (ADR-0004 D-7), distinct du refcount D-4.
+  - **G-11** : pattern d'instanciation détaillé dans R-MNU-3 (alternative `BaseEtage` rejetée explicitement).
+  - **G-12** : `DimRect` ajouté à la hiérarchie R-MNU-3 (était K.2-only).
+  - **G-14** : naming canonique tranché — **`PauseLayer`** (pas `PauseOverlayRoot`). Note de migration ajoutée. Tous les ACs alignés.
+  - **G-15** : R-MNU-19 (ex R-MNU-17b) cite explicitement OQ-MNU-1 RESOLVED + AC-MNU-57.
+
+  **systems-designer (8)** :
+  - **S-3** : EC-MNU-36 ajouté — quit pendant `change_scene_to_file` LOADING phase, cite Save/Load r1 R-SAV-9.
+  - **S-5** : EC-MNU-37 ajouté — window minimize pendant Pause visible (NOTIFICATION_WM_WINDOW_MINIMIZED distinct FOCUS_OUT).
+  - **S-6** : EC-MNU-38 ajouté — sleep/wake OS pendant Pause (hibernation macOS/Windows).
+  - **S-7** : EC-MNU-39 ajouté — controller hot-plug pendant Pause (gamepad MVP=stretch, mitigation Tier 2+).
+  - **S-8** : F-MNU-1 mesurabilité headless documentée — stratégie composé `T_in + T_gsm + T_def` (AC-MNU-40) + complete `T_in + T_gsm + T_def + T_ren` (AC-MNU-65 nouveau ADVISORY r2).
+  - **S-10** : Provisional contracts table élargie (NOTIFICATION_WM_WINDOW_FOCUS_IN/OUT owner InputManager confirmé, `get_tree().paused` mutation authority GSM, `ui_cancel_pressed` always emit Input r6, `set_mouse_captured` setter public, `prefers-reduced-motion` Tier 2+).
+  - **S-12** : EC-MNU-40 ajouté — lifecycle PRE_READY phase + AC-MNU-62 ADVISORY r2 lint `visible = true` dans `pause_overlay.tscn`.
+  - **S-13** : F-MNU-3 bornes explicites documentées — N=0 (impossible MVP, guard Tier 2+ `assert(N >= 1)`), N=1 (focus reste sur unique bouton, no-op visuel), N=2/3 MVP cas standards.
+
+  **ux-designer (10)** :
+  - **U-1** : K.1 Breakpoints élargis — 21:9 ultrawide (3440×1440), 32:9 super-ultrawide (5120×1440), portrait hors scope MVP, safe-area Steam Deck Tier 2+.
+  - **U-2** : K.9 11 px version number rationale (debug-only, `DEBUG_SHOW_VERSION = false` MVP) + AC-MNU-67 ADVISORY r2.
+  - **U-3** : K.4 token split `MENU_BG_OVERLAY_RGB` (#000000) + `MENU_BG_OVERLAY_ALPHA` (0.65 scalar). K.2 DimRect réécrit en référence aux tokens (pas `Color(0,0,0,0.65)` hardcoded).
+  - **U-4** : K.5 sous-section "Coexistence hover ↔ focus" — coexistence visuelle, pas de focus-follows-pointer, rect Focus l'emporte si même bouton. AC-MNU-65 ADVISORY r2 evidence manuel.
+  - **U-5** : K.6 sous-section "Space bar comportement Godot natif" + "Remap accelerators Tier 2+" (Settings Menu OQ-MNU-3).
+  - **U-6** : K.7 sous-section "Précision snap dans le contexte CONNECT_DEFERRED" — définition opérationnelle "même frame" = même frame que la délivrance handler deferred, élimine contradiction AC-MNU-33 sans `await`.
+  - **U-7** : K.8 anti-pattern `bg_color_2` ajouté + AC-MNU-66 ADVISORY r2.
+  - **U-8** : K.9 sous-section `prefers-reduced-motion` (MVP zéro animation = de facto satisfait, défense en profondeur AC-MNU-64 r2).
+  - **U-9** : K.10 `design/ux/quit-flow.md` documenté NOT-blocking MVP, mandatory pré-Tier 3 Steam submission.
+  - **U-10** : Player Fantasy anti-fantasy "double-ESC pause involontaire" ajouté.
+
+  **qa-lead (6 ACs modifiés + 9 nouveaux ACs r2)** :
+  - **Q-2** : AC-MNU-32 modifié — clause `release_called_before_transition` via `Time.get_ticks_usec()` ordering.
+  - **Q-4** : AC-MNU-40 + AC-MNU-41 modifiés — P95 + P99 + max < 100 ms, 60 runs avec stabilisation 1 s.
+  - **Q-5** : AC-MNU-42 modifié — 10 cycles warmup ignorés + 100 cycles mesurés, baseline absorbe Theme cache.
+  - **Q-7** : AC-MNU-59 BLOCKING (zero/double-instance) couvre EC-MNU-8 par construction.
+  - **Q-8** : AC-MNU-62 ADVISORY (visible=true grep racine PauseLayer).
+  - **Q-9** : AC-MNU-5b BLOCKING — `grep project.godot autoload` → 0 match Menu autoload.
+  - **Q-11** : AC-MNU-63 BLOCKING — `grep NOTIFICATION_WM_WINDOW_FOCUS src/gameplay/menu/` → 0 match.
+  - **Q-12** : AC-MNU-61 BLOCKING — F-MNU-3 tab cycle wrap inverse (Shift+Tab depuis i=0 → i=N-1).
+  - **Q-13** : AC-MNU-56 modifié — filter strict `^layer\s*=\s*[0-9]+` exclut `physics_layer`/`render_layer`/`collision_layer`/`light_mask`/`visibility_layer`.
+  - **Q-14** : AC-MNU-44 modifié — scope étendu `scenes/etages/` parse isolé Pause Overlay child.
+
+- **Renamings & migrations** :
+  - `R-MNU-17b` → `R-MNU-19` (G-7 disambiguation).
+  - `PauseOverlayRoot` → `PauseLayer` (G-14 naming canonique).
+  - `MENU_BG_OVERLAY_ALPHA` (single token couleur+alpha) → `MENU_BG_OVERLAY_RGB` + `MENU_BG_OVERLAY_ALPHA` scalar (U-3 split).
+  - 1 R-MNU ajouté (`R-MNU-20`).
+  - 7 EC ajoutés (`EC-MNU-36`..`EC-MNU-42`).
+  - 10 ACs ajoutés (`AC-MNU-5b`, `AC-MNU-59`..`AC-MNU-67`).
+  - Total ACs : 56 → 66.
+
+- **OQ updates** :
+  - **OQ-MNU-6 Alt+F4 / Cmd+Q** : RESOLVED par cascade OQ-MNU-1 (même délégation pure SaveLoad r1 R-SAV-9 couvre tous les triggers de `NOTIFICATION_WM_CLOSE_REQUEST`).
+
+- **Files touched (3)** :
+  - `design/gdd/menu-system.md` (r2 cosmetic → r2 full — header bump + Player Fantasy U-10 + R-MNU-3/3b/19/20 + table States sub-states + F-MNU-1/3 + EC-MNU-36..42 + Provisional contracts table + K.1/K.2/K.4/K.5/K.6/K.7/K.8/K.9/K.10 patches + 6 ACs modifiés + 10 nouveaux ACs + OQ-MNU-6 RESOLVED).
+  - `design/gdd/reviews/menu-system-review-log.md` (cette entrée).
+  - `design/gdd/systems-index.md` (Menu row Designed r2 cosmetic → Designed r2 full pending lean re-pass).
+
+- **3 BLOCKING résiduels post r2 PRE-IMPL/POLISH** *(de la fresh r3 voisine entrée du dessous, à traiter en r3 micro-batch ou lors du lean re-pass)* :
+  - **S-02** : BUTTON_MIN_WIDTH_PX math à valider (PAUSE_PANEL_WIDTH 360 px − padding 80 px = 280 px, "Quitter vers Menu Principal" 27 chars × 9 px monospace ≈ 243 px → tient mais marge ~37 px).
+  - **S-03+B-01+B-06** : tree_exiting guard chains à compléter (le `is_inside_tree()` r2 cosmetic guard couvre `_apply_visibility` + `_on_state_changed` mais pas tous les call paths).
+  - **S-04** : AC-MNU-36 anti-tween regex à élargir (couvrir aussi `Animation`/`AnimationPlayer` côté script Menu — partiellement adressé par AC-MNU-64 r2 nouveau).
+
+- **Solo gates** : CD-GDD-ALIGN skipped (Solo mode `production/review-mode.txt`).
+- **Next recommandé** :
+  - **A** : commit batch atomic 3 fichiers menu r2 full + entrée log + systems-index.
+  - **B** : `/design-review menu-system` LEAN re-pass (single-session 10-15 min) pour valider non-régression r2 full + adresser les 3 BLOCKING résiduels (S-02, S-03+B-01+B-06, S-04).
+  - **C** : `/create-epics menu-system` après lean re-pass APPROVED.
+  - **D** : `/consistency-check` cross-GDD post r2 full (cohérence Shop r1 R-SHP-9 ESC consume + GSM r1 sub-states).
+
+---
+
+## 2026-04-28 — Fresh `/design-review` post r2 cosmetic (CROSS-SESSION superseded by r2 PRE-IMPL/POLISH session voisine)
+
+- **Trigger** : `/design-review menu-system fresh` (Martin solo auto-approve, post r2 cosmetic + UX specs main-menu/pause-menu livrées).
+- **Mode** : Adversarial — full (5 specialists parallèles : game-designer + systems-designer + qa-lead + ux-designer + **godot-specialist** [first Godot-specific lens]) + creative-director synthèse senior.
+- **Target inspecté au spawn** : `design/gdd/menu-system.md` r2 cosmetic (1166 lignes).
+- **Verdict pré-cross-session** : NEEDS REVISION (minor) — 13 BLOCKING + 19 RECOMMENDED + 10 NICE-TO-HAVE = 42 findings.
+- **6 convergences cross-specialist détectées** :
+  1. PROCESS_MODE_ALWAYS justification race incorrecte [G-03 + B-03]
+  2. Focus+Hover coexistence Godot 4.6 dual-focus [U-14 + B-02]
+  3. tree_exiting guard r2 BLK-3 partiel [S-03 + B-01 + B-06]
+  4. AC grep robustness (audio/dialog/process_mode/time_scale) [S-04 + Q-1 + Q-2 + Q-7 + Q-9]
+  5. Layer regex faux positifs [Q-5 + B-08]
+  6. Engine.time_scale regex redondante [Q-9 + B-05]
+- **Aucun désaccord cross-specialist** détecté — convergences ou indépendances seulement.
+- **CROSS-SESSION DETECTION** : pendant que cette fresh re-review tournait, une **session parallèle a appliqué la r2 PRE-IMPL/POLISH session** au GDD (1166 → 1273 lignes, +107). Le Status header indique maintenant "Designed r2 (full) ; pending fresh `/design-review` lean re-pass". La majorité des 42 findings r3 fresh ont été **résolus en parallèle** par la session voisine (convergence cross-session attendue car les deux sessions partagent les ~36 PRE-IMPL/POLISH r1 + le contexte UX specs).
+- **Cartographie post-cross-session** :
+  - **RÉSOLUS explicitement par r2 PRE-IMPL/POLISH** (~10) : S-05, S-06, U-1/15, U-3/13, U-4/14/B-02, U-10/18, U-16, B-04, Q-11
+  - **RÉSOLUS partiellement** (~3) : G-03+B-03, S-01, Q-3, U-17
+  - **À VÉRIFIER post-r2** (~3 BLOCKING résiduels) : S-02 (BUTTON_MIN_WIDTH_PX math), S-03+B-01+B-06 (tree_exiting guard), S-04 (AC-MNU-36 anti-tween regex)
+  - **NON résolus** (~16 RECOMMENDED + 7 NICE) : G-01, G-04, G-05, G-07, Q-1, Q-2, Q-4, Q-5+B-08, Q-6, Q-7, Q-8, Q-9+B-05, Q-10, Q-12, U-19, B-06, B-07, G-06 (UX patché ici), Q-13/14/15
+- **Patches r3 fresh appliqués (UX-spec côté seulement, pas de cross-session conflict)** :
+  1. **G-02 RESOLVED** — `design/ux/pause-menu.md` ligne 51 : "MenuController (autoload ou node persistent)" → "PauseMenuControllerScript (node-local, enfant direct de la scène étage — cf. GDD R-MNU-1 + R-MNU-3 + OQ-MNU-5 RESOLVED)".
+  2. **G-06 RESOLVED** — Headers `design/ux/main-menu.md` et `design/ux/pause-menu.md` r1 : référence "GDD r1" mise à jour vers "GDD r2 full" + lien vers ce report cross-session.
+- **GDD non touché par cette fresh r3** — aucun patch appliqué à `design/gdd/menu-system.md` pour éviter cross-session overwrite des r2 PRE-IMPL/POLISH patches voisins.
+- **Files touched par cette fresh r3 (3)** :
+  - `design/gdd/reviews/menu-system-review-r2-fresh-2026-04-27.md` (NEW report 5 specialists + creative-director + cross-session cartographie)
+  - `design/ux/pause-menu.md` (G-02 + G-06 patches)
+  - `design/ux/main-menu.md` (G-06 patch)
+  - `design/gdd/reviews/menu-system-review-log.md` (this entry)
+- **Verdict effectif post-cross-session** : NEEDS REVISION (minor) — ~3 BLOCKING résiduels + ~14 RECOMMENDED + ~7 NICE.
+- **Path to APPROVED** : lancer **fresh `/design-review menu-system` LEAN** (single-session, sans 5 specialists adversariaux) post-r2 PRE-IMPL/POLISH pour valider non-régression + adresser les 3 BLOCKING résiduels (S-02, S-03+B-01+B-06, S-04). 10-15 min suffit. Cohérent avec le Status header r2 lui-même.
+- **Solo gates** : CD-GDD-ALIGN skipped (Solo mode `production/review-mode.txt`).
+- **Next recommandé** :
+  - **A** : commit batch atomic 4 fichiers (r2 PRE-IMPL/POLISH GDD + r3 fresh UX patches + report + log).
+  - **B** : `/design-review menu-system` LEAN re-pass (single-session 10-15 min) post-r2 PRE-IMPL/POLISH pour APPROVED final.
+  - **C** : adresser les 3 BLOCKING résiduels (S-02 button width math, S-03+B-01+B-06 tree_exiting guard, S-04 AC-MNU-36 regex) en r3 cosmetic micro-batch.
+  - **D** : `/create-epics menu-system` après lean re-pass APPROVED.
+
+---
+
 ## 2026-04-27 — Fresh `/design-review` (r1 → r2 cosmetic)
 
 - **Trigger** : `/design-review menu-system fresh session pour résoudre OQ-MNU-1 + commit batch (4 fichiers)` (Martin solo auto-approve, post Save/Load r1 + Upgrade r1 backbone hard-lock).

@@ -1,8 +1,8 @@
 # Menu System
 
-> **Status**: Designed r2 (cosmetic — fresh /design-review 2026-04-27 résout 4 ship-blocking + RESOLVED OQ-MNU-1 ; 30+ PRE-IMPL/POLISH déférés à r2 design session distincte avant `/create-epics`)
+> **Status**: Designed r2 (full — r2 cosmetic 4 ship-blocking + RESOLVED OQ-MNU-1 + r2 PRE-IMPL/POLISH session 2026-04-27 résout les 36 findings différés ; pending fresh `/design-review` lean re-pass avant `/create-epics`)
 > **Author**: Martin + design-system skill (auto mode) + creative-director (Player Fantasy) + game-designer + ux-designer (Detailed Rules + UI) + systems-designer (Edge Cases) + qa-lead (Acceptance Criteria) + 4 specialists adversariaux fresh review (game-designer + systems-designer + ux-designer + qa-lead)
-> **Last Updated**: 2026-04-27 (r2 cosmetic — voir `reviews/menu-system-review-r1-2026-04-27.md`)
+> **Last Updated**: 2026-04-27 (r2 PRE-IMPL/POLISH — voir `reviews/menu-system-review-log.md`)
 > **Implements Pillar**: Pillar 1 FLOW AVANT TOUT (primaire — pause/resume < 100 ms, anti-friction ESC, zero death-screen) + Pillar 3 UNE SECONDE CHANCE (par soustraction — pas de menu interruptif au respawn)
 > **Depends on**: GameStateManager (APPROVED r1), Input System (r6 NEEDS REVISION mineur — structure PASS)
 > **Depended on by**: Shop r1 (bouton Continuer / Main Menu ciblent main_menu.tscn ou start_etage), HUD r1 (visibility hide en PAUSED — peer no conflict avec Pause overlay), Audio r2.1 (peer ducking PAUSED owned Audio)
@@ -46,6 +46,7 @@ Il n'y a pas de death-screen. Quand le joueur meurt, l'état machine passe en RE
 - **Pas d'écran "Loading..." visible** — le fade noir du GSM (layer 100) masque les chargements ; le joueur voit du noir, pas un spinner ni une barre de progression.
 - **Pas de musique de menu différente** — le Menu n'introduit pas de track lounge ambient propre. Le Main Menu hérite du même silence/ambient que la première seconde de l'étage 1 ; le Pause Menu hérite de la track de l'étage en cours, duckée -12 dB. Un seul univers sonore, pas deux.
 - **Pas de tutoriel intrusif** — aucun popup "Appuyez sur W pour avancer" au premier boot. Le Main Menu propose Start Run, point. L'apprentissage se fait dans l'étage 1, par le mouvement.
+- **Pas de double-ESC qui flash le Pause** *(r2 — anti-fantasy U-10)* — un appui ESC + ESC très rapide (rebond clavier ou intention "annuler ce que je viens d'ouvrir") doit produire un toggle propre PLAYING → PAUSED → PLAYING géré par l'idempotence GSM, **pas** un flash visible de l'overlay (overlay qui apparaît 16 ms puis disparaît). Le joueur ne doit jamais sentir qu'il a "raté" sa pause. Le pattern `CONNECT_DEFERRED` + snap on/off (R-MNU-15) garantit que les deux events sont absorbés dans la même frame logique côté GSM ; aucun rendu intermédiaire ne montre l'overlay si les deux ESC tombent dans le même tick physics.
 
 ### Références — ce qu'on prend, ce qu'on jette
 
@@ -87,19 +88,30 @@ MainMenuRoot : Control (fullscreen, ProcessMode = PROCESS_MODE_INHERIT)
 
 ⚠️ **DESIGN DECISION** : `pause_overlay.tscn` est instancié comme **enfant direct de la scène étage** (e.g. `etage_01.tscn`), pas comme autoload, pas comme CanvasLayer top-level autoload. Il vit et meurt avec son étage. Cette philosophie — "le Pause Overlay vit avec le gameplay" — évite les failles de lifetime (un autoload Pause qui persiste entre deux `change_scene_to_file` alors que l'étage est déjà déchargé). Il est caché (`visible = false`) dès l'instanciation et piloté exclusivement par `state_changed(State.PAUSED)`.
 
-Hiérarchie de nœuds `pause_overlay.tscn` :
+Hiérarchie de nœuds `pause_overlay.tscn` *(r2 — naming canonique `PauseLayer` aligné K.2 + AC-MNU-37/55, DimRect explicité G-12)* :
 ```
-PauseOverlayRoot : CanvasLayer (layer = 80, ProcessMode = PROCESS_MODE_ALWAYS)  # r2 corrigé : alignement K.2 + AC-MNU-37 + Tuning Knob PAUSE_OVERLAY_PROCESS_MODE — voir R-MNU-14
-└── PausePanel : Control (fullscreen)
-    ├── Background : ColorRect (#0A0A14 opacity 0.92)
-    ├── TitleLabel : Label ("PAUSE")
-    └── ButtonContainer : VBoxContainer
-        ├── ResumeButton : Button ("Reprendre")
-        ├── MainMenuButton : Button ("Quitter vers Menu Principal")
-        └── QuitButton : Button ("Quitter le jeu")
+PauseLayer : CanvasLayer (layer = 80, ProcessMode = PROCESS_MODE_ALWAYS)  # r2 cosmetic alignement K.2 + AC-MNU-37 + Tuning Knob PAUSE_OVERLAY_PROCESS_MODE — voir R-MNU-14
+├── DimRect : ColorRect (anchor_preset = FULL_RECT, color = MENU_BG_OVERLAY_ALPHA token K.4)  # r2 G-12 — DimRect explicité dans la hiérarchie R-MNU-3 (était K.2-only)
+└── PausePanel : Control (fullscreen, FULL_RECT)
+    └── PanelContainer : PanelContainer (ancré centre-centre, MENU_PANEL_BG K.4)
+        ├── PauseTitleLabel : Label ("PAUSE" — optionnel)
+        └── ButtonContainer : VBoxContainer
+            ├── ResumeButton : Button ("Reprendre")
+            ├── MainMenuButton : Button ("Quitter vers Menu Principal")
+            └── QuitButton : Button ("Quitter le jeu")
 ```
 
+⚠️ **Naming canonique** *(r2 — G-14)* : la racine de `pause_overlay.tscn` est nommée **`PauseLayer`** (pas `PauseOverlayRoot`). Tous les ACs (`AC-MNU-37`, `AC-MNU-55`) référencent `PauseLayer`. L'ancienne mention `PauseOverlayRoot` est dépréciée — utiliser `PauseLayer` dans tous les nouveaux écrits scripts/scènes.
+
 `CanvasLayer.layer = 80` : au-dessus du HUD (layer 50) et du Shop (layer 60), en-dessous du GSM fade overlay (layer 100). Toujours visible sur le gameplay, jamais masqué par une autre surface UI MVP.
+
+**Pattern d'instanciation** *(r2 — G-4 + G-11)* : la décision de **qui** ajoute `pause_overlay.tscn` à chaque scène étage est tranchée au profit de l'**authoring static via le `.tscn` de l'étage** (pas instanciation runtime via code) :
+
+- **MVP retenu (a)** : chaque `etage_XX.tscn` contient le nœud `pause_overlay.tscn` instancié comme enfant direct de la racine de la scène, sauvegardé visuellement dans le `.tscn` de l'étage (drag & drop dans l'éditeur Godot, `Instantiate Child Scene`). Pattern simple, zéro code dans `BaseEtage`, zéro instanciation runtime à orchestrer.
+- **Alternative rejetée (b)** : classe `BaseEtage` parent qui ferait `add_child(preload("pause_overlay.tscn").instantiate())` dans son `_ready()`. Plus DRY mais introduit une dépendance hiérarchique côté Level System et complique la lecture de la scène (le Pause Overlay n'est pas visible dans le `.tscn` de l'étage).
+- **Conséquence MVP** : un nouveau étage créé sans `pause_overlay.tscn` instancié ne pourra pas être pausé (ESC silencieux — couvert par EC-MNU-41 zero-instance + AC-MNU-59 grep enforce). Trade-off accepté : la responsabilité d'inclure le Pause Overlay incombe à l'auteur level (level-designer agent), validé en CI via lint.
+
+**R-MNU-3b — Authoring lint : chaque scène étage gameplay DOIT instancier `pause_overlay.tscn` exactement 1×** *(r2 — G-4 + G-9 + EC-MNU-41)* — le test statique (AC-MNU-59) parse les `.tscn` du dossier `scenes/etages/` et compte les occurrences de `pause_overlay.tscn` : exactement 1 par fichier. Zéro instance = ESC silencieux non détecté ; deux instances = double-overlay (couvert EC-MNU-8).
 
 **R-MNU-4 — Pattern pull au `_ready()` : lire `GSM.get_current_state()` avant la première frame**
 
@@ -274,9 +286,11 @@ Cohérent avec Pillar 1 — un fade de 200 ms à l'ouverture de pause est percep
 
 Si ESC est pressé pendant qu'une transition GSM est déjà en cours (`request_scene_transition` ou `start_etage` appelé mais scène non encore chargée), le handler `_on_ui_cancel()` appelle `get_current_state()`. GSM retourne l'état **courant** (PLAYING, PAUSED, ou un état intermédiaire) — `request_pause()` pendant une transition déjà en cours est safe car le GSM contient sa propre guard d'idempotence (ADR-0007). Le Menu ne doit pas dupliquer cette guard — il délègue au GSM. Comportement attendu : au pire, l'appel est un no-op côté GSM, jamais un double-transition.
 
-**R-MNU-17b — Save-on-quit : délégué au SaveLoadSystem, Menu n'orchestre rien**
+**R-MNU-19 — Save-on-quit : délégué au SaveLoadSystem, Menu n'orchestre rien** *(r2 — renommage R-MNU-17b → R-MNU-19, G-7 disambiguation : R-MNU-17 idempotence ESC ≠ R-MNU-19 save-on-quit ; cf. OQ-MNU-1 RESOLVED + AC-MNU-57)*
 
-⚠️ **DESIGN DECISION** : le Menu ne contient aucun appel `SaveLoad.save_*()` avant `get_tree().quit()`. Toute sauvegarde pre-quit est la responsabilité du **SaveLoadSystem** via `NOTIFICATION_WM_CLOSE_REQUEST` (cf. GSM EC-6 — pattern standard Godot pour intercept de fermeture). Le Menu déclenche `get_tree().quit()` sans attendre aucun callback. Si SaveLoadSystem n'est pas encore implémenté au MVP (Not Started), cette règle reste valide — il n'y a rien à sauvegarder au moment où le Menu agit.
+⚠️ **DESIGN DECISION** : le Menu ne contient aucun appel `SaveLoad.save_*()` avant `get_tree().quit()`. Toute sauvegarde pre-quit est la responsabilité du **SaveLoadSystem** via `NOTIFICATION_WM_CLOSE_REQUEST` (cf. Save/Load r1 R-SAV-9 + R-SAV-8 + R-SAV-5 + ADR-0007 D-1 — pattern standard Godot pour intercept de fermeture). Le Menu déclenche `get_tree().quit()` sans attendre aucun callback. Si SaveLoadSystem n'est pas encore implémenté au MVP (Not Started), cette règle reste valide — il n'y a rien à sauvegarder au moment où le Menu agit. **Lint** : AC-MNU-57 BLOCKING enforce `grep -rE "SaveLoad|save_int|save_string_array|save_now" src/gameplay/menu/` → 0 match.
+
+> **Note de migration** *(r2)* : les anciennes références à `R-MNU-17b` dans les commits / reviews antérieurs pointent désormais vers `R-MNU-19`. Tout autre rapport ou story qui cite `R-MNU-17b` doit être amendé.
 
 **R-MNU-18 — Zéro logique gameplay dans le Menu System**
 
@@ -286,6 +300,10 @@ Le `MainMenuControllerScript` et le `PauseMenuControllerScript` ne contiennent *
 - Variables de session en cours (health, crédits, étage actuel, ennemis tués)
 
 Les seules dépendances autorisées pour les deux controllers sont : `GameStateManager` (5 verbes figés ADR-0007 D-10 + signal `state_changed`) et `InputManager` (signal `ui_cancel_pressed` + appels `set_mouse_captured` + `request_disable`/`release_enable_request`). Toute future référence gameplay requiert un amendement explicite de ce GDD et une justification Pillar.
+
+**R-MNU-20 — `set_mouse_captured(bool)` est une API publique figée d'InputManager** *(r2 — G-10 clarification ADR-0004)*
+
+L'appel `InputManager.set_mouse_captured(captured: bool)` (consommé par R-MNU-12) est un **setter public stable** d'InputManager, distinct de l'API refcount `request_disable` / `release_enable_request` (D-4 multi-owner). Référence canonique : ADR-0004 D-7 — "focus_regain_window pattern" (le setter diffère l'application de `MOUSE_MODE_CAPTURED` jusqu'au prochain `NOTIFICATION_WM_WINDOW_FOCUS_IN` si la fenêtre n'a pas le focus OS au moment de l'appel). Aucun owner key n'est requis (contrairement au refcount `&"PauseMenu"`). L'idempotence est garantie côté InputManager — appels successifs avec la même valeur sont no-op. Le Menu peut donc appeler `set_mouse_captured(false)` deux fois sans risque de race ou de double-state.
 
 ---
 
@@ -302,6 +320,16 @@ Le Menu System n'a pas de machine d'état interne — il est **consommateur** de
 | `PAUSED` | **Absente** | **Visible** — Pause Overlay affiché, 3 boutons accessibles, InputManager disable posé | → `GSM.request_resume()` | `false` (libre) |
 | `RESPAWNING` | **Absente** | **Hidden** — inaccessible pendant die-retry < 2 s (ADR-0007 matrice) | No-op (guard `_on_ui_cancel` R-MNU-6) | `true` (capturée FPS — die-retry en cours) |
 | `BOSS_DEFEATED` | **Absente** | **Hidden** — état terminal post-MVP, scène boss-defeated owned ailleurs | No-op | N/A (état terminal) |
+
+**Sub-states implicites non-GSM** *(r2 — G-3 + G-5 documentation explicite)*
+
+ADR-0007 ne reconnaît que **5 états canoniques** (MENU, PLAYING, PAUSED, RESPAWNING, BOSS_DEFEATED). Les phases ci-dessous sont **des sous-états de transition** qui ne sont **jamais émis** par `state_changed` — le Menu ne reçoit aucun signal pour ces phases. La table documente le comportement Menu **par construction** :
+
+| Sub-state implicite | GSM réel pendant cette phase | Comportement Menu | Notes |
+|---|---|---|---|
+| **LOADING** (transition `change_scene_to_file` en cours) | État source de la transition (PLAYING avant `start_etage`, PAUSED avant `request_scene_transition`, ou MENU pour boot) | Pause Overlay éventuel détruit avec la scène source par `change_scene_to_file` ; nouveau Pause Overlay pas encore instancié dans la scène destination. **Ni signal `state_changed` ni handler Menu actifs pendant la phase de chargement** — le fade noir GSM (layer 100) masque la transition visuellement. | Couvert EC-MNU-3 (ESC pendant chargement → no-op subscriber). Couvert EC-MNU-36 (quit pendant `change_scene_to_file`). |
+| **SHOPPING** (Shop Menu visible) | **GSM reste PLAYING** — Shop r1 est un overlay qui n'utilise PAS l'état PAUSED (Shop `process_mode = ALWAYS` mais GSM ne mute pas state). Shop r1 owns son propre handler ESC (R-SHP-9) avec `set_input_as_handled()`. | Pause Overlay reste **hidden** car GSM est PLAYING. ESC pressé pendant Shop visible est **consommé en priorité par Shop** (Shop layer=60 + son ESC consume) — `ui_cancel_pressed` n'atteint jamais le PauseController. Si Shop laisse passer (bug), guard `_on_ui_cancel` lit GSM=PLAYING et appelle `request_pause()` — ouverture Pause par-dessus Shop visible (collision visuelle layer 80 > 60, mais comportement défini). | Conflit ESC potentiel résolu par Shop r1 R-SHP-9 first-handler. AC-MNU-60 lint vérifie zero collision. |
+| **SHUTDOWN** (process termination en cours après `get_tree().quit()`) | État courant gelé au moment du quit. `NOTIFICATION_WM_CLOSE_REQUEST` émis, autoloads détruits **après** scene root. | `_on_state_changed` ne reçoit plus rien (signal table en cours de teardown). Tous handlers Menu sont no-op à ce stade. `tree_exiting` propre déclenche `release_enable_request(&"PauseMenu")` avant destruction (R-MNU-13 + EC-MNU-23). | SaveLoad r1 R-SAV-9 owns le notification handler (R-MNU-19 délégation). |
 
 #### Lifecycle Main Menu
 
@@ -365,6 +393,11 @@ Latence perçue entre press ESC et état visible PAUSED (ou inverse) :
 
 **Example** : ESC pressé tick T0 (`T_in = 8 ms`), GSM mute state SYNC (`T_gsm = 0.5 ms`), CONNECT_DEFERRED handler appelé tick T1 (`T_def = 16.6 ms`), frame rendue T2 (`T_ren = 16.6 ms`) → total = **41.7 ms** ✅ sous Pillar 1.
 
+**Mesurabilité headless** *(r2 — S-8)* : `Time.get_ticks_msec()` mesure le temps wall-clock, pas le temps "frame rendue à l'écran". En mode headless (`--headless` CI), `T_ren` n'est pas observable car aucun frame n'est rendu. **Stratégie de test** :
+- Test `[Logic]` (AC-MNU-40 BLOCKING) : mesure `[input emit] → [pause_layer.visible == true]` SYNC en environnement headless via timestamps `Time.get_ticks_msec()`. Ce composé `T_in + T_gsm + T_def` est mesurable (couvre 3 des 4 termes) et doit être < 50 ms (50 ms = 100 ms − borne `T_ren` 16.6 ms × 3 marge).
+- Test `[Performance manual]` (AC-MNU-65 ADVISORY r2) : mesure complète `T_in + T_gsm + T_def + T_ren` sur build avec rendu actif (CI `xvfb` ou local). Confirme que la chaîne complète tient sous 100 ms en conditions réelles.
+- L'écart entre les deux tests = `T_ren` réel (16.6 ms à 60 fps cible). Si le test headless passe mais le test manuel échoue, le coût de rendu d'un frame Pause est anormal (investiguer Theme override, font preload, etc.).
+
 ### F-MNU-2 — Pause overlay alpha (perception du freeze, PAS lisibilité texte) *(r2 cosmetic — reformulé : suppression faux argument WCAG sur DimRect, S-4 + U-12 convergent)*
 
 Choix d'alpha du `DimRect` plein écran derrière le `PanelContainer`. **Note critique r2** : le texte du Pause Panel (`MENU_TEXT_BASE #E8E8F0` sur `MENU_PANEL_BG #0A0A12`) est posé sur le `PanelContainer` opaque, **pas sur le DimRect translucide**. Le ratio WCAG 15.2:1 du panel est garanti indépendamment de la valeur alpha du DimRect (cf. K.9). La formule F-MNU-2 ne concerne donc **pas** la lisibilité du texte, mais uniquement la **perception du freeze** (le joueur doit sentir que le jeu attend, pas qu'il a disparu).
@@ -398,7 +431,12 @@ Choix d'alpha du `DimRect` plein écran derrière le `PanelContainer`. **Note cr
 
 **Example** : Pause Menu (N=3), focus initial `i=0` (Reprendre). Tab → `i=1` (Main Menu). Tab → `i=2` (Quit). Tab → `i=0` (wrap). Shift+Tab depuis `i=0` → `i=2` (wrap inverse).
 
-**Rationale** : Godot Control nodes implémentent `focus_neighbor_*` natif si configuré. MVP utilise simplement le défaut Godot (focus next/previous via Tab) et configure les `focus_next/previous` via inspector pour garantir le wrap. Aucun script custom requis MVP.
+**Bornes explicites** *(r2 — S-13)* :
+- **N=0** (aucun bouton focusable) : impossible MVP par contrat (Main Menu = 2 boutons hardcodés, Pause Menu = 3 boutons hardcodés). Si une régression Tier 2+ produisait `N=0` (ex : tous boutons disabled simultanément via Settings Menu non-canonique), `(i + d + 0) mod 0` lèverait une division par zéro Godot → fail loud assertion. Guard préventif : `assert(N >= 1)` dans `focus_next` Tier 2+.
+- **N=1** (un seul bouton focusable) : `(0 + 1 + 1) mod 1 = 0` → focus reste sur le bouton unique (Tab no-op visuel mais pas de crash). Comportement défini, pas un bug.
+- **N=2** (Main Menu) et **N=3** (Pause Menu) : seuls cas MVP. Wrap déterministe garanti.
+
+**Rationale** : Godot Control nodes implémentent `focus_neighbor_*` natif si configuré. MVP utilise simplement le défaut Godot (focus next/previous via Tab) et configure les `focus_next/previous` via inspector pour garantir le wrap. Aucun script custom requis MVP. Couvert AC-MNU-61 (test wrap inverse Shift+Tab depuis i=0).
 
 ### F-MNU-4 — Aucune formule de feel (par négation)
 
@@ -548,6 +586,34 @@ Le Menu System n'a **aucune** formule de easing, de tween, de fade, de spring. T
 
 - **If** le jeu crash pendant que Pause Overlay est visible (state PAUSED) **:** au prochain boot, GSM démarre en état MENU (état initial défini ADR-0007 D-1 — pas d'état persisté cross-session). `main_menu.tscn` est chargée directement. Aucun "pending pause" à hydrater — le Menu System est stateless cross-session MVP (pas de `user://` state pour le menu). InputManager démarre avec refcount vide (aucun `request_disable` orphelin — le crash a tué le process entier). Boot propre garanti.
 
+### EC-MNU-36 — Quit pendant `change_scene_to_file` en cours (LOADING phase) *(r2 — S-3)*
+
+- **If** le joueur clique "Quitter le jeu" depuis Main Menu pendant qu'une transition vers étage est déjà engagée (`start_etage` appelé, `change_scene_to_file` en cours, `main_menu.tscn` en cours de déchargement) **:** Godot émet `NOTIFICATION_WM_CLOSE_REQUEST` quel que soit l'état de transition en cours. Save/Load r1 R-SAV-9 garantit que SaveLoadSystem (autoload pos-3 PROCESS_MODE_ALWAYS) reçoit la notification **avant destruction de l'arbre** (ADR-0007 D-1 — autoloads détruits après scene root). Le quit fonctionne même si `MainMenuController` est en train d'être détruit. Aucun crash, aucune fuite. Si le second clic Quit arrive après que le process a déjà commencé à terminer (race extrême), `get_tree().quit()` est idempotent côté Godot (EC-MNU-17). Pattern OQ-MNU-1 RESOLVED option (a) couvre ce cas.
+
+### EC-MNU-37 — Window minimize pendant Pause Menu visible *(r2 — S-5)*
+
+- **If** l'utilisateur minimise la fenêtre OS (Win + D, dock click macOS, click sur titre) pendant que Pause Overlay est visible (state PAUSED) **:** Godot émet `NOTIFICATION_WM_WINDOW_MINIMIZED` (distinct de `NOTIFICATION_WM_WINDOW_FOCUS_OUT` qui est envoyé sur alt-tab). Le Pause Overlay continue d'exister en mémoire avec `visible = true`. `get_tree().paused` reste `true` (set par GSM). Aucun render n'est effectué pendant le minimize (Godot pause le rendu en background). Au restore (`NOTIFICATION_WM_WINDOW_RESTORED`), le rendu reprend exactement où il s'était arrêté — Pause Overlay visible, gameplay gelé. Mouse capture reste `false` (R-MNU-12). Aucun glitch perceptible. Menu n'a rien à faire — Godot gère la suspension/reprise rendu nativement.
+
+### EC-MNU-38 — Sleep / wake OS pendant Pause Menu visible *(r2 — S-6)*
+
+- **If** l'OS entre en sleep mode (hibernation macOS / sleep Windows) alors que le jeu tourne en état PAUSED (Pause Overlay visible) **:** au wake, le process Godot reprend où il s'était arrêté. `Time.get_ticks_msec()` continue depuis le moment du sleep — il n'y a pas de "delta sleep" injecté. Pause Overlay reste visible, GSM reste PAUSED, refcount InputManager intact. Comportement identique à un long minimize (EC-MNU-37). Si une animation Tier 2+ était active au moment du sleep, elle reprendrait depuis sa frame d'arrêt (pas de "skip" temporel) — MVP zéro animation = aucun risque. Le `state_changed(PLAYING)` éventuel reçu pendant le sleep est queue-é dans la signal queue Godot et délivré au wake (CONNECT_DEFERRED garantit livraison à la frame suivante).
+
+### EC-MNU-39 — Controller hot-plug pendant Pause Menu visible *(r2 — S-7)*
+
+- **If** un gamepad est branché ou débranché USB pendant que Pause Overlay est visible **:** Godot émet `Input.joy_connection_changed` signal. Aucun handler Menu MVP n'écoute ce signal (gamepad support = stretch goal Tier 2+). Le Pause Overlay reste fonctionnel via clavier/souris. **Risque résiduel** : si le gamepad émet un signal `pressed` automatique au branchement (boutons "fantôme"), il est consommé par `InputManager.ui_cancel_pressed` ou `ui_confirm_pressed` selon le mapping → peut activer un bouton focusé sans intention utilisateur. **Mitigation MVP** : ignorer (gamepad MVP=stretch). Tier 2+ : ajouter un debounce 100 ms après `joy_connection_changed` qui bloque les inputs gamepad. Aucun crash, comportement défini mais imperfect MVP.
+
+### EC-MNU-40 — Lifecycle PRE_READY (visible state transient avant `_ready()`) *(r2 — S-12)*
+
+- **If** `pause_overlay.tscn` est instancié dans une scène étage et la racine `PauseLayer.visible` est `true` dans le `.tscn` sauvegardé par erreur d'auteur **:** entre `enter_tree()` et `_ready()`, il existe une fenêtre de 1 frame minimum où la scène est dans le tree avec `visible=true` mais le pattern pull n'a pas encore corrigé l'état. Risque : flash 1 frame de l'overlay avant que `_ready()` exécute `_apply_visibility(false)`. **Mitigation** : le `.tscn` est gardé `visible=false` par défaut (R-MNU-3) — l'authoring lint AC-MNU-58 (legacy) → AC-MNU-62 (r2) grep `visible = true` dans `pause_overlay.tscn` racine retourne 0 match. Couplée avec EC-MNU-32, garantie zéro flash possible.
+
+### EC-MNU-41 — Étage gameplay sans Pause Overlay instancié (zero-instance) *(r2 — G-6 + G-9)*
+
+- **If** un étage `etage_XX.tscn` est créé sans instancier `pause_overlay.tscn` (oubli auteur level) **:** `ui_cancel_pressed` est émis par InputManager mais aucun PauseController n'est subscriber. ESC est silencieusement ignoré sur cet étage — le joueur ne peut pas pauser. Bug perceptuel ("la pause ne marche pas sur l'étage 3") difficile à détecter sans test manuel. **Mitigation lint** : AC-MNU-59 BLOCKING parse les `.tscn` du dossier `scenes/etages/` et exige `grep -c "pause_overlay" etage_*.tscn == 1` pour chaque étage. CI échoue si un étage est sans instance. Détection à l'authoring, pas au runtime.
+
+### EC-MNU-42 — Dual-monitor focus loss pendant Pause Menu visible *(r2 — Q-11)*
+
+- **If** l'utilisateur a deux moniteurs et clique sur un autre moniteur (focus passe à une autre app) pendant que Pause Overlay est visible **:** `NOTIFICATION_WM_WINDOW_FOCUS_OUT` émis par Godot. InputManager (ADR-0004 D-7) gère le `mouse_mode` automatiquement — la souris devient libre (déjà le cas en PAUSED). Au retour focus (clic sur fenêtre Godot), `NOTIFICATION_WM_WINDOW_FOCUS_IN` réapplique `mouse_mode = VISIBLE` (inchangé car PauseMenu refcount actif). **Risque** : si le Menu posait son propre `_notification(NOTIFICATION_WM_WINDOW_FOCUS_*)` handler qui dupliquerait la logique InputManager, double-set du `mouse_mode` créerait une race. **Mitigation par construction** : R-MNU-18 anti-dependency — le Menu n'écoute aucun NOTIFICATION_WM_* directement, délègue à InputManager (single source of truth ADR-0004). Lint AC-MNU-63 BLOCKING `grep -E "NOTIFICATION_WM_WINDOW_FOCUS" src/gameplay/menu/` → 0 match.
+
 ## Dependencies
 
 ### Hard upstream (le Menu ne fonctionne pas sans ces systèmes)
@@ -586,13 +652,19 @@ Le Menu System n'a **aucune** formule de easing, de tween, de fade, de spring. T
 - **ShopSystem** §Dependencies Soft cite "Menu System (Not Started — sibling) — bouton Continuer pointe ici" → réciprocité **partielle** établie côté Shop ; ce GDD complète : "Shop r1 cible `main_menu.tscn` via GSM.request_scene_transition" ✅.
 - **AudioSystem** : Audio r2.1 ne cite pas Menu (zéro SFX MVP cohérent) — réciprocité non requise. Tier 2+ : amendement Audio r2.2 si bus `MENU_UI` introduit.
 
-### Provisional contracts (à valider lors de l'écriture des dépendances)
+### Provisional contracts (à valider lors de l'écriture des dépendances) *(r2 — S-10 expansion)*
 
 | Contract | Owner Menu | Owner provider | Status |
 |----------|-----------|----------------|--------|
-| `NOTIFICATION_WM_CLOSE_REQUEST` save handler | Menu n'intercepte PAS | SaveLoadSystem (futur) | OQ-MNU-1 — Menu confirme délégation |
+| `NOTIFICATION_WM_CLOSE_REQUEST` save handler | Menu n'intercepte PAS | SaveLoadSystem (Save/Load r1 R-SAV-9) | **RESOLVED 2026-04-27** (r2 cosmetic) — Save/Load r1 ratifie délégation pure (option a) ; OQ-MNU-1 fermée |
+| `NOTIFICATION_WM_WINDOW_FOCUS_IN/OUT` | Menu n'écoute PAS (R-MNU-18) | InputManager (ADR-0004 D-7 single source of truth) | **CONFIRMED 2026-04-27** (r2) — lint AC-MNU-63 enforce 0 match Menu côté ; double-set `mouse_mode` impossible par construction |
+| `NOTIFICATION_WM_WINDOW_MINIMIZED` / `_RESTORED` | Menu n'écoute PAS | Godot natif (rendu suspendu) | **CONFIRMED 2026-04-27** (r2 — EC-MNU-37) — aucun handler Menu requis, suspension/reprise rendu native Godot |
+| `get_tree().paused` mutation autorité | Menu **lit** uniquement (jamais set) | GameStateManager (ADR-0007 D-4 unique authority) | **CONFIRMED** — AC-MNU-50 BLOCKING enforce 0 match `get_tree().paused = ` côté Menu |
+| `ui_cancel_pressed` always emit (même `enabled == false`) | Menu (consommateur PauseController uniquement) | InputManager r6 (ADR-0004 D-4) | **CONFIRMED Input r6** — structure PASS par fresh design-review ; à re-vérifier post InputManager r6 amendement final si ACs modifiés |
+| `set_mouse_captured(bool)` setter public | Menu (consommateur R-MNU-12) | InputManager (ADR-0004 D-7) | **CONFIRMED 2026-04-27** (r2 — R-MNU-20) — API stable figée, idempotente |
 | `MENU_UI` bus audio Tier 2+ | Menu (consommateur si SFX introduits) | AudioSystem r2.2 | OQ-MNU-2 — différé Tier 2+ |
 | `accessibility_font_scale` setting | Menu (consommateur) | Future SettingsManager Tier 2+ | OQ-MNU-3 — différé Tier 2+ |
+| `prefers-reduced-motion` flag OS | Menu (consommateur Tier 2+) | Future AccessibilityManager Tier 2+ (lit `OS.is_reduce_motion_enabled()` Godot 4.5+) | OQ-MNU-3 — MVP de facto satisfait par zéro animation (K.7) ; AC-MNU-64 ADVISORY r2 enforce 0 tween même si flag OS désactivé |
 
 ## Tuning Knobs
 
@@ -725,13 +797,17 @@ main_menu.tscn
 - Spacing `ButtonContainer.separation` : 16 px entre les deux boutons.
 - Version number (optionnel MVP) : `Label` ancré `BOTTOM_RIGHT`, taille 11 px, couleur `#3C3C50` (quasi-invisible, couleur secondaire sombre), padding 12 px bord droit / 8 px bord bas. Masqué par défaut — visible uniquement si constante `DEBUG_SHOW_VERSION = true`.
 
-**Breakpoints**
+**Breakpoints** *(r2 — U-1 ultrawide + portrait + safe-area documentés)*
 
-| Résolution | Remarques |
+| Résolution / Aspect | Remarques |
 |---|---|
-| 1280 × 720 (min supportée) | `ButtonContainer` width ≤ 320 px. TitleLabel font-size titre réduit si nécessaire (voir K.3). Valider que les deux boutons restent entièrement visibles sans scroll. |
-| 1920 × 1080 (cible) | Layout de référence. Marges latérales libres, centrage parfait. |
-| 2560 × 1440 | Boutons ne s'élargissent pas : `custom_minimum_size.x = 240`, `SIZE_FLAGS` sans EXPAND horizontal sur les boutons eux-mêmes. |
+| 1280 × 720 (16:9 min supportée) | `ButtonContainer` width ≤ 320 px. TitleLabel font-size titre réduit si nécessaire (voir K.3). Valider que les deux boutons restent entièrement visibles sans scroll. |
+| 1920 × 1080 (16:9 cible) | Layout de référence. Marges latérales libres, centrage parfait. |
+| 2560 × 1440 (16:9 confort) | Boutons ne s'élargissent pas : `custom_minimum_size.x = 240`, `SIZE_FLAGS` sans EXPAND horizontal sur les boutons eux-mêmes. |
+| **3440 × 1440 (21:9 ultrawide)** *(r2 — U-1)* | `ButtonContainer` reste centré horizontalement à `viewport.size.x / 2`. Pas de bandes noires ajoutées (les ColorRect/Background couvrent FULL_RECT — fond `MENU_BG_BLACK` étiré sans déformation visuelle car aplat unicolore). Aucune image background MVP, donc zéro stretch artifact. Validé via test manuel `--resolution 3440x1440` sur build dev. |
+| **5120 × 1440 (32:9 super-ultrawide)** *(r2 — U-1)* | Même logique que 21:9 — centrage strict. **Garde-fou** : `BUTTON_MIN_WIDTH_PX` (220) reste fixe, le panel n'étire pas. Pas de breakpoint dédié MVP. |
+| **Portrait 1080 × 1920 ou rotated 720 × 1280** *(r2 — U-1)* | **Hors scope MVP** — le jeu cible PC desktop landscape (cf. `.claude/docs/technical-preferences.md` : Touch=None). Si une fenêtre est forcée en portrait (utilisateur exotique resize), le layout reste fonctionnel par les ancres `FULL_RECT` — boutons potentiellement débordent verticalement si > 5 boutons (impossible MVP avec N=2/3). Aucun support officiel portrait Tier 2+. |
+| **Safe-area** *(r2 — U-1)* | Aucun padding safe-area MVP (PC desktop = pas de notch / pas de software bars). Tier 2+ Steam Deck = ajouter padding 24 px pour les bords arrondis (couvert par `PAUSE_PANEL_PADDING_*` knobs déjà en place). |
 
 ### K.2 — Layout Pause Menu
 
@@ -753,7 +829,7 @@ pause_overlay.tscn
 **Superposition et transparence**
 
 - `CanvasLayer.layer = 80` : au-dessus du HUD (50) et du Shop (60), en-dessous du fade GSM (100). Conséquence : le fond du gameplay reste visible derrière le `DimRect`.
-- `DimRect` : `color = Color(0, 0, 0, 0.65)`. L'alpha 0.65 est le compromis lisibilité overlay / lecture du freeze derrière. Valeur plancher : 0.55 (en deçà, le fond gameplay noie le texte blanc) ; valeur plafond : 0.75 (au-delà, effet "écran noir", on perd le contact visuel avec le jeu gelé).
+- `DimRect` : `color = Color(MENU_BG_OVERLAY_ALPHA_RGB, MENU_BG_OVERLAY_ALPHA_A)` *(r2 — U-3 alignement K.4 token)* — la couleur RGB est `#000000` (noir pur, token K.4 `MENU_BG_OVERLAY_RGB`) et l'alpha est `0.65` (token K.4 `MENU_BG_OVERLAY_ALPHA`). **Aucun hex hardcodé `Color(0, 0, 0, 0.65)` inline dans `.tscn` ou script** — référencer le token. Lint AC-MNU-51 (étendu r2 Q-13) enforce déclaration des tokens via `const`. L'alpha 0.65 est le compromis perception du freeze (cf. F-MNU-2 r2 reformulé) : plancher 0.55 (en deçà, le freeze ne lit pas comme "pause") ; plafond 0.75 (au-delà, effet "écran noir", perte contact monde).
 - `DimRect` n'est PAS un écran opaque. Le joueur voit son personnage gelé, la géométrie de l'étage, les ennemis au freeze. Cet effet visuel de "monde suspendu" renforce Pillar 1 : le jeu n'a pas disparu, il attend.
 - `PanelContainer` : largeur fixe 360 px, hauteur auto-ajustée par contenu. Fond `#0A0A12` (cohérence Shop background). Border : 1 px solid `#2A2A3A`. Padding interne : 32 px haut/bas, 40 px gauche/droite.
 - Spacing `ButtonContainer.separation` : 12 px.
@@ -802,7 +878,8 @@ pause_overlay.tscn
 | `MENU_TEXT_BASE` | `#E8E8F0` | 1.0 | Texte bouton default, titre |
 | `MENU_TEXT_SECONDARY` | `#6E6E8A` | 1.0 | Label "PAUSE", version number (si visible) |
 | `MENU_ACCENT_CYAN` | `#3EE4FF` | 1.0 | Focus/hover border bouton, border titre |
-| `MENU_BG_OVERLAY_ALPHA` | `#000000` | 0.65 | DimRect Pause (ColorRect alpha) |
+| `MENU_BG_OVERLAY_RGB` *(r2 — U-3 split token)* | `#000000` | n/a | DimRect Pause RGB (composé avec alpha ci-dessous) |
+| `MENU_BG_OVERLAY_ALPHA` | n/a | 0.65 | DimRect Pause alpha — float scalaire, range Tuning Knob [0.55, 0.75] F-MNU-2 |
 | `MENU_BTN_PRESSED_BG` | `#111120` | 1.0 | Background bouton état pressed |
 | `MENU_BTN_DISABLED_TEXT` | `#3C3C50` | 1.0 | Texte bouton disabled (réservé Tier 2+) |
 | `MENU_VERSION_TEXT` | `#3C3C50` | 1.0 | Version number discret |
@@ -833,6 +910,24 @@ Cinq états max. Toutes les transitions sont snap (aucun tween — cf. K.7). Le 
 - Pas de glow (aucun `CanvasItem.use_parent_material` avec bloom), pas d'ombre portée (`StyleBoxFlat.shadow_size = 0`), pas de coin arrondi (`corner_radius_* = 0`).
 - Largeur minimale des boutons : `custom_minimum_size.x = 220 px` (assez large pour accommoder "Quitter vers Menu Principal" sans truncation à 15 px monospace).
 
+**Coexistence hover (souris) ↔ focus (clavier/gamepad)** *(r2 — U-4)*
+
+Quand la souris survole le bouton A et que le focus clavier est sur le bouton B (cas où l'utilisateur navigue au clavier puis bouge la souris sans cliquer), **les deux indicateurs coexistent visuellement** :
+
+- Bouton A : underline cyan bottom (état Hover) — fournit le feedback "tu peux cliquer ici".
+- Bouton B : rect cyan complet (état Focus) — fournit le feedback "Enter activera celui-ci".
+
+**Décision MVP** : pas de "focus follows pointer" (pattern X11/Wayland qui synchronise focus avec position souris). Raisons :
+1. Anti-fantasy double-input : si `focus_follows_pointer = true`, bouger la souris déplace le focus → presser Enter active un bouton non-anticipé.
+2. Cohérence cross-OS : Windows/macOS desktop default = focus explicit (clic ou Tab), pas pointer-follows.
+3. Accessibility K.9 Tier 1 : navigation clavier 100% indépendante de la souris.
+
+**Cas où hover et focus sont sur le même bouton** : visuellement, le rect Focus l'emporte (border complet > underline bottom — pas de double-rendu). Implémenté via Theme StyleBoxFlat composé : `Button.add_theme_stylebox_override("focus", focus_box)` + `("hover", hover_box)`. Godot rend Focus par-dessus Hover natively.
+
+**Cas où la souris quitte tout bouton (curseur sur fond)** : aucun bouton n'a Hover. Le bouton focusé (clavier) garde son rect cyan. Tab continue de naviguer. Pas de "focus perdu".
+
+**Couvert** : AC-MNU-65 ADVISORY r2 — test manuel `production/qa/evidence/menu-hover-focus-coexistence-2026-04-28.md` (screenshot souris-sur-A + focus-sur-B).
+
 ### K.6 — Navigation clavier/souris
 
 **Ordre de focus (tab order)**
@@ -858,6 +953,18 @@ Cinq états max. Toutes les transitions sont snap (aucun tween — cf. K.7). Le 
 - Le Main Menu n'appelle pas `InputManager.request_disable` — il n'y a pas de gameplay actif à protéger dans le contexte Main Menu (scène container indépendante).
 - `mouse_mode` : Main Menu → `Input.MOUSE_MODE_VISIBLE` (défaut). Pause Menu ouverture → `InputManager.set_mouse_captured(false)` ; fermeture vers PLAYING → `set_mouse_captured(true)`.
 
+**Space bar comportement Godot natif** *(r2 — U-5)*
+
+Godot `Button` consomme nativement `Space` ET `Enter` (`ui_accept`) sur le bouton focusé — c'est un comportement built-in du `BaseButton.shortcut_in_tooltip = true` + `ui_accept` action mapping. **Aucun script custom requis MVP.** L'utilisateur tabbe vers un bouton, presse Space ou Enter, le signal `pressed` est émis. Cohérent avec convention OS desktop standard. Le Menu n'a pas besoin de polling `is_action_pressed("ui_accept")` — Godot le route automatiquement vers le bouton focusé.
+
+**Remap accelerators Tier 2+** *(r2 — U-5)*
+
+MVP : pas de raccourcis clavier custom (genre "1 = Reprendre, 2 = Quitter Menu", ou shortcut `Q` = Quit). Le Menu utilise exclusivement Tab/Enter/Space + souris. Tier 2+ Settings Menu pourra introduire :
+- Letter accelerators (`R` = Resume underlined dans le bouton "**R**eprendre", etc.) — cohérent OS desktop conventions.
+- Custom shortcuts user-définis via remap dialog Settings Menu.
+
+Réservé `OQ-MNU-3` Settings Menu Tier 2+. MVP zéro accelerator pour simplicité + zéro learning curve playtest 1.
+
 ### K.7 — Transitions ouverture / fermeture
 
 **Règle absolue : aucune animation sur les menus eux-mêmes.**
@@ -878,13 +985,25 @@ Les transitions visuelles entre états (PLAYING → PAUSED, MAIN_MENU → PLAYIN
 - PLAYING → PAUSED visiblement gelé : < 100 ms (Pillar 1). `Engine.time_scale` n'est pas utilisé — GSM applique `get_tree().paused = true` (Jolt physics stop, `_process` des nœuds non-ALWAYS stoppé). Le Pause Menu tourne en `PROCESS_MODE_ALWAYS`.
 - Aucun spinner, aucun "Chargement…", aucun progress bar dans le menu. Si un changement de scène prend > 200 ms (GSM fade), le fade noir du GSM masque l'attente — le Menu n'a rien à afficher pendant ce temps.
 
+**Précision "snap" dans le contexte CONNECT_DEFERRED** *(r2 — U-6 clarification)*
+
+Quand ce GDD écrit "snap instantané" ou "même frame" pour les transitions de visibility (R-MNU-15, K.7 ligne PLAYING → PAUSED), la définition opérationnelle est :
+
+- **`state_changed` est émis SYNC par GSM** (ADR-0007 D-6) — au moment de l'émission, l'état GSM est déjà muté.
+- **Le handler `_on_state_changed` est connecté CONNECT_DEFERRED côté Menu** (R-MNU-4) — Godot délivre le callback **à la fin de la frame courante** (avant `_process` de la frame suivante).
+- **Latence effective** : 0 à 1 frame (≤ 16.6 ms à 60 fps). Le pire cas est si `state_changed` est émis en début de frame N et le handler exécute en fin de frame N (juste avant render) — visiblement perçu comme "frame N+1" par le joueur.
+- **Aucun await `process_frame` n'est requis** dans les ACs `[Logic — BLOCKING]` qui testent `_apply_visibility` directement (AC-MNU-33). L'AC teste la fonction synchrone, pas le pipeline complet `state_changed → handler exécuté`. Pour le pipeline complet (intégration end-to-end), AC-MNU-12 utilise `await get_tree().process_frame`.
+- **"Même frame que `state_changed` reçu"** = même frame que la **délivrance** du handler deferred, pas même frame que l'**émission** SYNC. Cette précision élimine la contradiction apparente "K.7 dit même frame, AC-MNU-33 sans await".
+
+Cette précision est cohérente avec le pattern `_apply_visibility(false)` snap (R-MNU-15) et garantit que le budget Pillar 1 < 100 ms tient (16.6 ms `T_def` + 16.6 ms `T_ren` = 33 ms ≪ 100 ms).
+
 ### K.8 — Cohérence Chrome Zen avec HUD r1 et Shop r1
 
 Les anti-patterns ci-dessous sont vérifiables par inspection visuelle + lecture du fichier `.tscn` / du script associé.
 
 | Anti-pattern visuel | Comment tester | Rationale |
 |---|---|---|
-| Gradient sur fond ou panel | Inspecter `ColorRect.color` et `StyleBoxFlat.bg_color` — valeur unique, pas de `StyleBoxFlat.bg_color_2` ni gradient shader | Chrome Zen = aplats, pas de dégradé. Cohérence Shop `#0A0A12` aplat. |
+| Gradient sur fond ou panel | Inspecter `ColorRect.color` et `StyleBoxFlat.bg_color` — valeur unique, pas de `StyleBoxFlat.bg_color_2` ni gradient shader (AC-MNU-66 r2 grep `bg_color_2` dans `.tres`/`.tscn` → 0 match) | Chrome Zen = aplats, pas de dégradé. Cohérence Shop `#0A0A12` aplat. |
 | Coins arrondis (`corner_radius > 0`) | `grep -r "corner_radius" scenes/menus/` → zéro match attendu | Géométrie carrée projet. HUD r1 et Shop r1 utilisent tous `corner_radius = 0`. |
 | Glow / bloom sur bouton ou titre | Inspecter `CanvasItem.material` sur boutons et labels — `null` attendu. Aucun `WorldEnvironment.environment.glow` dans la scène. | Glow = distraction visuelle. Anti-pillar "L'UI est invisible". |
 | Parallax background | `grep -r "ParallaxBackground\|ParallaxLayer" scenes/menus/` → zéro match | Bouger le fond pendant un menu = mouvement non-lié au gameplay = distraction. |
@@ -901,7 +1020,9 @@ Les anti-patterns ci-dessous sont vérifiables par inspection visuelle + lecture
 - Aucun élément interactif accessible uniquement à la souris. Aucun clic-droit, aucun drag-and-drop.
 - Contraste texte/fond : `MENU_TEXT_BASE (#E8E8F0)` sur `MENU_BG_BLACK (#050608)` → ratio ~15.2:1 (WCAG AAA, seuil 7:1). `MENU_ACCENT_CYAN (#3EE4FF)` sur `#050608` → ratio ~8.9:1 (WCAG AAA). Aucune combinaison sous AA (4.5:1) dans les menus MVP.
 - Taille de police minimale : 15 px texte bouton. En deçà de 12 px aucun texte ne doit être présent (la version number à 11 px est admise car non-fonctionnelle).
+- **Lisibilité du version number 11 px** *(r2 — U-2)* : la version number à 11 px (`#3C3C50` quasi-invisible) est **délibérément en deçà du seuil WCAG 2.5.3 confort 12 px** car (a) elle est non-fonctionnelle (lecture diagnostic build version uniquement), (b) le contraste est volontairement faible pour rester discret (le joueur ne doit pas être attiré par cet élément), (c) `DEBUG_SHOW_VERSION = false` par défaut MVP (masqué — visible uniquement en debug build). Tier 2+ Settings Menu pourra introduire un toggle "show version number" + scaling 12px+ via `accessibility_font_scale`. Couvert par AC-MNU-67 ADVISORY r2 (DEBUG flag verification).
 - Aucun contenu clignotant (flash > 3 Hz) — pas d'animation sur les menus (K.7). Conformité photosensibilité WCAG 2.3.
+- **`prefers-reduced-motion` flag OS** *(r2 — U-8)* : MVP zéro animation (K.7) → flag OS non-applicable de facto (rien à désactiver). Tier 2+ : si une animation est introduite (settings slide-in, fade pause), `OS.is_reduce_motion_enabled()` (Godot 4.5+ via AccessKit) doit la désactiver. AC-MNU-64 ADVISORY r2 enforce 0 tween dans le code Menu, indépendamment du flag OS — défense en profondeur.
 
 **Tier 2 — si gratuit via Godot 4.6 AccessKit (optionnel MVP)**
 
@@ -927,12 +1048,15 @@ Ce flag reproduit le pattern établi par HUD r1 et Shop r1 :
 |---|---|---|
 | `design/ux/main-menu.md` | Wireframe textuel, flow boot→gameplay, états focus, breakpoints 720p/1080p, mapping nœuds Godot ↔ comportement | Toutes stories `main_menu.tscn` |
 | `design/ux/pause-menu.md` | Wireframe textuel, flow pause/resume/quit, overlay alpha, comportement ESC, InputManager refcount flow | Toutes stories `pause_overlay.tscn` |
+| **`design/ux/quit-flow.md`** *(r2 — U-9 ajouté)* | Rationale "zero-confirm Quit" + UX exception path pour OQ-MNU-7 (épilepsie / parental advisory Tier 3 Steam submission) + diagramme cross-screen Quit (Main Menu / Pause Menu / Alt+F4 / Cmd+Q convergent vers `NOTIFICATION_WM_CLOSE_REQUEST`) | Tier 3 Steam submission + résolution OQ-MNU-7 |
+
+**Note sur `quit-flow.md`** *(r2 — U-9)* : ce document est **NOT-blocking MVP** (le quit fonctionne sans), mais **mandatory avant Tier 3 Steam/itch.io submission** car les exigences légales régionales (épilepsie warning, parental advisory) doivent être documentées + alignées avec l'anti-fantasy "Pas de Are you sure?". Pattern `P-MENU-NO-CONFIRM-001` cross-screen Menu/Shop/Pause à formaliser dans `design/ux/interaction-patterns.md` Tier 2+.
 
 Ces fichiers sont produits par `/ux-design [screen-name]` et validés par `art-director` (cohérence Chrome Zen) avant passage à `/team-ui`. Le présent GDD §K constitue le cahier des charges source pour ces deux fichiers UX — les specs UX ne doivent pas contredire les tokens K.4, les états K.5, ou les règles de transition K.7.
 
 ## Acceptance Criteria
 
-Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANUAL/STATIC).
+Total ACs : **66** *(r2 : 56 r1 + 2 r2 cosmetic AC-MNU-57/58 + 1 r2 AC-MNU-5b + 9 r2 AC-MNU-59..67 ; supersedes legacy AC-MNU-33 supprimé doublon r1.1 cosmetic — total net 67−1=66)* — Groupes A-M + r2 ajouts, ~42 BLOCKING + ~24 ADVISORY, ~65% AUTO + ~30% STATIC + ~5% MANUAL.
 
 ### Groupe A — Boot & Lifecycle Main Menu
 
@@ -941,6 +1065,7 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 - **AC-MNU-3** `[Logic — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** `main_menu.tscn` est chargée et GSM est en état MENU, **WHEN** `_ready()` est exécuté, **THEN** aucun signal `GameStateManager.state_changed` n'a été émis — `watch_signals(gsm)` avant `_ready()`, `assert_signal_not_emitted(gsm, "state_changed")` après. *Covers ADR-0007 D-9 pattern pull — zéro emit au boot.*
 - **AC-MNU-4** `[Integration — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** le GSM est en état MENU et `main_menu.tscn` est la scène active, **WHEN** `MainMenuControllerScript._ready()` se termine, **THEN** `InputManager.set_mouse_captured` a été appelé avec `false` exactement 1× — vérifié via `MockInputManager.set_mouse_captured_call_count == 1` et `MockInputManager.last_captured == false`. *Covers R-MNU-12.*
 - **AC-MNU-5** `[Static — ADVISORY] [Owner: ui-programmer]` — **GIVEN** la scène `main_menu.tscn` est commitée en dépôt, **WHEN** on exécute `grep -c "change_scene_to_file\|additive\|add_child.*main_menu" src/gameplay/**/*.gd`, **THEN** le résultat est 0 match hors du GSM — seul le GameStateManager charge `main_menu.tscn` via `change_scene_to_file`. *Covers ADR-0007 D-5 §a anti-pattern.*
+- **AC-MNU-5b** `[Static — BLOCKING] [Owner: ui-programmer]` *(r2 — Q-9 R-MNU-1 zero autoload Menu)* — **GIVEN** le fichier `project.godot`, **WHEN** on exécute `grep -E '^MenuSystem|^MainMenuController|^PauseMenuController|^Menu\b' project.godot` dans la section `[autoload]`, **THEN** 0 match — aucun autoload Menu n'est déclaré (R-MNU-1 zéro autoload Menu). *Mécanisme : `awk '/\[autoload\]/,/^\[/' project.godot | grep -E '^(MenuSystem|MainMenuController|PauseMenuController|Menu)'`. Covers R-MNU-1 architecture decision MVP.*
 
 ### Groupe B — Lifecycle Pause Overlay
 
@@ -985,7 +1110,7 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 
 - **AC-MNU-30** `[Integration — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** GSM est en état PLAYING et mouse est capturée (`mouse_mode == MOUSE_MODE_CAPTURED`), **WHEN** `state_changed(PAUSED)` est reçu et Pause Overlay s'affiche, **THEN** `InputManager.set_mouse_captured(false)` est appelé exactement 1× et `MockInput.last_captured == false`. *Covers R-MNU-12 ouverture pause.*
 - **AC-MNU-31** `[Integration — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** Pause Overlay est visible et mouse est libre, **WHEN** `state_changed(PLAYING)` est reçu (bouton Reprendre ou ESC-PAUSED), **THEN** `InputManager.set_mouse_captured(true)` est appelé exactement 1× et `MockInput.last_captured == true`. *Covers R-MNU-12 fermeture vers PLAYING.*
-- **AC-MNU-32** `[Logic — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** Pause Overlay appelle `request_scene_transition(main_menu.tscn)` (transition PAUSED → MENU), **WHEN** la séquence `_apply_visibility(false)` est exécutée avant l'appel GSM, **THEN** `set_mouse_captured(true)` n'est PAS appelé (la transition vers main_menu délègue la capture à `MainMenuControllerScript._ready()`) — `assert_eq(MockInput.captured_true_call_count, 0)`. *Covers R-MNU-12 table ligne "request_scene_transition".*
+- **AC-MNU-32** `[Logic — BLOCKING] [Owner: gameplay-programmer]` *(r2 — Q-2 ordre release_called_before_transition ajouté)* — **GIVEN** Pause Overlay appelle `request_scene_transition(main_menu.tscn)` (transition PAUSED → MENU), **WHEN** la séquence `_apply_visibility(false, recapture_mouse=false)` est exécutée avant l'appel GSM, **THEN** (1) `set_mouse_captured(true)` n'est PAS appelé — `assert_eq(MockInput.captured_true_call_count, 0)` ; (2) **`release_enable_request(&"PauseMenu")` est appelé strictement avant `request_scene_transition`** — `assert_true(MockInput.release_called_before_transition)` (timestamp ordering via `Time.get_ticks_usec()` capture côté mock). *Covers R-MNU-12 table ligne "request_scene_transition" + R-MNU-10 ordre release-avant-GSM. Mécanisme : MockInputManager + MockGSM enregistrent `last_call_timestamp_usec` à chaque invocation ; assertion compare les deux.*
 
 ### Groupe H — State sync via state_changed
 
@@ -1002,14 +1127,14 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 
 ### Groupe J — Performance & timing
 
-- **AC-MNU-40** `[Performance — BLOCKING] [Owner: performance-analyst]` — **GIVEN** GSM est en état PLAYING et Input est capturé, **WHEN** `ui_cancel_pressed` est émis (timestamp T0 = `Time.get_ticks_msec()`), **THEN** `PauseLayer.visible == true` et `get_current_state() == PAUSED` avant T0 + 100 ms — `assert_true(elapsed_ms < 100)`. *Mécanisme : test integration avec timestamps, CONNECT_DEFERRED max 1 frame (16.6 ms à 60 fps). Covers Pillar 1 FLOW pause < 100 ms.*
-- **AC-MNU-41** `[Performance — BLOCKING] [Owner: performance-analyst]` — **GIVEN** GSM est en état PAUSED et Pause Overlay est visible, **WHEN** `ui_cancel_pressed` est émis (T0), **THEN** `PauseLayer.visible == false` et `get_current_state() == PLAYING` avant T0 + 100 ms — `assert_true(elapsed_ms < 100)`. *Covers Pillar 1 FLOW resume < 100 ms.*
-- **AC-MNU-42** `[Performance — ADVISORY] [Owner: performance-analyst]` — **GIVEN** un test stress ouvre et ferme le Pause Overlay 100 fois consécutives (100× `state_changed(PAUSED)` → `state_changed(PLAYING)`), **WHEN** on lit `Performance.get_monitor(Performance.MEMORY_STATIC)` avant et après les 100 cycles, **THEN** le delta est < 64 KB — `assert_true(delta_memory_bytes < 65536)`. *Couvre allocation nulle sur hot-path open/close. Covers ADR-0004 D-8 pattern zero-alloc.*
+- **AC-MNU-40** `[Performance — BLOCKING] [Owner: performance-analyst]` *(r2 — Q-4 P95 + nb runs spécifiés)* — **GIVEN** GSM est en état PLAYING et Input est capturé, **WHEN** `ui_cancel_pressed` est émis 60 fois consécutives (avec reset PAUSED→PLAYING entre chaque, 1 seconde wait entre runs pour stabilisation), **THEN** la latence `[input emit] → [pause_layer.visible == true]` mesurée via `Time.get_ticks_msec()` doit avoir **P95 < 100 ms ET P99 < 100 ms ET max < 100 ms** — `assert_true(p95_ms < 100 AND p99_ms < 100 AND max_ms < 100)`. *Mécanisme : array `latencies_ms[60]` + tri quantile P95/P99 ; stratégie headless documentée F-MNU-1 r2 (composé `T_in + T_gsm + T_def`, exclut `T_ren` non observable headless). Covers Pillar 1 FLOW pause < 100 ms ; échec à P95 ou P99 = blocker production.*
+- **AC-MNU-41** `[Performance — BLOCKING] [Owner: performance-analyst]` *(r2 — Q-4 P95 + nb runs spécifiés)* — **GIVEN** GSM est en état PAUSED et Pause Overlay est visible, **WHEN** `ui_cancel_pressed` est émis 60 fois consécutives (cycles), **THEN** la latence resume P95 < 100 ms ET P99 < 100 ms ET max < 100 ms — même mécanisme array + quantile que AC-MNU-40. *Covers Pillar 1 FLOW resume < 100 ms.*
+- **AC-MNU-42** `[Performance — ADVISORY] [Owner: performance-analyst]` *(r2 — Q-5 warmup baseline)* — **GIVEN** un test stress ouvre et ferme le Pause Overlay, **WHEN** on exécute (a) 10 cycles **warmup** ignorés (laissent Godot stabiliser allocs initiales : Theme cache, font preload, signal table) puis (b) 100 cycles mesurés, **THEN** `delta_memory_bytes = MEMORY_STATIC_after_100 − MEMORY_STATIC_after_warmup < 64 KB` — `assert_true(delta_memory_bytes < 65536)`. *Mécanisme : `Performance.get_monitor(Performance.MEMORY_STATIC)` snapshot après warmup (baseline) puis après 100 cycles ; warmup absorbe les faux positifs (premier cycle alloue ~12 KB pour Theme cache cold). Covers ADR-0004 D-8 pattern zero-alloc + Q-5 mitigation alloc GUT.*
 - **AC-MNU-43** `[Performance — ADVISORY] [Owner: performance-analyst]` — **GIVEN** une transition PAUSED → PLAYING via bouton Reprendre, **WHEN** `PauseLayer.visible = false` est appliqué (snap sans tween), **THEN** aucun frame skip n'est enregistré — `Performance.get_monitor(Performance.TIME_PROCESS)` reste < 16.6 ms pendant la transition. *Covers K.7 vsync, anti-tween performance.*
 
 ### Groupe K — Anti-patterns testables
 
-- **AC-MNU-44** `[Static — BLOCKING] [Owner: qa-tester]` — **GIVEN** le code source et les scènes Menu, **WHEN** on exécute `grep -r "AudioStreamPlayer\|play_sfx\|audio_play" scenes/menus/ src/gameplay/menu/`, **THEN** 0 match — aucun SFX MVP dans le Menu System. *Covers Player Fantasy "Aucun SFX MVP".*
+- **AC-MNU-44** `[Static — BLOCKING] [Owner: qa-tester]` *(r2 — Q-14 scope élargi aux étages instanciant `pause_overlay.tscn`)* — **GIVEN** le code source et les scènes Menu + les scènes étage qui instancient `pause_overlay.tscn`, **WHEN** on exécute `grep -rE "AudioStreamPlayer|play_sfx|audio_play" scenes/menus/ src/gameplay/menu/ scenes/etages/`, **THEN** 0 match dans `scenes/menus/` et `src/gameplay/menu/` ; pour `scenes/etages/`, les éventuels `AudioStreamPlayer` détectés doivent appartenir à des nœuds non-Menu (gameplay ambient track, etc.) — vérifié via parse `.tscn` qui isole les nœuds enfants de `pause_overlay`. *Mécanisme : script Python ou GDScript helper qui parse les `.tscn` étages et filtre les `AudioStreamPlayer` dont le parent canonical est `pause_overlay` instance. Covers Player Fantasy "Aucun SFX MVP" + portée étages.*
 - **AC-MNU-45** `[Static — BLOCKING] [Owner: qa-tester]` — **GIVEN** le code source et les scènes Menu, **WHEN** on exécute `grep -r "AcceptDialog\|ConfirmationDialog\|PopupPanel\|PopupMenu" scenes/menus/ src/gameplay/menu/`, **THEN** 0 match — aucun confirm dialog. *Covers R-MNU-16, Player Fantasy anti-fantasy "Pas de Are you sure?".*
 - **AC-MNU-46** `[Static — BLOCKING] [Owner: qa-tester]` — **GIVEN** les fichiers `.tscn` des menus, **WHEN** on exécute `grep -r "corner_radius" scenes/menus/`, **THEN** 0 match ou toutes valeurs sont `= 0` — zéro coin arrondi, géométrie Chrome Zen hard-edge. *Covers K.5 `corner_radius_* = 0`.*
 - **AC-MNU-47** `[Static — ADVISORY] [Owner: qa-tester]` — **GIVEN** les fichiers `.tscn` des menus, **WHEN** on exécute `grep -r "ParallaxBackground\|ParallaxLayer\|AnimationPlayer\|AnimationTree" scenes/menus/`, **THEN** 0 match — aucun parallax, aucun AnimationPlayer dans les scènes menu. *Covers Player Fantasy anti-fantasy "pas de menu animé".*
@@ -1017,7 +1142,25 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 - **AC-MNU-49** `[Static — BLOCKING] [Owner: qa-tester]` — **GIVEN** les scripts controllers Menu, **WHEN** on exécute `grep -r "Engine\.time_scale\|Engine.time_scale" src/gameplay/menu/`, **THEN** 0 match — le Menu ne modifie jamais `Engine.time_scale`. *Covers ADR-0007 D-4 GSM seul possède l'autorité pause ; time_scale interdit Menu.*
 - **AC-MNU-50** `[Static — BLOCKING] [Owner: qa-tester]` — **GIVEN** les scripts controllers Menu, **WHEN** on exécute `grep -r "get_tree()\.paused\|SceneTree.*paused" src/gameplay/menu/`, **THEN** 0 match — aucun controller Menu ne mutate `get_tree().paused` directement ; seul le GSM possède cette autorité. *Covers ADR-0007 D-4 unique authority.*
 - **AC-MNU-57** `[Static — BLOCKING] [Owner: qa-tester]` *(r2 cosmetic — Q-6 OQ-MNU-1 RESOLVED enforce délégation save-on-quit)* — **GIVEN** les scripts controllers Menu, **WHEN** on exécute `grep -rE "SaveLoad|\bsave_int\b|\bsave_string_array\b|save_now" src/gameplay/menu/`, **THEN** 0 match — le Menu ne contient aucun appel à l'API SaveLoadSystem. La sauvegarde pre-quit est **exclusivement** owned par `SaveLoadSystem._notification(NOTIFICATION_WM_CLOSE_REQUEST)` (Save/Load r1 R-SAV-9 + R-SAV-8). *Covers R-MNU-17b + R-MNU-18 + OQ-MNU-1 RESOLVED option (a).*
-- **AC-MNU-58** `[Static — ADVISORY] [Owner: qa-tester]` *(r2 cosmetic — Q-3 héritage process_mode Pause Overlay)* — **GIVEN** le fichier `scenes/menus/pause_overlay.tscn`, **WHEN** on exécute `grep -c "process_mode" scenes/menus/pause_overlay.tscn`, **THEN** retour exactement `1` match (sur le `CanvasLayer` racine `PauseOverlayRoot`) — aucun enfant ne surcharge `process_mode`, l'héritage `PROCESS_MODE_ALWAYS` est garanti par la hiérarchie (R-MNU-14 corollaire). *Covers R-MNU-14 + AC-MNU-37 héritage.*
+- **AC-MNU-58** `[Static — ADVISORY] [Owner: qa-tester]` *(r2 cosmetic — Q-3 héritage process_mode Pause Overlay)* — **GIVEN** le fichier `scenes/menus/pause_overlay.tscn`, **WHEN** on exécute `grep -c "process_mode" scenes/menus/pause_overlay.tscn`, **THEN** retour exactement `1` match (sur le `CanvasLayer` racine `PauseLayer`) — aucun enfant ne surcharge `process_mode`, l'héritage `PROCESS_MODE_ALWAYS` est garanti par la hiérarchie (R-MNU-14 corollaire). *Covers R-MNU-14 + AC-MNU-37 héritage.*
+
+- **AC-MNU-59** `[Static — BLOCKING] [Owner: qa-tester]` *(r2 — G-6 + G-9 + EC-MNU-41 zero-instance lint)* — **GIVEN** chaque scène étage gameplay dans `scenes/etages/etage_*.tscn`, **WHEN** on exécute `grep -c "pause_overlay.tscn" scenes/etages/etage_*.tscn`, **THEN** chaque fichier retourne **exactement `1` match** — chaque étage instancie `pause_overlay.tscn` exactement une fois (R-MNU-3b authoring lint). *Mécanisme : boucle bash sur les fichiers étages, fail si zero ou >1. Covers EC-MNU-41 (zero-instance silent ESC) + EC-MNU-8 (double-instance double-overlay).*
+
+- **AC-MNU-60** `[Static — BLOCKING] [Owner: qa-tester]` *(r2 — G-5 SHOPPING ESC collision)* — **GIVEN** Shop r1 R-SHP-9 first-handler ESC consume + Pause Menu R-MNU-6 second-handler ESC, **WHEN** on inspecte `src/gameplay/shop/` pour vérifier la présence de `set_input_as_handled()` après le handle ESC dans Shop, **THEN** `grep -rE 'set_input_as_handled\b' src/gameplay/shop/` retourne ≥ 1 match dans le handler ESC du Shop. *Validation cross-system : si Shop ne consume pas ESC, Pause Menu reçoit ESC pendant SHOPPING phase et ouvre Pause par-dessus Shop (collision visuelle layer 80 > 60). Covers G-5 SHOPPING gap + Shop r1 R-SHP-9 enforcement côté Menu — flag cross-GDD à monitorer.*
+
+- **AC-MNU-61** `[Logic — BLOCKING] [Owner: gameplay-programmer]` *(r2 — Q-12 F-MNU-3 tab cycle wrap dédié)* — **GIVEN** Pause Overlay visible (N=3 boutons : Resume, MainMenu, Quit) avec `ResumeButton.has_focus() == true`, **WHEN** Shift+Tab est pressé une fois, **THEN** `QuitButton.has_focus() == true` (wrap vers le dernier bouton de la liste) — `assert_true(quit_button.has_focus())`. *Mécanisme : `Input.parse_input_event(InputEventKey.with_shift_tab)` dans une fixture GUT ; alternative : `gut.simulate_action_pressed("ui_focus_prev")`. Covers F-MNU-3 wrap inverse + K.6 navigation clavier 100% Tier 1.*
+
+- **AC-MNU-62** `[Static — ADVISORY] [Owner: qa-tester]` *(r2 — EC-MNU-40 + Q-8 — visible=true par erreur authoring)* — **GIVEN** le fichier `scenes/menus/pause_overlay.tscn`, **WHEN** on parse les propriétés du nœud racine `PauseLayer`, **THEN** la propriété `visible` est soit absente (default = true pour CanvasLayer mais Control children obéissent à leur propre `visible`), soit explicitement `visible = false` côté `PausePanel` (Control enfant du CanvasLayer). *Mécanisme : `grep -A3 'name="PausePanel"' scenes/menus/pause_overlay.tscn | grep 'visible = true'` doit retourner 0 match (default Godot Control = visible mais piloté par `_apply_visibility(false)` au `_ready()`). Couvert par pattern pull R-MNU-4 même si visible=true au boot. Covers EC-MNU-32 + EC-MNU-40 anti-flash 1-frame.*
+
+- **AC-MNU-63** `[Static — BLOCKING] [Owner: qa-tester]` *(r2 — Q-11 + EC-MNU-42 dual-monitor focus loss)* — **GIVEN** les scripts controllers Menu, **WHEN** on exécute `grep -rE 'NOTIFICATION_WM_WINDOW_FOCUS|_notification\b.*_focus' src/gameplay/menu/`, **THEN** 0 match — aucun controller Menu ne pose son propre handler `_notification` pour les events de focus fenêtre. La gestion `mouse_mode` est exclusivement déléguée à InputManager (ADR-0004 D-7 single source of truth). *Covers EC-MNU-42 (dual-monitor) + R-MNU-18 (anti-dependency) + provisional contract `NOTIFICATION_WM_WINDOW_FOCUS_*` confirmed côté Menu.*
+
+- **AC-MNU-64** `[Static — ADVISORY] [Owner: qa-tester]` *(r2 — U-8 prefers-reduced-motion défense en profondeur)* — **GIVEN** les scripts controllers Menu, **WHEN** on exécute `grep -rE '\b(Tween|create_tween|tween_property|InterpolateValue|AnimationPlayer|AnimationTree)\b' src/gameplay/menu/`, **THEN** 0 match — aucune animation ni tween dans le code Menu. Cette assertion est **indépendante du flag OS `OS.is_reduce_motion_enabled()`** : MVP zéro animation par construction, donc le flag OS est non-applicable de facto. Tier 2+ : si une animation est introduite, elle DOIT être gardée par `if not OS.is_reduce_motion_enabled():`. *Covers K.7 zéro tween + K.9 Tier 1 reduced-motion compliance par défaut + AC-MNU-36 superset.*
+
+- **AC-MNU-65** `[Performance — ADVISORY] [Owner: performance-analyst]` *(r2 — F-MNU-1 mesurabilité headless complément)* — **GIVEN** un build avec rendu actif (CI `xvfb` ou local desktop), **WHEN** un test mesure la latence complète `[input emit] → [pause_layer.visible == true rendered on screen]`, **THEN** la valeur P95 < 100 ms ET max < 100 ms confirme le budget Pillar 1 incluant `T_ren`. *Mécanisme : test manual ou CI avec rendu (capture `Time.get_ticks_msec()` au signal `RenderingServer.frame_post_draw`). Covers F-MNU-1 r2 mesurabilité + complement AC-MNU-40 (headless composé).*
+
+- **AC-MNU-66** `[Static — ADVISORY] [Owner: qa-tester]` *(r2 — U-7 K.8 bg_color_2 anti-pattern)* — **GIVEN** les fichiers `.tscn` et `.tres` (StyleBoxFlat resources) du Menu, **WHEN** on exécute `grep -rE '\bbg_color_2\b|\bgradient\b|\bGradientTexture\b' scenes/menus/ assets/themes/menu*`, **THEN** 0 match — aucun gradient natif `StyleBoxFlat.bg_color_2` ou `GradientTexture` dans les ressources Menu. *Couvert par AC-MNU-48 (gradient material côté script) + ce nouveau lint pour ressources `.tres/.tscn`. Covers K.8 anti-pattern complet.*
+
+- **AC-MNU-67** `[Static — ADVISORY] [Owner: ui-programmer]` *(r2 — U-2 K.9 11px version number debug-only)* — **GIVEN** le script `MainMenuControllerScript`, **WHEN** on inspecte la déclaration `DEBUG_SHOW_VERSION`, **THEN** la constante est `false` par défaut MVP — `grep -E 'const\s+DEBUG_SHOW_VERSION\s*:?\s*bool\s*=\s*false' src/gameplay/menu/main_menu_controller.gd` retourne ≥ 1 match. Le label version 11 px est masqué en build release. *Covers K.9 lisibilité 11 px exception (non-fonctionnelle, debug-only).*
 
 ### Groupe L — Cohérence Chrome Zen
 
@@ -1029,7 +1172,7 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 ### Groupe M — Layer convention
 
 - **AC-MNU-55** `[Static — BLOCKING] [Owner: ui-programmer]` — **GIVEN** le fichier `scenes/menus/pause_overlay.tscn`, **WHEN** on exécute `grep "layer = " scenes/menus/pause_overlay.tscn`, **THEN** la valeur retournée est `layer = 80` sur le nœud `CanvasLayer` racine — 1 match exact. *Covers R-MNU-3, K.2 layer convention Pause=80.*
-- **AC-MNU-56** `[Static — ADVISORY] [Owner: ui-programmer]` — **GIVEN** les fichiers `.tscn` de tous les overlays actifs MVP (HUD, Shop, Pause, GSM fade), **WHEN** on collecte toutes les valeurs `CanvasLayer.layer`, **THEN** les valeurs sont 50 (HUD), 60 (Shop), 80 (Pause), 100 (GSM fade) — aucun doublon, aucun conflit. *`grep -r "layer = " scenes/ | grep -v "physics_layer\|render_layer"` — chaque surface UI a un layer unique. Covers architecture layer convention.*
+- **AC-MNU-56** `[Static — ADVISORY] [Owner: ui-programmer]` *(r2 — Q-13 filter complet)* — **GIVEN** les fichiers `.tscn` de tous les overlays actifs MVP (HUD, Shop, Pause, GSM fade), **WHEN** on collecte toutes les valeurs `CanvasLayer.layer` via `grep -rE '^layer\s*=\s*[0-9]+' scenes/ --include='*.tscn'` (filter strict : ligne commence par `layer = N` au top-level d'un nœud `.tscn`, **exclut** par construction `physics_layer = ...`, `render_layer = ...`, `collision_layer = ...`, `light_mask = ...`, `visibility_layer = ...` car ces propriétés ne match pas le pattern `^layer\s*=`), **THEN** les valeurs uniques sont {50, 60, 80, 100} — aucun doublon, aucun conflit. *Mécanisme : script awk ou GDScript helper qui ouvre chaque `.tscn`, parse les sections `[node ...]` qui ont `type="CanvasLayer"`, lit la propriété `layer = N` (top-level, pas qualifiée comme `physics_layer`), agrège, vérifie unicité. Covers architecture layer convention HUD=50/Shop=60/Pause=80/GSM-fade=100.*
 
 ## Open Questions
 
@@ -1111,13 +1254,15 @@ Total ACs : **56** (Groupes A-M, 36 BLOCKING + 20 ADVISORY, ~70% AUTO + 30% MANU
 
 **Owner** : gameplay-programmer + ce GDD. **Status** : RESOLVED MVP via R-MNU-3. Réouverture si pattern fail au playtest 1.
 
-### OQ-MNU-6 — Quit shortcut (Alt+F4 / Cmd+Q) handling
+### OQ-MNU-6 — Quit shortcut (Alt+F4 / Cmd+Q) handling ✅ **RESOLVED 2026-04-27 (r2 cosmetic) — par cascade OQ-MNU-1**
 
 **Question** : Godot intercepte par défaut Alt+F4 (Windows/Linux) et Cmd+Q (macOS) → émet `NOTIFICATION_WM_CLOSE_REQUEST`. Le Menu doit-il faire quelque chose de spécial, ou laisser le pattern (a) OQ-MNU-1 (délégation SaveLoadSystem) gérer ?
 
-**Recommandation MVP** : laisser SaveLoadSystem (futur) gérer le notification. Menu ne fait rien de spécifique. Si MVP livre sans SaveLoadSystem, Alt+F4 / Cmd+Q quit le jeu sans save (acceptable car Menu MVP est stateless cross-session). Cohérent OQ-MNU-1.
+**RESOLUTION** : la même délégation pure que OQ-MNU-1 RESOLVED couvre Alt+F4 et Cmd+Q par construction — Save/Load r1 R-SAV-9 owns un handler `_notification(NOTIFICATION_WM_CLOSE_REQUEST)` qui flush l'état quel que soit le déclencheur du notification (bouton "Quitter le jeu", Alt+F4, Cmd+Q, kill window via OS). Le Menu ne fait **rien de spécifique** pour ces shortcuts. Aucun amendement R-MNU requis.
 
-**Owner** : SaveLoadSystem r1. **Target** : amendement éditorial ce GDD r2 si SaveLoadSystem confirme pattern.
+**Conséquences MVP** : Alt+F4 / Cmd+Q fonctionnent identiquement au bouton "Quitter le jeu" — quit immédiat, save-on-quit délégué. Si MVP livre sans SaveLoadSystem (Not Started), Alt+F4 quit le jeu sans save (acceptable car Menu stateless cross-session R-MNU-18).
+
+**Owner** : SaveLoadSystem r1 (déjà confirmé). **Status** : **RESOLVED**. **Target** : N/A.
 
 ### OQ-MNU-7 — Confirm dialog future-proof exception (épilepsie / parental advisory)
 
