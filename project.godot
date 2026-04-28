@@ -23,6 +23,10 @@ CreditEconomy="*res://src/core/credit_economy.gd"
 Upgrade="*res://src/gameplay/upgrade/upgrade_system.gd"
 LevelSystem="*res://src/gameplay/level/level_system.gd"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/gdUnit4/plugin.cfg")
+
 [display]
 
 window/size/viewport_width=1920
