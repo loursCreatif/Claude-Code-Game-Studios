@@ -1,7 +1,7 @@
 # Story 004: _save_version lazy init + forward-only schema versioning
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -33,9 +33,9 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-6** [Logic] [BLOCKING] : GIVEN `save_int("k", 0)` exécuté, WHEN file content lu via `FileAccess.open`, THEN contient `[data]\n_save_version=1\nk=0\n` (version key auto-écrit R-SAV-15).
-- [ ] **AC-SAV-15** [Logic] [BLOCKING] : GIVEN `_save_version=99` (futur) écrit dans le fichier, WHEN boot, THEN `push_warning("save version 99 > supported 1")` émis ET load réussit pour clés présentes.
-- [ ] **AC-SAV-16** [Logic] [BLOCKING] : GIVEN `_save_version` absent (fichier vide ou ancien), WHEN boot, THEN `get_save_version() == 1` (défaut MVP).
+- [x] **AC-SAV-6** [Logic] [BLOCKING] : GIVEN `save_int("k", 0)` exécuté, WHEN file content lu via `FileAccess.open`, THEN contient `[data]\n_save_version=1\nk=0\n` (version key auto-écrit R-SAV-15).
+- [x] **AC-SAV-15** [Logic] [BLOCKING] : GIVEN `_save_version=99` (futur) écrit dans le fichier, WHEN boot, THEN `push_warning("save version 99 > supported 1")` émis ET load réussit pour clés présentes.
+- [x] **AC-SAV-16** [Logic] [BLOCKING] : GIVEN `_save_version` absent (fichier vide ou ancien), WHEN boot, THEN `get_save_version() == 1` (défaut MVP).
 
 ---
 
@@ -146,3 +146,37 @@
 
 - Depends on: **story-002** (verbes save_int doivent exister pour wrapper `_ensure_save_version_set`)
 - Unlocks: forward-compat Tier 2+ migration (cosmetic — pas de consumer direct)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 3/3 passing (AC-SAV-6, AC-SAV-15, AC-SAV-16)
+**Verdict**: COMPLETE WITH NOTES
+
+**Tests run** :
+- `tests/unit/save_load/save_version_test.gd` 3/3 PASSED (AC-SAV-6/15/16)
+- Suite save_load globale : 17/17 unit + 3/3 integration = **20/20 vert** (zéro régression sur story-001/002/003)
+
+**Files modified (2)** :
+- `src/core/save_load_system.gd` 156 → 196 L (+40 L) :
+  - Ajout `const _SAVE_VERSION_KEY: String = "_save_version"`
+  - `_ensure_save_version_set()` private helper (lazy init R-SAV-15, idempotent)
+  - `_check_save_version_compatibility()` private helper (warning version future R-SAV-15)
+  - `get_save_version() -> int` public method (R-SAV-14, _assert_main_thread + default _CURRENT_SAVE_VERSION)
+  - Wrap `save_int` + `save_string_array` avec `_ensure_save_version_set()` AVANT `_config.set_value`
+  - Hook `_check_save_version_compatibility()` dans `_ready()` UNIQUEMENT si err == OK (fichier existant)
+- `tests/unit/save_load/save_version_test.gd` NEW 145 L : 3 tests pattern hermétique GdUnit4 identique scalar/array_verbs_test.gd.
+
+**Deviations (ADVISORY)** :
+- **AC-SAV-15 push_warning non-asserté** : émis runtime visible stderr mais non-asserté programmatiquement — limite GdUnit4 sans plugin stderr capture, documenté in-test. Sémantique vérifiée par retour `load_int == 42` (lecture partielle réussie malgré version future).
+- **`_SAVE_VERSION_KEY` const fix inline** : specialist avait omis la déclaration lors du draft (référencé 4× sans définition → parse error potentiel). Corrigé directement avant exec tests. Pas de divergence sémantique vs spec.
+
+**Code Review** : Skipped (Solo mode — feedback_no_confirmation_apply_directly + production/review-mode.txt = solo)
+**Tech Debt Logged** : 0 items (advisory déjà documentés in-test/in-spec, push_warning capture déféré E2E plugin futur)
+
+**Unblocks aval** :
+- **save-load story-005** `NOTIFICATION_WM_CLOSE_REQUEST` handler — base lifecycle solide
+- **save-load story-006** Tier 2+ stubs (`save_int_array` + meta `get_save_version` confirme signature)
+- **shop-system / credit-economy / upgrade-system stories** — chain forward-compat verrouillé : tout fichier savegame.cfg post-MVP a `_save_version=1` lazy-écrit au premier save
