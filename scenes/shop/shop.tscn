@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://b_shop_skeleton_001"]
+
+[node name="ShopCanvas" type="CanvasLayer"]
+layer = 60
+
+[node name="ShopRoot" type="Control" parent="ShopCanvas"]
+process_mode = 3
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="ShopCanvas/ShopRoot"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0392157, 0.0392157, 0.0705882, 1)
+
+[node name="MarginContainer" type="MarginContainer" parent="ShopCanvas/ShopRoot"]
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 64
+theme_override_constants/margin_right = 64
+theme_override_constants/margin_top = 64
+theme_override_constants/margin_bottom = 64
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ShopCanvas/ShopRoot/MarginContainer"]
+
+[node name="ShopTitle" type="Label" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer"]
+text = "SHOP"
+
+[node name="HSeparator" type="HSeparator" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer"]
+
+[node name="CreditDisplay" type="HBoxContainer" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer"]
+alignment = 2
+
+[node name="CreditLabel" type="Label" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer/CreditDisplay"]
+text = "CRÉDITS : "
+
+[node name="CreditValueLabel" type="Label" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer/CreditDisplay"]
+text = "0"
+
+[node name="UpgradeList" type="VBoxContainer" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer"]
+theme_override_constants/separation = 12
+
+[node name="UpgradeCard_0" type="PanelContainer" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer/UpgradeList"]
+
+[node name="UpgradeCard_1" type="PanelContainer" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer/UpgradeList"]
+
+[node name="FooterRow" type="HBoxContainer" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer"]
+
+[node name="ContinueButton" type="Button" parent="ShopCanvas/ShopRoot/MarginContainer/VBoxContainer/FooterRow"]
+custom_minimum_size = Vector2(200, 48)
+text = "CONTINUER"
