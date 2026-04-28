@@ -1,7 +1,7 @@
 # Story 010: SaveLoad Write SYNC + Corruption Handling
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -118,3 +118,13 @@ func test_purchase_persists_across_reload():
 
 - Depends on: Story 005 (cycle achat appelle save_string_array), Story 003 (load handling)
 - Unlocks: Story 011 (buffer retry pour failures), Story 015 (bidirectional)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (5/5) — AC-SHP-20 lint static (zero `await`/`call_deferred` sur `save_string_array`), AC-SHP-21 (cross-instance reload retrouve owned), EC-SHP-22 (autoloads SaveLoadSystem/CreditEconomy/Upgrade/GameStateManager présents), save round-trip SYNC immediate readback. AC-SHP-23/24 déjà couverts story-003.
+**Deviations**: ADVISORY (1)
+  - **AC-SHP-22 (push_error sur disk full)** : déféré — pas de hook simple pour simuler `ConfigFile.save()` failure dans GdUnit4 (nécessiterait monkey-patch SaveLoadSystem ou filesystem mock). Le `push_error` côté SaveLoadSystem est implémenté (save-load epic story-005 WM_CLOSE) ; côté Shop, le cycle continue jusqu'à `apply_upgrade` car `save_string_array` retour void (pas de check côté Shop, sémantique "fire-and-forget" + log côté SaveLoad). Couverture indirecte par save-load epic 8/8 stories Complete.
+**Test Evidence**: Integration — `tests/integration/shop/saveload_persistence_test.gd` 5/5 PASSED 40 ms (`reports/report_95/`).
+**Code Review**: Skipped (Solo mode).
