@@ -76,3 +76,31 @@ GDD r1 (596 lignes, 49 ACs, 9 OQ) — **8/8 sections présentes**, qualité comp
 **Prior verdict resolved** : NEEDS REVISION (review r1 2026-04-27) — 7 ship-blockers résolus.
 
 **Next** : fresh `/design-review credit-economy-system` re-review session (parallel session, full mode) pour confirmer Designed r2 → APPROVED. 10 pre-impl + 9 polish batch séparé après confirmation r2.
+
+---
+
+## Review — 2026-04-28 — Verdict: NEEDS REVISION (r3 ciblée)
+
+**Scope signal** : S/M
+**Method** : `/design-review credit-economy-system --depth full` fresh session (4 spécialistes adversariaux parallèles + senior synthèse main reviewer)
+**Specialists** : game-designer + economy-designer + systems-designer + qa-lead
+**Blocking items** : 6 NEW BLOCKING | **Recommended** : 13 NEW | **Nice-to-have** : 3 NEW
+**Detailed report** : `credit-economy-system-review-r2-2026-04-28.md`
+
+**Summary** :
+
+Re-review fresh du r2 post-revision. **Résolution r1 vérifiée : 3/7 complète, 4/7 partielle**. Pattern dominant : corrections ciblées mathématiquement correctes mais propagation cross-GDD non honorée + adjudication CD r1 sur asymétrie viscérale oubliée.
+
+**6 NEW BLOCKING** :
+- **NB-CRD-1 SHIP-CRITICAL [3 specialists agree]** : contradiction `BASE_UPGRADE_COST` cross-GDD — Credit r2 = 8 cr vs Shop r2 = 20 cr (Quick Reference l.7 + R-SHP-3 l.98 + Player Fantasy l.21 stale). Shop r2 non-propagé après B-2 → revert factuel anti soft-lock à l'implémentation.
+- **NB-CRD-2 [2 specialists agree]** : anti soft-lock B-2 pile-poil — `BASE_UPGRADE_COST(8) ≤ kill_yield_etage_1(8)` égalité stricte, marge zéro. `N_KILLS_ETAGE_1` borne minimale Level non blindée dans Cross-tuning l.384. Si Level r4 ajuste à 6 grunts, soft-lock revient.
+- **NB-CRD-3 [2 specialists agree]** : §UI Requirements l.436 conserve "Counter tween 200-400 ms" hardcodé après B-3 délégation HUD r1 R-6 — contradiction interne, implémenteur HUD code mauvais tween.
+- **NB-CRD-4 [2 specialists agree]** : AC-CRD-10 + AC-CRD-49 testent triggers `_on_level_unloaded()` / `_on_level_loaded()` non spécifiés dans Detailed Rules. Rule 6 dit `request_new_run()` ou `level_active` suivant — ACs incohérents.
+- **NB-CRD-5 [2 specialists agree]** : AC-CRD-39 perf gate 0.1 ms intestable CI (hérité r1 P-5). Variance ±2-5 ms → flaps permanents. AC fantôme.
+- **NB-CRD-6 [Pillar 4 critical]** : asymétrie 5:1 viscérale — Player Fantasy claim non livré ET non retiré MVP. Adjudication CD r1 (livrer SFX/VFX MVP minimum OU retirer claim) non honorée. HUD r1 ne différencie pas pulse KILL vs SECRET. Boucle de renvoi Credit→Secret→Audio futurs.
+
+**Path to APPROVED** : (1) amendement cosmétique Shop r2 propagation `BASE_UPGRADE_COST = 8` ~30 min ; (2) décision NB-CRD-6 Option A/B/C (1-3h) ; (3) r3 ciblée Credit GDD (~1h editorial NB-CRD-2/3/4/5) ; (4) re-review fresh 5-min lean → APPROVED → unlock `/create-epics credit-economy-system`.
+
+**Specialist disagreements** : (DA-1) `kill_credit["grunt"]` safe range [1,1] vs [1,3] — adjudication maintenue [1,3] avec invariant runtime AC-CRD-16 reformulé ; (DA-2) AC-CRD-39 BLOCKING vs ADVISORY — adjudication BLOCKING dev hardware, ADVISORY CI si non-reproductible.
+
+**Prior verdict resolved** : Designed r2 (review 2026-04-27) — re-review confirme partiel. r2 a fait travail substantiel sur autonomie système (B-1, B-6, B-7 exemplaires) mais propagation cross-GDD + Pillar 4 viscéral non honorés.

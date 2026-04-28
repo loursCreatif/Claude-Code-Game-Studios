@@ -86,3 +86,31 @@ GDD r1 (779 lignes, 52 ACs effectifs, 10 OQ) — qualité architecturale excepti
 | HUD r2 | Différencier amplitude tween KILL vs SECRET par SourceKind (OQ-SEC-8) | RECOMMENDED | Avant impl HUD Rule 5 |
 
 **Next** : fresh `/design-review secret-system` re-review session (parallel session, full mode) pour confirmer Designed r2 → APPROVED. Amendement Checkpoint r2 cosmetic ajout Secret §Interactions + Published API 3 verbes débloque le [GATE B-1]. Pré-impl + polish batch séparé après confirmation r2.
+
+---
+
+## Review — 2026-04-28 — Verdict: NEEDS REVISION (r3 ciblée)
+
+**Scope signal** : XS/S
+**Method** : `/design-review secret-system --depth full` fresh session (4 spécialistes adversariaux parallèles + senior synthèse main reviewer)
+**Specialists** : game-designer + systems-designer + qa-lead + level-designer
+**Blocking items** : 6 NEW BLOCKING | **Recommended** : 13 NEW | **Nice-to-have** : 4 NEW
+**Detailed report** : `secret-system-review-r2-2026-04-28.md`
+
+**Summary** :
+
+Re-review fresh du r2 post-revision. **Résolution r1 vérifiée : 2/3 complète (B-2, B-3 exemplaires), 1/3 partielle (B-1 ambiguïté pull/push résiduelle)**. r2 architecturalement plus mature que r1.
+
+**6 NEW BLOCKING** :
+- **NB-SEC-1 [2 specialists agree]** : ambiguïté pull/push hydratation Checkpoint — R-SEC-10 décrit deux mécanismes simultanés (`checkpoint.get_collected_secrets()` PULL ligne 132 + `Secret.inject_collected_secrets(ids)` PUSH ligne 133) sans précédence définie. AC-SEC-12 + AC-SEC-33 testent chemins indépendants → risque double-peuplement.
+- **NB-SEC-2 [4 specialists agree]** : `CollisionShape3D.disabled = true` non couvert (héritage r1 EC-SEC-MISSING-1) — silent Pillar 4 failure. Volume conforme aux knobs mais inerte. Convergence forte 4/4.
+- **NB-SEC-3 [QA]** : AC-SEC-25 assertion `is_physics_processing()` invalide en GUT headless — toujours false → faux pass garanti.
+- **NB-SEC-4 [QA]** : AC-SEC-18 mécanisme overlap non viable headless (sans scene tree, callbacks séquentiels jamais en vrai overlap) → faux pass systématique.
+- **NB-SEC-5 [Level-designer]** : distribution spatiale intra-étage non contrainte — Level F7 contraint nombre total mais pas distribution. Configurations frontload/cluster conformes au GDD mais cassent Pillar 4.
+- **NB-SEC-6 [Level-designer]** : `MIN_LURE_TO_VOLUME_DISTANCE` mesure distance euclidienne, pas défi de traversée. Aucun knob ne garantit obstacle de mouvement entre lure et volume — viole Player Fantasy "chaque cachette est un défi d'exécution".
+
+**Path to APPROVED** : r3 ciblée Secret GDD ~2h editorial (NB-SEC-1 R-SEC-10 PULL canonique MVP / PUSH Tier 2+ ; NB-SEC-2 R-SEC-13 push_warning défensif ; NB-SEC-3+4 reformulation ACs ; NB-SEC-5+6 §Tuning Knobs §Authoring 2-3 nouvelles règles + AC STATIC) → re-review fresh 5-min lean → APPROVED → unlock `/create-epics secret-system`.
+
+**Specialist disagreements** : (DA-SEC-1) NB-SEC-2 BLOCKING vs RECOMMENDED — adjudication BLOCKING (OQ-SEC-7 lint Level Sprint 1, MVP sans lint = ship en prod) ; (DA-SEC-2) NB-SEC-5/6 Secret GDD vs Level GDD — adjudication Secret GDD §Tuning Knobs §Authoring (proximité authoring secret) ; (DA-SEC-3) NB-SEC-1 BLOCKING vs RECOMMENDED — adjudication BLOCKING (ambiguïté écrite explicitement doit être tranchée explicitement).
+
+**Prior verdict resolved** : Designed r2 (review 2026-04-27) — re-review confirme partiel. R-SEC-16 + secret_constants.gd exemplaires. Pull/push Checkpoint résolution introduit nouvelle ambiguïté à trancher r3.
