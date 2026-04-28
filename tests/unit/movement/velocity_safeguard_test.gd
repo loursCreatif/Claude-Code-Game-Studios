@@ -77,7 +77,7 @@ func test_velocity_inf_replaced_by_zero_with_push_error() -> void:
 	_player._apply_movement()
 
 	# Assert — AC-MV-70: velocity replaced by ZERO, is_finite() restored.
-	assert_vector3(_player.velocity).is_equal(Vector3.ZERO)
+	assert_vector(_player.velocity).is_equal(Vector3.ZERO)
 	assert_bool(_player.velocity.is_finite()).is_true()
 
 
@@ -104,7 +104,7 @@ func test_velocity_nan_x_replaced_by_zero() -> void:
 	_player._apply_movement()
 
 	# Assert — full reset: NaN on any axis → entire velocity becomes ZERO.
-	assert_vector3(_player.velocity).is_equal(Vector3.ZERO)
+	assert_vector(_player.velocity).is_equal(Vector3.ZERO)
 	assert_bool(_player.velocity.is_finite()).is_true()
 
 
@@ -130,7 +130,7 @@ func test_velocity_negative_inf_y_replaced_by_zero() -> void:
 	_player._apply_movement()
 
 	# Assert.
-	assert_vector3(_player.velocity).is_equal(Vector3.ZERO)
+	assert_vector(_player.velocity).is_equal(Vector3.ZERO)
 	assert_bool(_player.velocity.is_finite()).is_true()
 
 

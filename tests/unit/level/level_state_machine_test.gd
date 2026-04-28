@@ -127,7 +127,7 @@ func test_level_player_start_unique_per_stage_returns_position() -> void:
 	var result: Vector3 = level._discover_player_start(root)
 
 	# Assert — position doit correspondre
-	assert_vector3(result) \
+	assert_vector(result) \
 		.override_failure_message("AC-LVL-18: _discover_player_start doit retourner la position du marker (5,2,3)") \
 		.is_equal(target_pos)
 
@@ -141,7 +141,7 @@ func test_level_player_start_unique_per_stage_returns_position() -> void:
 		marker_wrong.name = "playerstart"
 		root_wrong_case.add_child(marker_wrong)
 		var fallback: Vector3 = level._discover_player_start(root_wrong_case)
-		assert_vector3(fallback) \
+		assert_vector(fallback) \
 			.override_failure_message("AC-LVL-18 release: case mismatch doit retourner Vector3.ZERO") \
 			.is_equal(Vector3.ZERO)
 		root_wrong_case.queue_free()

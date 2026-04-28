@@ -152,10 +152,10 @@ func test_get_checkpoint_slots_returns_paired_tuples() -> void:
 	assert_bool(pos_map.has(vol02)) \
 		.override_failure_message("AC-LVL-30b: vol02 absent du résultat") \
 		.is_true()
-	assert_vector3(pos_map[vol01]) \
+	assert_vector(pos_map[vol01]) \
 		.override_failure_message("AC-LVL-30b: anchor01 position incorrecte") \
 		.is_equal(anchor01.global_position)
-	assert_vector3(pos_map[vol02]) \
+	assert_vector(pos_map[vol02]) \
 		.override_failure_message("AC-LVL-30b: anchor02 position incorrecte") \
 		.is_equal(anchor02.global_position)
 

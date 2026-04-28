@@ -67,7 +67,7 @@ func test_load_etage_transitions_unloaded_to_active_with_signal() -> void:
 	assert_int(received_args[0]) \
 		.override_failure_message("AC-LVL-2: level_active.etage_id doit être 1") \
 		.is_equal(1)
-	assert_vector3(received_args[1]) \
+	assert_vector(received_args[1]) \
 		.override_failure_message("AC-LVL-2: level_active.player_start doit être (10, 2, 5)") \
 		.is_equal(Vector3(10.0, 2.0, 5.0))
 

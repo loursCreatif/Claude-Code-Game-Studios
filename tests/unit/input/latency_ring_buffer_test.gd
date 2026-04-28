@@ -245,9 +245,9 @@ func test_latency_ring_wrap_clamps_sample_count_and_preserves_write_idx() -> voi
 
 func test_unhandled_input_action_press_records_latency_on_next_physics_frame() -> void:
 	if not OS.has_feature("debug"):
-		# parse_input_event peut être no-op en release selon build — skip explicite
-		# pour que le runner marque SKIPPED plutôt que PASSED (visibilité CI).
-		skip_test("requires debug feature (Input.parse_input_event is no-op in release)")
+		# parse_input_event peut être no-op en release selon build — early return.
+		# GdUnit4 SYNC mode n'a pas d'API skip_test, donc PASSED en release au lieu
+		# de SKIPPED. La logique du test n'est pertinente qu'en build debug.
 		return
 
 	var manager: InputManagerScript = _make_manager()
