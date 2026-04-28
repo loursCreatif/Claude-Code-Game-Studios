@@ -55,18 +55,95 @@ func is_ready() -> bool:
 
 
 ## Charge un entier depuis la section [data] du fichier de sauvegarde.
-## Retourne default si le fichier est absent, corrompu, ou si le type est incorrect.
-## Minimum viable pour AC-SAV-1 — sémantique complète livrée en story-002.
+## Retourne [param default] si le fichier est absent, corrompu, ou si le type stocké n'est pas int.
+## Émet [code]push_warning[/code] sur type mismatch (ADR-0010 D-2).
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## var credits: int = SaveLoadSystem.load_int("total_credits", 0)
+## [/codeblock]
 func load_int(key: String, default: int) -> int:
 	_assert_main_thread()
 	if not _config_loaded:
 		return default
 	var value: Variant = _config.get_value("data", key, default)
 	if typeof(value) != TYPE_INT:
-		if value != default:
-			push_warning("SaveLoadSystem: load_int(%s) type mismatch, return default" % key)
+		push_warning("SaveLoadSystem: load_int('%s') expected int, got %s — return default" % [key, type_string(typeof(value))])
 		return default
 	return value
+
+
+## Persiste un entier dans la section [data] du fichier de sauvegarde.
+## Retourne void — pas de signal, pas de bool, push_error en cas d'échec disque (R-SAV-10, ADR-0010 D-2).
+## Idempotent : [code]save_int(k, v)[/code] appelé deux fois consécutifs avec la même valeur produit le même fichier (R-SAV-13).
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## SaveLoadSystem.save_int("total_credits", 42)
+## var credits: int = SaveLoadSystem.load_int("total_credits", 0)  # → 42
+## [/codeblock]
+func save_int(key: String, value: int) -> void:
+	_assert_main_thread()
+	if not _config_loaded:
+		push_error("SaveLoadSystem: save_int('%s') called before _config_loaded" % key)
+		return
+	_config.set_value("data", key, value)
+	var err: Error = _config.save(SAVE_FILE_PATH)
+	if err != OK:
+		push_error("SaveLoadSystem: save_int('%s') failed err=%d" % [key, err])
+
+## Charge un tableau de StringName depuis la section [data] du fichier de sauvegarde.
+## Retourne [param default] si le fichier est absent, corrompu, ou si le type stocké n'est pas Array.
+## Les éléments de type String sont normalisés en StringName (R-SAV-12 — ConfigFile sérialise
+## StringName comme String entre quotes). Les éléments d'un autre type sont ignorés avec push_warning.
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## var upgrades: Array[StringName] = SaveLoadSystem.load_string_array("upgrades", [])
+## [/codeblock]
+func load_string_array(key: String, default: Array[StringName]) -> Array[StringName]:
+	_assert_main_thread()
+	if not _config_loaded:
+		return default
+	# Key absente = nominal (pas une corruption) → retour silencieux du default.
+	# On évite ConfigFile.get_value(_, _, default) ici pour ne pas comparer cross-type
+	# (raw int vs default Array → invalid operator '!=' Godot 4 strict).
+	if not _config.has_section_key("data", key):
+		return default
+	var raw: Variant = _config.get_value("data", key)
+	if typeof(raw) != TYPE_ARRAY:
+		push_warning("SaveLoadSystem: load_string_array('%s') expected Array, got %s — return default" % [key, type_string(typeof(raw))])
+		return default
+	var result: Array[StringName] = []
+	for elem: Variant in raw:
+		var t: int = typeof(elem)
+		if t == TYPE_STRING_NAME:
+			result.append(elem)
+		elif t == TYPE_STRING:
+			result.append(StringName(elem))  # R-SAV-12 normalisation String→StringName
+		else:
+			push_warning("SaveLoadSystem: load_string_array('%s') skip element type=%s" % [key, type_string(t)])
+	return result
+
+
+## Persiste un tableau de StringName dans la section [data] du fichier de sauvegarde.
+## Retourne void — pas de signal, pas de bool, push_error en cas d'échec disque (ADR-0010 D-2).
+## Note : ConfigFile peut sérialiser les StringName comme String — load_string_array normalise au chargement.
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## SaveLoadSystem.save_string_array("upgrades", [&"double_jump", &"dash_horizontal"])
+## var upgrades: Array[StringName] = SaveLoadSystem.load_string_array("upgrades", [])  # → [&"double_jump", &"dash_horizontal"]
+## [/codeblock]
+func save_string_array(key: String, value: Array[StringName]) -> void:
+	_assert_main_thread()
+	if not _config_loaded:
+		push_error("SaveLoadSystem: save_string_array('%s') called before _config_loaded" % key)
+		return
+	_config.set_value("data", key, value)
+	var err: int = _config.save(SAVE_FILE_PATH)
+	if err != OK:
+		push_error("SaveLoadSystem: save_string_array('%s') failed err=%d" % [key, err])
 
 # =============================================================================
 # Private methods
