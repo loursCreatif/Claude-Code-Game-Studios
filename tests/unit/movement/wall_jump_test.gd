@@ -50,7 +50,7 @@ func _tick(player: MovementController) -> void:
 
 
 ## Creates a StaticBody3D floor at y=0 so landing tests can resolve is_on_floor().
-func _create_floor(parent: Node3D) -> StaticBody3D:
+func _create_floor(parent: Node) -> StaticBody3D:
 	var floor_body: StaticBody3D = StaticBody3D.new()
 	floor_body.position = Vector3(0.0, 0.0, 0.0)
 	var shape_node: CollisionShape3D = CollisionShape3D.new()

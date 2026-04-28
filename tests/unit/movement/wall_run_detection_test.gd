@@ -53,7 +53,7 @@ func _tick(player: MovementController) -> void:
 ## Creates a StaticBody3D wall with a BoxShape3D collider at the given position.
 ## Size is the full extents of the box (default: 1×4×4 m).
 ## The wall is added as a child of parent and returned for later cleanup.
-func _create_wall(parent: Node3D, pos: Vector3, size: Vector3 = Vector3(1.0, 4.0, 4.0)) -> StaticBody3D:
+func _create_wall(parent: Node, pos: Vector3, size: Vector3 = Vector3(1.0, 4.0, 4.0)) -> StaticBody3D:
 	var wall: StaticBody3D = StaticBody3D.new()
 	wall.position = pos
 	var shape_node: CollisionShape3D = CollisionShape3D.new()
