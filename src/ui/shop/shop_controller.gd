@@ -23,6 +23,10 @@ var _owned_upgrades: Array[StringName] = []
 var _credit_display_text: String = ""    # story-004 — pull depuis CreditEconomy
 var _purchase_in_progress: bool = false  # story-005/006 — double-click guard
 
+# Story-007 — affordability state recalculée par handler credits_changed.
+# Map id → bool (true = peut acheter, false = solde insuffisant ou owned).
+var _affordable_state: Dictionary[StringName, bool] = {}
+
 # Test seam — journal d'ordre d'appels (5b → 5c) pour AC-SHP-8 séquencement strict.
 # Production runtime : pas d'overhead (append seulement debug-introspectable).
 var _call_order_log: Array[String] = []
@@ -34,7 +38,40 @@ func _ready() -> void:
 			"Catalogue size %d != N_UPGRADES_MVP %d" % [_CATALOG.size(), N_UPGRADES_MVP])
 	_hydrate_owned_upgrades()
 	_pull_initial_credit_display()
-	# Story-007 : connect credits_changed CONNECT_DEFERRED
+	# Story-007 — connect credits_changed CONNECT_DEFERRED (verrou AC-SHP-4 anti-réentrance EC-SHP-23)
+	_connect_credits_changed_deferred()
+	# Compute initial affordability state (avant tout signal)
+	_recalc_affordability(CreditEconomy.get_total())
+
+
+func _connect_credits_changed_deferred() -> void:
+	if CreditEconomy.credits_changed.is_connected(_on_credits_changed):
+		return    # idempotent — ré-instanciation safe
+	var err: int = CreditEconomy.credits_changed.connect(
+		_on_credits_changed, CONNECT_DEFERRED)
+	if err != OK:
+		push_error("ShopController: failed to connect credits_changed (err=%d)" % err)
+
+
+# Story-007 handler — invoqué via DEFERRED idle frame (anti-réentrance EC-SHP-23).
+# Update label cache + recalc affordability tous BuyButtons non-owned (F-SHP-2 + EC-SHP-14).
+func _on_credits_changed(total: int, _delta: int, _source: int) -> void:
+	_credit_display_text = str(total)
+	_recalc_affordability(total)
+
+
+# Recalc affordability state pour chaque entry catalog non-owned.
+# Owned → false (already disabled OWNED, pas affordable=achat).
+# Non-owned → total >= cost_n.
+func _recalc_affordability(total: int) -> void:
+	for entry in _CATALOG:
+		var id: StringName = entry["id"]
+		var n_index: int = entry["n_index"]
+		if _owned_upgrades.has(id):
+			_affordable_state[id] = false
+			continue
+		var cost: int = _compute_cost(n_index)
+		_affordable_state[id] = total >= cost
 
 
 # Story-004 — boot pull pattern (ADR-0007 D-9, EC-SHP-4 BOOT_HYDRATE perdu protégé).
@@ -156,3 +193,8 @@ func set_purchase_in_progress_for_test(value: bool) -> void:
 
 func get_purchase_in_progress_for_test() -> bool:
 	return _purchase_in_progress
+
+
+# Test seam story-007 — lecture publique état affordability (post-recalc).
+func is_affordable(id: StringName) -> bool:
+	return _affordable_state.get(id, false)

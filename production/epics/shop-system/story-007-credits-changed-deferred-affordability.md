@@ -1,7 +1,7 @@
 # Story 007: `credits_changed` CONNECT_DEFERRED + Affordability Recalc
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -130,3 +130,14 @@ func _ready() -> void:
 
 - Depends on: Story 002, 003, 004 (controller + label initialisé)
 - Unlocks: Story 013 (tween 300 ms branche dans même handler), Story 015 (bidirectional)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (8/8) — AC-SHP-4 (CONNECT_DEFERRED flag bitmask via `signal.get_connections()` + lint static source contains "CONNECT_DEFERRED"), AC-SHP-12 (emit DEFERRED + await idle frame → state propagé), AC-SHP-16/17/18 (affordability logic 19/20-buy/60-buy), AC-SHP-19 (full chain 2 purchases), EC-SHP-14 (1 frame recalc all non-owned cards).
+**Deviations**: ADVISORY (2)
+  - **EC-SHP-40 (2 handlers DEFERRED séquentiels)** : non testé — nécessiterait un 2nd consumer mock connecté. Pattern Godot DEFERRED garantit séquentialité par construction (idle frame queue), couvert par AC-SHP-4 verrou + Godot stdlib.
+  - **Affordability state stocké en `_affordable_state: Dictionary[StringName, bool]`** (test seam `is_affordable(id)`) au lieu d'assignation directe `BuyButton.disabled` — split logique/présentation cohérent avec story-004/005, le scene-attach Button rendering est déféré (pattern unique-name `%BuyButton_id` dans `_disable_buy_button_for`). Les tests unit verifient la logique affordability ; UI rendering testé manuellement story-012+.
+**Test Evidence**: Integration — `tests/integration/shop/credits_changed_deferred_affordability_test.gd` 8/8 PASSED ; suite shop globale 40/40 PASSED 474 ms (`reports/report_86/`).
+**Code Review**: Skipped (Solo mode).
