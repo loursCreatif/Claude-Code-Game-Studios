@@ -1,7 +1,7 @@
 # Story 005: NOTIFICATION_WM_CLOSE_REQUEST handler + _flush_pending no-op MVP
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -34,7 +34,7 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-21** [Integration] [BLOCKING] : GIVEN session in-progress (SaveLoadSystem ready, file présent post-saves Credit/Shop), WHEN simulation `NOTIFICATION_WM_CLOSE_REQUEST` envoyée via `save_load.notification(NOTIFICATION_WM_CLOSE_REQUEST)`, THEN handler exécuté sans crash, save state consistent (write-through suffit — `_flush_pending()` no-op MVP confirmé).
+- [x] **AC-SAV-21** [Integration] [BLOCKING] : GIVEN session in-progress (SaveLoadSystem ready, file présent post-saves Credit/Shop), WHEN simulation `NOTIFICATION_WM_CLOSE_REQUEST` envoyée via `save_load.notification(NOTIFICATION_WM_CLOSE_REQUEST)`, THEN handler exécuté sans crash, save state consistent (write-through suffit — `_flush_pending()` no-op MVP confirmé).
 
 ---
 
@@ -101,3 +101,34 @@
 
 - Depends on: **story-001** (skeleton autoload obligatoire), **story-002** (save_int pour setup test "session in-progress")
 - Unlocks: menu-system story-007 (Menu peut compter sur le hook SaveLoad pour dériver `save-on-quit` AC-MNU-57)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 1/1 passing (AC-SAV-21 + 3 edge cases inclus dans la suite)
+**Verdict**: COMPLETE
+
+**Tests run** :
+- `tests/integration/save_load/wm_close_request_test.gd` 4/4 PASSED 36 ms (AC-SAV-21 + edge cases boot interrompu / double signal / paused tree)
+- Suite save_load globale : 17/17 unit + 7/7 integration = **24/24 vert** 476 ms total. Zéro régression sur stories 001-004.
+
+**Files modified (2)** :
+- `src/core/save_load_system.gd` 196 → 219 L (+23 L) :
+  - `_notification(what: int)` override intercepte `NOTIFICATION_WM_CLOSE_REQUEST` (R-SAV-9)
+  - `_flush_pending()` private no-op MVP (write-through synchrone R-SAV-5 garantit zéro dirty)
+  - Hook `_check_save_version_compatibility()` ajouté dans `_ready()` post err == OK (corrige état antérieur — appel manquant dans la version persistée du fichier malgré la closure story-004)
+- `tests/integration/save_load/wm_close_request_test.gd` NEW 122 L : 4 tests pattern hermétique GdUnit4 identique autoload_skeleton_test.gd.
+
+**Deviations** :
+- Aucune. Implémentation 1:1 spec ADR-0010 D-8.
+- Note (informative) : un appel `_check_save_version_compatibility()` dans `_ready()` était spécifié par story-004 mais absent du fichier persisté (probablement perdu lors d'un refactor). Restauré incidemment lors de l'edit story-005 — tests story-004 restent verts (AC-SAV-15 future-version warning capture validée par retour load_int == 42, comportement inchangé).
+
+**Code Review** : Skipped (Solo mode — feedback_no_confirmation_apply_directly + production/review-mode.txt = solo)
+**Tech Debt Logged** : 0 items
+
+**Unblocks aval** :
+- **menu-system story-007** AC-MNU-57 `save-on-quit` — Menu peut désormais déléguer au hook SaveLoad sans coordination cross-system
+- **save-load story-006** Tier 2+ stubs (`save_int_array` + meta `get_save_version`) — base shutdown lifecycle solide
+- **save-load story-008** perf gate — `_flush_pending` no-op MVP confirmé, pas de coût additionnel à mesurer

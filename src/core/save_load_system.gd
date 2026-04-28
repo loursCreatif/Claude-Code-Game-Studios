@@ -37,10 +37,21 @@ func _ready() -> void:
 	if err == OK or err == ERR_FILE_NOT_FOUND:
 		# ERR_FILE_NOT_FOUND est nominal au boot fresh (R-SAV-7).
 		_config_loaded = true
+		if err == OK:
+			_check_save_version_compatibility()
 	else:
 		push_error("SaveLoadSystem: load failed err=%d path=%s" % [err, SAVE_FILE_PATH])
 		# Graceful : les verbes load_* retourneront leurs defaults même en cas d'erreur.
 		_config_loaded = true
+
+
+## Intercepte les notifications cycle de vie Godot. Au MVP, seul WM_CLOSE_REQUEST
+## (alt-F4 / fermeture fenêtre / signal OS) déclenche `_flush_pending()` (R-SAV-9, ADR-0010 D-8).
+## Garanti livré avant `SceneTree.quit()` même si `get_tree().paused == true` grâce à
+## `process_mode = ALWAYS` (story-001).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_flush_pending()
 
 # =============================================================================
 # Public methods
@@ -171,6 +182,15 @@ func save_string_array(key: String, value: Array[StringName]) -> void:
 func _ensure_save_version_set() -> void:
 	if not _config.has_section_key("data", _SAVE_VERSION_KEY):
 		_config.set_value("data", _SAVE_VERSION_KEY, _CURRENT_SAVE_VERSION)
+
+
+## Hook flush MVP — no-op grâce au write-through synchrone (R-SAV-5).
+## Appelé depuis `_notification(NOTIFICATION_WM_CLOSE_REQUEST)` (story-005, R-SAV-9, ADR-0010 D-8).
+## Idempotent + safe-to-call quand `_config_loaded == false` (cas pathologique boot interrompu).
+## Tier 2+ : si async batch introduit (OQ-SAV-3), flusher la queue dirty ici via `_config.save(SAVE_FILE_PATH)`.
+func _flush_pending() -> void:
+	_assert_main_thread()
+	# MVP : no-op — write-through synchrone garantit aucune save dirty entre frames.
 
 
 ## Vérifie que la version du fichier chargé est <= _CURRENT_SAVE_VERSION.
