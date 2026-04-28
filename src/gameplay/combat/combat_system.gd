@@ -184,15 +184,15 @@ func _ready() -> void:
 	# Forcer margin = 0.0 explicitement pour éviter toute ambiguïté hitbox.
 	#
 	# Story 006 ADR-0008 D-3 : config collision via API 1-indexée stricte.
-	# Force-clear les 32 bits puis set LAYER_PLAYER (self) + LAYER_ENEMY (mask).
-	# Cette réécriture override les valeurs par défaut héritées du .tscn pour garantir
-	# AC-CMB-09 même si quelqu'un mute la scène inline (defense in depth).
+	# ShapeCast3D ne s'enregistre PAS comme collider (pas de set_collision_layer_value
+	# sur cette classe — Godot 4.6 API). Seul le mask filtre ce que le cast détecte.
+	# LAYER_PLAYER reste configurée sur le CharacterBody3D parent (Player), pas ici.
+	# Force-clear les 32 bits du mask puis set LAYER_ENEMY pour AC-CMB-09 (defense
+	# in depth contre mutation .tscn inline).
 	if _shape_cast != null:
 		_shape_cast.margin = 0.0
 		for i: int in range(1, 33):
-			_shape_cast.set_collision_layer_value(i, false)
 			_shape_cast.set_collision_mask_value(i, false)
-		_shape_cast.set_collision_layer_value(CollisionLayers.LAYER_PLAYER, true)
 		_shape_cast.set_collision_mask_value(CollisionLayers.LAYER_ENEMY, true)
 		# Story 002 : état initial IDLE → ShapeCast3D désactivé.
 		_shape_cast.enabled = false
