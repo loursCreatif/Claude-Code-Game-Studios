@@ -6,6 +6,45 @@
 
 ---
 
+## Review — 2026-04-28 (lean re-pass) — Verdict: **APPROVED r3**
+
+**Scope signal** : M (inchangé depuis r2 — single system, 4 formulas, 6 hard deps, 49 ACs)
+**Method** : `/design-review credit-economy-system --depth lean` single-session fresh, no Phase 3b specialist spawn (lean mode)
+**Specialists** : none (lean mode)
+**Blocking items** : 0 BLOCKING | **Recommended** : 1 NEW (éditorial cosmétique non-bloquant) | **Nice-to-have** : 0 NEW
+
+**Summary** :
+
+Fresh lean re-pass post r3 ciblée editorial. **Les 4 NB-CRD résiduels post r2 sont effectivement résolus**, vérifiés ligne par ligne contre le GDD r3 :
+
+- **NB-CRD-2 RESOLVED** : §Tuning Knobs l.384-397 — invariant `BASE_UPGRADE_COST ≤ N_KILLS_ETAGE_1_MIN × kill_credit["grunt"]` documenté + plancher conservatif `N_KILLS_ETAGE_1_MIN = 6` (R-2.6 Level) + cas nominal `8` + 3 garde-fous opérationnels (test balance-check + tuner alert + coordination Level GDD futur) + pillar impact.
+- **NB-CRD-3 RESOLVED** : §UI Requirements l.448-449 — rows VFX gain + Animation soustraction délèguent durées et styles à HUD §J + Rule 5 r1.1 (cross-réf cascade NB-CRD-6 Option A).
+- **NB-CRD-4 RESOLVED** : AC-CRD-10 l.515 reformulé sur `request_new_run()` (GSM ADR-0007 D-10 — handler `_on_request_new_run()` aligné Rule 6) + AC-CRD-49 l.588 reformulé sur `level_active` (Level GDD R-2 — premier signal connexion + suivants purge). Notes explicites que les triggers r2 étaient non-canoniques.
+- **NB-CRD-5 RESOLVED** : AC-CRD-39 l.568 reformulé `< 1 ms médiane N=100`, P95 `< 3 ms`, outliers exclus, gate **BLOCKING dev hardware / ADVISORY CI** + rationale inline.
+
+**Aucune régression r2** : 7/7 fixes B-1..B-7 r2 préservés intacts (vérifiés Rule 5/6/7/11 + EC-CRD-5/7/11 + F-CRD-3/4 + AC-CRD-08/31/50/51 + Tuning Knobs `BASE_UPGRADE_COST`/`BATCH_MULTI_KILL_EMIT`).
+
+**Cross-system consistency vérifiée** : Shop r2.1 (`BASE_UPGRADE_COST = 8` propagé NB-CRD-1), Audio r2.2 (Rule 17 + Formula 7 cascade NB-CRD-6), HUD r1.1 (Rule 5 différenciation tween cascade NB-CRD-6), Secret r3 (`secret_collected` SYNC LOCKED), GSM ADR-0007 D-10 (`request_new_run()` + `state_changed`), Level R-2/R-2.6, Combat `MAX_KILLS_PER_SWING = 3`. Aucune référence cassée. Dependency graph 9/9 GDDs présents.
+
+**Completeness** : 8/8 sections présentes.
+
+**Compteurs ACs r3 stables** : 49 ACs (48 BLOCKING + 1 ADVISORY) — 42 Logic/Integration/Perf BLOCKING + 6 Lints/Static BLOCKING + 1 Visual/Feel ADVISORY. Test Coverage Matrix cohérente.
+
+**1 RECOMMENDED non-bloquant** :
+
+- **REC-CRD-r3-1 [editorial]** : §Tuning Knobs l.392 — l'invariant runtime balance-check est exprimé sous deux formes différentes dans la même section :
+  - Ligne canonique l.392 : `assert(BASE_UPGRADE_COST ≤ floor(0.8 × N_KILLS_ETAGE_1_NOMINAL × kill_credit["grunt"]))` = `floor(0.8 × 8 × 1) = 6 cr` → assert échouerait littéralement avec MVP r3 `BASE_UPGRADE_COST = 8`.
+  - Garde-fou opérationnel l.394 (test Sprint 1) : `BASE_UPGRADE_COST ≤ N_KILLS_ETAGE_1_NOMINAL × kill_credit["grunt"]` = `8 ≤ 8 ✓`.
+  - Le texte reconnaît le mismatch comme "invariant relaxé MVP exceptionnel" mais conserve les deux formulations dans une même phrase. Risque pour l'implémenteur Sprint 1 : écrire l'assert avec le facteur 0.8 → boot crash.
+  - **Suggestion** : promouvoir le facteur 0.8 en sous-bullet séparé "objectif Tier 2+" (recalibrage si `N_UPGRADES > 2` ou playtest révèle joueurs bloqués) ; clarifier que l'invariant **runtime exécuté au boot Sprint 1** est `BASE_UPGRADE_COST ≤ N_KILLS_ETAGE_1_NOMINAL × kill_credit["grunt"]` (sans facteur).
+  - **Niveau** : RECOMMENDED — non-bloquant `/create-epics`. Adressable en story Sprint 1 (AC-CRD-39 + balance-check test) ou amendement éditorial isolé < 5 min.
+
+**Path to /create-epics** : unlocked immédiatement. Le RECOMMENDED ci-dessus est cosmétique et n'empêche pas la décomposition stories.
+
+**Prior verdict resolved** : NEEDS REVISION r2 (2026-04-28 fresh full review — 6 BLOCKING NB-CRD-1..6) → 6/6 RESOLVED (NB-CRD-1 cascade Shop r2.1 commit antérieur, NB-CRD-6 cascade Audio r2.2 + HUD r1.1 Option A commit `731c64c`, NB-CRD-2/3/4/5 r3 ciblée editorial commit `ba6ddfe`). **r2 → APPROVED r3**.
+
+---
+
 ## r3 Targeted Revision — 2026-04-28 — Verdict: Designed r3 (pending fresh lean re-pass)
 
 **Scope signal** : XS-S (focused editorial — 4 BLOCKING ciblés, ~1h éditorial, 0 nouvelle section, 0 nouvelle Rule structurelle)

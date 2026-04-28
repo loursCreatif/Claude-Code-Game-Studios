@@ -1,11 +1,11 @@
 # Credit Economy System
 
-> **Status**: In Design (r3 ciblée 2026-04-28 — 4 BLOCKING editorial résolus : NB-CRD-2 cross-tuning blindage Level borne minimale ; NB-CRD-3 §UI Requirements délégation HUD durées ; NB-CRD-4 AC-CRD-10 + AC-CRD-49 reformulés sur triggers canoniques `request_new_run` / `level_active` ; NB-CRD-5 AC-CRD-39 reformulé `< 1 ms médiane N=100` BLOCKING dev / ADVISORY CI. NB-CRD-1 RESOLVED par cascade Shop r2.1 (propagation `BASE_UPGRADE_COST = 8`). NB-CRD-6 RESOLVED par cascade Audio r2.2 + HUD r1.1 Option A 2026-04-28. Pending fresh `/design-review` lean re-pass.)
+> **Status**: **APPROVED r3** (2026-04-28 fresh `/design-review credit-economy-system --depth lean` re-pass — verdict APPROVED, 4 NB-CRD résolus vérifiés effectifs (NB-CRD-2 cross-tuning blindage Level borne minimale ; NB-CRD-3 §UI Requirements délégation HUD durées ; NB-CRD-4 AC-CRD-10 + AC-CRD-49 reformulés sur triggers canoniques `request_new_run` / `level_active` ; NB-CRD-5 AC-CRD-39 reformulé `< 1 ms médiane N=100` BLOCKING dev / ADVISORY CI), aucune régression r2 7/7 fixes (B-1 batching, B-2 anti soft-lock, B-3 délégation HUD, B-4 sanity Tier 2+, B-5 ACs Lints/Static dédiés, B-6 checkpoint purge, B-7 race boot), 1 RECOMMENDED non-bloquant éditorial (clarification formulation invariant runtime balance-check `floor(0.8 × ...)` — story Sprint 1 ou amendement <5 min). NB-CRD-1 RESOLVED par cascade Shop r2.1 (propagation `BASE_UPGRADE_COST = 8`). NB-CRD-6 RESOLVED par cascade Audio r2.2 + HUD r1.1 Option A. Unlock `/create-epics credit-economy-system`.)
 > **Author**: economy-designer + creative-director + game-designer + qa-lead + systems-designer + Martin
-> **Last Updated**: 2026-04-28 (r3 ciblée NB-CRD-2/3/4/5 editorial)
+> **Last Updated**: 2026-04-28 (APPROVED r3 — fresh lean re-pass)
 > **Last Verified**: 2026-04-28
 > **Implements Pillar**: Pillar 2 (LA PROGRESSION SE VOIT) primaire ; Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou (le crédit ne doit jamais interrompre)
-> **Review history** : `design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md` (NEEDS REVISION r1 → 7 ship-blockers B-1..B-7) → `design/gdd/reviews/credit-economy-system-review-r2-2026-04-28.md` (NEEDS REVISION r2 → 6 BLOCKING ; NB-CRD-1 résolu par cascade Shop r2.1, NB-CRD-6 résolu par cascade Audio r2.2 + HUD r1.1 Option A) → r3 ciblée 2026-04-28 résout les 4 BLOCKING résiduels NB-CRD-2/3/4/5.
+> **Review history** : `design/gdd/reviews/credit-economy-system-review-r1-2026-04-27.md` (NEEDS REVISION r1 → 7 ship-blockers B-1..B-7) → `design/gdd/reviews/credit-economy-system-review-r2-2026-04-28.md` (NEEDS REVISION r2 → 6 BLOCKING ; NB-CRD-1 résolu par cascade Shop r2.1, NB-CRD-6 résolu par cascade Audio r2.2 + HUD r1.1 Option A) → r3 ciblée 2026-04-28 résout les 4 BLOCKING résiduels NB-CRD-2/3/4/5 → fresh `/design-review --depth lean` 2026-04-28 verdict **APPROVED r3**.
 
 ## Summary
 
