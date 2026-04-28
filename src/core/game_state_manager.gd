@@ -53,15 +53,19 @@ func request_pause() -> void:
 	# Idempotent (REQ-4) : no-op si déjà pausé ou état non-pausable.
 	if _current_state != State.PLAYING:
 		return
+	# D-4 : GSM possède l'autorité unique sur get_tree().paused.
+	# ADR-0005 D-8 : mutation d'état complète AVANT emit — paused doit être
+	# vrai quand un consumer reçoit state_changed(PAUSED).
+	get_tree().paused = true
 	_transition_to(State.PAUSED)
-	get_tree().paused = true  # D-4 : GSM possède l'autorité unique sur get_tree().paused
 
 
 func request_resume() -> void:
 	if _current_state != State.PAUSED:
 		return
-	_transition_to(State.PLAYING)
+	# ADR-0005 D-8 : libérer le pause flag AVANT emit pour cohérence consumer.
 	get_tree().paused = false
+	_transition_to(State.PLAYING)
 
 
 func request_scene_transition(scene_path: String) -> void:
@@ -98,7 +102,7 @@ func _transition_to(new_state: State) -> void:
 	# D-2 : whitelist des transitions ; D-3 : émission unique par transition effective.
 	if new_state == _current_state:
 		return  # idempotent : pas de re-émission no-op
-	var legal: Array = _LEGAL_TRANSITIONS.get(_current_state, [])
+	var legal: Array[State] = _LEGAL_TRANSITIONS.get(_current_state, [] as Array[State])
 	if not legal.has(new_state):
 		assert(false, "illegal GSM transition: %s → %s" % [
 			State.keys()[_current_state], State.keys()[new_state]
