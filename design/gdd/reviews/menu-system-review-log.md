@@ -5,6 +5,75 @@
 
 ---
 
+## 2026-04-28 — `/design-review menu-system --depth lean` re-pass post-r2 full → **APPROVED**
+
+- **Trigger** : lean re-pass après commit `140eb07` (Menu r2 full — 36 PRE-IMPL/POLISH résolus). Objectif : valider non-régression et clore les dettes éditoriales résiduelles.
+- **Mode** : `--depth lean` (single-session, no Phase 3b adversarial spawn). Solo auto-approve.
+- **Verdict** : **APPROVED r2 (full)** — 0 BLOCKING + 2 RECOMMENDED résolus en session + 1 finding SHIP-CRITICAL `process_mode = 5 → 3` cross-session déjà absorbé par session voisine avant ce lean re-pass.
+
+### Phase 2 — Completeness check
+8/8 sections présentes (Overview, Player Fantasy, Detailed Rules, Formulas, Edge Cases, Dependencies, Tuning Knobs, Acceptance Criteria) + Visual/Audio + UI Requirements + Open Questions extras.
+
+### Phase 3 — Dependency graph
+| Dep | Statut sur disque |
+|---|---|
+| game-state-manager.md | ✓ APPROVED r1 |
+| input-system.md | ✓ In Review r6 (structure PASS) |
+| save-load-system.md | ✓ Designed r1 |
+| hud-system.md | ✓ Designed r1 |
+| shop-system.md | ✓ Designed r2.1 |
+| audio-system.md | ✓ APPROVED r2.1 |
+| camera-system.md | ✓ APPROVED |
+| level-system.md | ✓ APPROVED r3 |
+
+Tous les deps existent. Aucune référence cassée.
+
+### Phase 3 — Consistency findings résolus en session
+
+**SHIP-CRITICAL absorbé cross-session (`process_mode = 5 → 3`)** : R-MNU-14 + AC-MNU-10 + AC-MNU-37 + Tuning Knob `PAUSE_OVERLAY_PROCESS_MODE` ont été corrigés par session voisine pendant ce lean re-pass — Godot 4.6 enum `Node.PROCESS_MODE_ALWAYS = 3` (pas `5`). `5` n'est même pas dans l'enum ; `4` = `PROCESS_MODE_DISABLED` (bug runtime silencieux : grep AC pass mais boutons morts). Cross-référence `Godot 4.6 Node.ProcessMode` enum table ajoutée dans R-MNU-14 + AC-MNU-37 reformulé pour préférer GUT/integration test `process_mode == Node.PROCESS_MODE_ALWAYS` (robuste au futur changement d'enum). Cette correction touche 4 ACs et 1 Tuning Knob — sans elle, les ACs `[Static — BLOCKING]` auraient validé `process_mode = 5` (valeur enum invalide) à la build et le runtime aurait des Pause boutons morts.
+
+**RECOMMENDED L-1 résolu** : 5 call sites internes citaient encore `R-MNU-17b` après le rename G-7 r2 PRE-IMPL/POLISH (R-MNU-8 l.181, R-MNU-18 l.298, Soft upstream l.368, EC-MNU-17 l.515, EC-MNU-34 l.583, AC-MNU-57 l.1144, OQ-MNU-1 RESOLUTION l.1196, sub-states SHUTDOWN l.332). Migration finalisée par `replace_all` ; 2 mentions historiques préservées (ligne 289 "renommage R-MNU-17b → R-MNU-19" + ligne 293 "Note de migration"). 0 call sites internes restants.
+
+**RECOMMENDED L-2 résolu** : 7 call sites internes citaient encore `PauseOverlayRoot` après naming canonique G-14 r2 (R-MNU-14 l.260+264, R-MNU-15 l.279, EC-MNU-9 l.483, EC-MNU-15 l.507, EC-MNU-23 l.539, EC-MNU-32 l.575, AC-MNU-8 l.1074, AC-MNU-9 l.1075). Migration finalisée par `replace_all` ; 2 mentions historiques préservées dans la note ligne 104 ("(pas `PauseOverlayRoot`)" + "L'ancienne mention `PauseOverlayRoot` est dépréciée"). 0 call sites internes restants.
+
+### Phase 3 — Cross-system bidirectional check (6/6 systèmes)
+- GSM §Dependencies cite Menu (inferred → Designed r1+r2 via amendement éditorial pending) ✓
+- InputManager one-way (pas de réciprocité requise par design D-4) ✓
+- Shop r1 §Dependencies Soft cite Menu sibling ✓
+- HUD r1 + Audio r2.1 + LevelSystem r3 + CameraSystem : peers, cohérent ✓
+- Save/Load r1 R-SAV-9 owns NOTIFICATION_WM_CLOSE_REQUEST handler (OQ-MNU-1 RESOLVED par cascade) ✓
+
+### Phase 4 — Sortie review
+
+- **Required Before Implementation** : aucun.
+- **Recommended Revisions** : (1) L-1 RESOLVED — migration R-MNU-17b → R-MNU-19 ; (2) L-2 RESOLVED — migration PauseOverlayRoot → PauseLayer ; (3) cross-session absorbé — Godot 4.6 process_mode enum `5 → 3`.
+- **Nice-to-Have** : (a) `BUTTON_MIN_WIDTH_PX = 220` + "Quitter vers Menu Principal" 27 chars × 9 px ≈ 243 px sur `PAUSE_PANEL_WIDTH 360 − padding 80 = 280 px` → marge ~37 px (~13%). Tight mais OK. Validation playtest. (b) `tree_exiting.connect(_cleanup_input_refcount)` pattern référencé dans EC-MNU-9 + EC-MNU-23 mais pas inline dans R-MNU-12 exemple code — ajout possible si stories implémentation rencontrent confusion.
+- **Scope Signal** : M (Sprint 1 implémentation 2-3 jours, 2 scènes Control + 2 controllers + 66 ACs).
+
+### Verdict
+**APPROVED r2 (full)** — 0 BLOCKING, dettes éditoriales résiduelles closes, finding SHIP-CRITICAL Godot 4.6 enum cross-session absorbé. Prêt pour `/create-epics menu-system`.
+
+### Files touched (2)
+1. `design/gdd/menu-system.md` — éditorial cleanup R-MNU-17b → R-MNU-19 (5 call sites) + PauseOverlayRoot → PauseLayer (7 call sites). Aucune modification structurelle.
+2. `design/gdd/reviews/menu-system-review-log.md` — entry top (cette entrée).
+
+### Solo gates
+- CD-GDD-ALIGN skipped (Solo mode `production/review-mode.txt`).
+- Pas d'AskUserQuestion widgets fired (auto-approve memory).
+
+### Path to `/create-epics`
+- Menu r2 full **APPROVED** ✓
+- 2 specs UX livrées 2026-04-27 (`design/ux/main-menu.md` + `design/ux/pause-menu.md`) ✓
+- K.10 UX flag : `quit-flow.md` reste **NOT-blocking MVP** (mandatory avant Tier 3 Steam submission seulement)
+- **Unlock** : `/create-epics menu-system` peut être lancé immédiatement.
+
+### Next recommandé
+- **A** : commit batch atomique 2 fichiers (GDD + log) menu r2 cleanup post-lean.
+- **B** : `/create-epics menu-system` — Sprint 1 implémentation 2-3 jours.
+- **C** : `/consistency-check` cross-GDD post r2 (cohérence Shop r2.1 + GSM r1 sub-states + provisional contracts).
+
+---
+
 ## 2026-04-28 — `/design-system menu-system r2` PRE-IMPL/POLISH session (r2 cosmetic → r2 full)
 
 - **Trigger** : continuation Menu r2 cosmetic 2026-04-27. Adresse les 36 findings PRE-IMPL/POLISH différés du fresh `/design-review` r1 (G-3..G-15, S-3+S-5..S-13, U-1..U-10, Q-2..Q-14).
