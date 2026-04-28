@@ -168,3 +168,42 @@ F-UPG-1 Credit `n >= 0` bound check documentation côté Credit r3 amendement OR
 **Next step** : fresh `/design-review upgrade-system` lean session (5-10 min) — vérifier les 7 BLOCKING addressés + 13 RECOMMENDED batchés OK + cohérence cross-section (helper `_apply_flag` ↔ R-UPG-4 step 4 ↔ AC-UPG-15) + grep `_boot_complete` confirme transition propre vers `_is_hydrated`. Si APPROVED → unlock `/create-epics upgrade-system`. Si NEEDS REVISION → r3 cycle.
 
 **Parallèle non-bloquant** : `/consistency-check` Credit-Shop-Upgrade chain pour B-5 F-UPG-1 `n >= 0` ownership ; amendement Shop r2 cosmétique OQ-SHP-2 RESOLVED ; amendement ADR-0007 D-1 r3 cosmétique pour ordre autoload final.
+
+---
+
+## Review — 2026-04-28 — Verdict: APPROVED (r2 fresh lean post-r2)
+
+**Scope signal** : M (3 hard deps + 2 soft + 4 formules + 36 ECs + 45 ACs + Tier 2+ growth path documenté ; pas de nouvel ADR requis ; Sprint 1 implémentation estimée 2-3 jours)
+**Specialists** : single-session (lean mode — pas de Phase 3b adversarial spawning)
+**Blocking items** : 0 | **Recommended** : 0 | **Nice-to-have** : 3 (raffinements éditoriaux non bloquants)
+
+**Summary** :
+
+GDD r2 (834 lignes, 14 R-UPG + 4 F-UPG + 36 EC + 45 ACs + 13 OQ) — **8/8 sections présentes** + 3 bonus (Visual/Audio, UI, Open Questions). Architecture data-pure quasi-stateless saine, helper `_apply_flag` Section C.1 absorbe les 3 axes set() reflection unsafe (existence + typeof bool + assert post-set), R-UPG-4 step 2 reconciliation `_owned.has(id) AND get(flag_name) == true` garantit la resync (cas A/B/C/D documentés), EC-UPG-36 + R-UPG-5 step 2 truncation prévient le freeze worst-case N=1M, R-UPG-12 reframe (anti-pilier "skill tree" devient conséquence cascade scope MVP pas axiome), R-UPG-3 retire ADR catalogue requirement (F-UPG-3 CI suffit + escalation triggers documentés N>12 OR breaking save format).
+
+**7/7 structural BLOCKING r1 résolus de façon vérifiable** :
+
+| BLK r1 | Fix r2 | Vérifiable par |
+|--------|--------|----------------|
+| B-1 R-UPG-12 reframe | Anti-pilier conséquence cascade scope MVP, Hollow Knight retiré §B.3 + R-UPG-12, conservation Ghostrunner + ajout SuperHot | Lecture R-UPG-12 + §B.3 |
+| B-2 ADR `_CATALOG` | "Pas d'ADR requis MVP" + escalation triggers (N>12 OR breaking save format EC-UPG-19) | R-UPG-3 |
+| B-3 set() reflection | Helper `_apply_flag` ~50 lignes Section C.1 avec 3 asserts | Section C.1 + R-UPG-4 step 4 |
+| B-4 EC-UPG-14 contradicts R-UPG-4 | Guard `_owned.has(id) AND get(flag_name) == true` (les **deux** vrais → return) ; cas A/B/C/D documentés ; AC-UPG-9-bis BLOCKING resync | R-UPG-4 step 2 + AC-UPG-9-bis |
+| B-6 save bloat | EC-UPG-36 + Catégorie K + R-UPG-5 step 2 truncate `> MAX × 2 = 14` + AC-UPG-44/45 boundary | EC-UPG-36 + AC-UPG-44/45 |
+| B-8 F-UPG-4 vars order | Cross-ref EC-UPG-9 + ordre 2-commit (var puis catalog, F-UPG-3 entre) | F-UPG-4 |
+| B-9-15 ACs rewrite | UPG-5 bare instance, UPG-6 + UPG-6-bis grep mutation, UPG-10/11/19/20 Logger DI, UPG-15 valider catalog réel | Catégories A-J |
+
+**13/13 RECOMMENDED batchés** (R-1 rename `_is_hydrated` propagé 8 sites, R-2 player-perspective scenario, R-3 framing zéro-signal MVP-only, R-7 EC-UPG-23 callback paths caveat, R-14 headless ubuntu-latest CI context, R-16 whitelist Object/Node, R-18 PROCESS_MODE programmatique).
+
+**Bidirectional check 6/6** : Shop ↔ Upgrade, Movement ↔ Upgrade, Save/Load ↔ Upgrade, GSM ↔ Upgrade, Credit ↔ Upgrade, HUD ↔ Upgrade — tous documentés mutuellement (table §C.5 + §Dependencies).
+
+**3 nice-to-have raffinements non bloquants** :
+1. EC-UPG-9 obsolescence : la phrase "set() retourne false silencieusement" pré-helper r2 ; le helper `_apply_flag` crash debug via assert maintenant. Préciser que F-UPG-3 reste garde-fou principal build-time, helper = défense en profondeur runtime.
+2. AC-UPG-15 step (c) : tente `set(false) puis set(true) puis assert` sur catalog réel — mute état test global. Recommander explicitement instance bare `UpgradeSystem.new()` ou `before_each` reset (déjà mentionné en passant ligne 690, mais à durcir).
+3. OQ-UPG-11 economy chain marge 25 cr non modélisée au percentile médian — flag cross-GDD Credit r3 / Shop r2, hors scope Upgrade r2.
+
+**Verdict final** : **APPROVED r2**. Cohérence forte. Les BLOCKING sont adressés par mécanismes objectivement vérifiables (helper avec asserts, grep statique, boundary tests, Logger DI, headless context spec). Les ACs sont testables sans handwave. Scope MVP reste minimaliste (3 booléens, 3 méthodes API, 2 catalog entries), discipline Pillar 1 par soustraction préservée, promesse Pillar 2 préservée via cascade Shop/Movement. Anti-pillar "skill tree" recadré comme conséquence pas axiome.
+
+**Unblock** : `/create-epics upgrade-system`.
+
+**Prior verdict resolved** : Yes — 15 BLOCKING (r1) + 7 reportés r2 design session (r1.2 supplemental) tous addressés. Re-review fresh confirme convergence.
