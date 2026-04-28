@@ -19,15 +19,17 @@ Output (1 match) :
 layer = 60
 ```
 
-## AC-SHP-30 — process_mode = 4
+## AC-SHP-30 — process_mode = 3 (PROCESS_MODE_ALWAYS)
+
+> **Erratum 2026-04-28** : la version initiale de ce fichier (et l'AC-SHP-30 d'origine) asseyait `process_mode = 4`. Vérification croisée docs Godot 4.6 (`Node.ProcessMode`) : `ALWAYS = 3`, `DISABLED = 4`. Le scene-fichier contenait donc `PROCESS_MODE_DISABLED` — bug runtime SHIP-CRITICAL (`_process`/`_input`/tweens désactivés) faussement validé par grep. Corrigé : `process_mode = 3`. Cause racine : table d'enum erronée propagée depuis `menu-system.md` r2 cosmetic — corrigée en parallèle.
 
 ```
-grep "process_mode = 4" scenes/shop/shop.tscn
+grep "process_mode = 3" scenes/shop/shop.tscn
 ```
 
 Output (1 match) :
 ```
-process_mode = 4
+process_mode = 3
 ```
 
 ## Listing des nœuds (R-SHP-2)
