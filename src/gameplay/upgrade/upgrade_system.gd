@@ -4,7 +4,10 @@
 # Story-002 : Logger DI + apply_upgrade step 1 (unknown id warning + early return).
 # Story-003 : apply_upgrade body steps 2 (cas A/B idempotent strict) + 3 + 4 +
 #             helper _apply_flag (3 asserts) + is_owned. R-UPG-4 SYNC contract.
-# Stories 004/005 livrent step 2 cas C/D resync + boot hydration.
+# Story-004 : step 2 r2 cas C/D resync (couvert par formulation existante).
+# Story-005 : boot hydration _ready() via SaveLoadSystem.load_string_array →
+#             boucle apply_upgrade idempotente → _is_hydrated=true.
+# Story-006 : save bloat truncation defense (cap dur 14 = MAX_CATALOG_SIZE_TIER_2 × 2).
 extends Node
 class_name UpgradeSystem
 
@@ -49,7 +52,50 @@ func _ready() -> void:
 	# Tests injectent un TestUpgradeLogger via set_logger_for_test() avant set-up.
 	if _logger == null:
 		_logger = UpgradeLogger.new()
-	# apply_upgrade body complet + boot hydration câblés stories 003/005.
+	_hydrate_from_save()
+
+
+# =============================================================================
+# Boot hydration (R-UPG-5 + ADR-0010 — story-005)
+# =============================================================================
+
+## Charge `owned_upgrades` via SaveLoadSystem et applique chaque upgrade SYNC.
+## Garantit `_is_hydrated == true` à la sortie (R-UPG-5 step 4 + AC-UPG-5/23).
+## Story-006 livrera la truncation save bloat pré-boucle (EC-UPG-36).
+func _hydrate_from_save() -> void:
+	# Step 1 — load via SaveLoadSystem (R-UPG-5 step 1 + ADR-0010 R-SAV-4).
+	# Le verbe est typé `Array[StringName]` côté SaveLoadSystem — valeur returnée
+	# toujours conforme au type, mais on défense malgré tout (EC-UPG-3).
+	var owned: Variant = SaveLoadSystem.load_string_array(
+		"owned_upgrades", [] as Array[StringName])
+
+	# EC-UPG-3 type guard belt-and-suspenders. SaveLoadSystem garde déjà le type
+	# en interne (push_warning + return default si raw non-Array), mais Upgrade
+	# se protège indépendamment au cas où la signature serait régressée Tier 2+.
+	if not (owned is Array):
+		_logger.warn("UpgradeSystem: load_string_array returned non-Array (corrupt save), fallback to empty")
+		owned = [] as Array[StringName]
+
+	# Step 2 — save bloat truncation defense (story-006 + EC-UPG-36).
+	# Cap dur 14 = MAX_CATALOG_SIZE_TIER_2 (7) × 2. Au-delà, save corrompue ou
+	# édition manuelle ; on évite le freeze 2-10 s sur 1M entrées en tronquant
+	# silencieusement les 14 premières + warning audit. AC-UPG-44/45.
+	var max_size: int = MAX_CATALOG_SIZE_TIER_2 * 2
+	if owned.size() > max_size:
+		_logger.warn("UpgradeSystem: save bloat (size=%d), truncating to %d" % [owned.size(), max_size])
+		owned = owned.slice(0, max_size)
+
+	# Step 3 — boucle apply_upgrade idempotent (R-UPG-5 step 3).
+	# `_is_hydrated` reste `false` pendant toute la boucle (AC-UPG-23 mid-execution).
+	for id: Variant in owned:
+		# R-UPG-9 : skip silencieux les éléments non-StringName (SaveLoadSystem
+		# normalise String→StringName mais d'autres types passeraient skip ici).
+		if typeof(id) != TYPE_STRING_NAME:
+			continue
+		apply_upgrade(id)
+
+	# Step 4 — flag d'hydration final (R-UPG-5 step 4 + R-1 rename _boot_complete).
+	_is_hydrated = true
 
 
 # =============================================================================
