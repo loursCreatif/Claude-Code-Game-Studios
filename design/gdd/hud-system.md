@@ -1,8 +1,8 @@
 # HUD System
 
-> **Status**: In Design (r1 — solo auto-approve)
-> **Author**: Martin + game-designer + ux-designer + ui-programmer + art-director + qa-lead
-> **Last Updated**: 2026-04-27
+> **Status**: In Design (r1.1 — solo auto-approve, amendement r2.2 cascade NB-CRD-6 Option A 2026-04-28 — pulse différencié SECRET tween +50% durée)
+> **Author**: Martin + game-designer + ux-designer + ui-programmer + art-director + qa-lead (r1.1 amendement creative-director adjudication NB-CRD-6 cascade Audio r2.2)
+> **Last Updated**: 2026-04-28 (r1.1 amendement — Rule 5 différenciation source KILL/SECRET, F-HUD-1 variables, Tuning Knob `CREDIT_COUNTER_TWEEN_SECRET_MS`, AC-HUD-36)
 > **Implements Pillar**: Pillar 2 (LA PROGRESSION SE VOIT) primaire, Pillar 1 (FLOW AVANT TOUT) garde-fou contraint
 > **Depends on**: Credit Economy (Designed r1), Game State Manager (APPROVED r1), Player Combat (APPROVED r6), Level System (APPROVED r3) ; consume only — zero outbound dependencies.
 > **Depended on by**: Tutorial (Tier 2+), Accessibility System (Tier 3 text scaling)
@@ -58,10 +58,15 @@ Le HUD sert **Pillar 2 — La progression se voit** comme contrat primaire : le 
    ```
    Rationale : la visibility logic implique potentiellement un rebuild structurel (show/hide CanvasLayer enfants, animation de transition), ce qui ne doit pas bloquer le SYNC emit du GSM. Un retard d'une frame (~16 ms) sur l'apparition/disparition du HUD est imperceptible.
 
-5. **Animation increment positive : pulse de scale.** Sur `delta > 0` (sources `KILL`, `SECRET`), exécuter en parallèle :
+5. **Animation increment positive : pulse de scale (différencié par source — r1.1 NB-CRD-6 Option A).** Sur `delta > 0`, exécuter en parallèle :
    - `Label.text = str(total)` — hard set immédiat (pas de roll-up numérique au MVP).
-   - Tween `Label.scale` de `Vector2.ONE` → `Vector2(1.05, 1.05)` → `Vector2.ONE` sur `CREDIT_COUNTER_TWEEN_MS = 100 ms`, easing `Tween.EASE_IN_OUT TRANS_SINE`.
-   Si un tween est déjà en cours quand un nouveau signal arrive (multi-kill 3 emits dans le même tick — Combat `MAX_KILLS_PER_SWING = 3`), tuer le tween précédent (`tween.kill()`) et re-démarrer un nouveau pulse à partir de la scale courante. Le total final affiché atteint donc toujours `N + Σdelta` sans overshoot (AC-HUD-19/20).
+   - Tween `Label.scale` de `Vector2.ONE` → `Vector2(PULSE_SCALE_MAGNITUDE, PULSE_SCALE_MAGNITUDE)` → `Vector2.ONE`, easing `Tween.EASE_IN_OUT TRANS_SINE`.
+   - **Durée tween différenciée par `source`** (r1.1 amendement NB-CRD-6 cascade Audio r2.2) :
+     - `source == SourceKind.KILL` → `CREDIT_COUNTER_TWEEN_KILL_MS = 100 ms` (default historique r1, inchangé).
+     - `source == SourceKind.SECRET` → `CREDIT_COUNTER_TWEEN_SECRET_MS = 150 ms` (+50% durée — Pillar 4 viscéralité MVP minimum, "le compteur sait que c'était un riff, pas un battement"). Cohérent avec Audio r2.2 Rule 17 (clac aigu pitch +5 semitones bus `SFX`) — la **durée plus longue** du pulse HUD est l'extension visuelle du **timbre plus long perçu** côté audio.
+   - Si un tween est déjà en cours quand un nouveau signal arrive (multi-kill 3 emits dans le même tick — Combat `MAX_KILLS_PER_SWING = 3`), tuer le tween précédent (`tween.kill()`) et re-démarrer un nouveau pulse à partir de la scale courante avec la durée correspondant au `source` du nouveau signal. Le total final affiché atteint donc toujours `N + Σdelta` sans overshoot (AC-HUD-19/20).
+   - **Magnitude pulse identique** pour KILL et SECRET au MVP (`PULSE_SCALE_MAGNITUDE = 1.05`). Différenciation magnitude réservée Tier 2+ via knob `PULSE_SCALE_MAGNITUDE_SECRET` (provisoire, non implémenté MVP).
+   - **Edge case kill simultané + secret au même tick** : si Combat `enemy_killed` (KILL) et Secret `secret_collected` (SECRET) émettent tous deux dans le même `_physics_process`, l'ordre d'arrivée déterministe Credit Economy (séquentiel sur stack) garantit deux `credits_changed` SYNC consécutifs ; le 2e tween écrase le 1er via `tween.kill()`, durée du 2e source l'emporte. Pas de race observable. AC-HUD-36.
 
 6. **Action sur `delta < 0` (`SourceKind.SPEND_SHOP`) : hard set sans animation.** `Label.text = str(total)` sans tween. Le scale reste à `Vector2.ONE`. Rationale : le spend a lieu hors gameplay direct (écran shop), pas besoin de feedback de gain — la valeur baisse silencieusement. AC-HUD-08.
 
@@ -123,21 +128,28 @@ Le HUD a une seule "machine" : visibility par GSM State. Pas de state machine in
 
 Le HUD MVP est un système data-passif quasi-pur — il n'effectue aucun calcul gameplay. Les seules formules sont des **paramètres d'animation** et un **mapping de positionnement responsive**, exposés ici pour traçabilité tuning.
 
-### F-HUD-1 — Pulse de scale credit counter (animation increment)
+### F-HUD-1 — Pulse de scale credit counter (animation increment, différencié source r1.1)
 
-`scale(t) = lerp(1.0, 1.05, ease_in_out_sine(t / (CREDIT_COUNTER_TWEEN_MS / 2))) puis lerp(1.05, 1.0, ease_in_out_sine((t - CREDIT_COUNTER_TWEEN_MS / 2) / (CREDIT_COUNTER_TWEEN_MS / 2)))`
+`scale(t) = lerp(1.0, PULSE_SCALE_MAGNITUDE, ease_in_out_sine(t / (D / 2))) puis lerp(PULSE_SCALE_MAGNITUDE, 1.0, ease_in_out_sine((t - D / 2) / (D / 2)))`
+
+où `D = CREDIT_COUNTER_TWEEN_KILL_MS` si `source == SourceKind.KILL`, sinon `D = CREDIT_COUNTER_TWEEN_SECRET_MS` si `source == SourceKind.SECRET`.
 
 **Variables** :
 
 | Variable | Symbole | Type | Range | Description |
 |----------|---------|------|-------|-------------|
-| Durée totale du pulse | `CREDIT_COUNTER_TWEEN_MS` | int | `[60, 200]` ms | Tuning knob. Default `100 ms`. < 60 ms imperceptible (anti-Pillar 2) ; > 200 ms perçu comme distraction (anti-Pillar 1). |
-| Magnitude pulse | `PULSE_SCALE_MAGNITUDE` | float | `[1.02, 1.10]` | Tuning knob. Default `1.05` — multiplicateur de scale au pic. < 1.02 imperceptible ; > 1.10 attire l'œil hors zone centrale (anti-Pillar 1). |
+| Durée pulse KILL | `CREDIT_COUNTER_TWEEN_KILL_MS` | int | `[60, 200]` ms | Tuning knob (renommé r1.1 depuis `CREDIT_COUNTER_TWEEN_MS`). Default `100 ms`. < 60 ms imperceptible (anti-Pillar 2) ; > 200 ms distraction (anti-Pillar 1). |
+| Durée pulse SECRET (r1.1) | `CREDIT_COUNTER_TWEEN_SECRET_MS` | int | `[120, 250]` ms | Tuning knob nouveau r1.1 amendement NB-CRD-6 Option A. Default `150 ms` (+50% vs KILL). Doit rester `> CREDIT_COUNTER_TWEEN_KILL_MS` (invariant balance — différenciation perceptive Pillar 4 viscéralité). |
+| Magnitude pulse | `PULSE_SCALE_MAGNITUDE` | float | `[1.02, 1.10]` | Tuning knob. Default `1.05` — multiplicateur de scale au pic. Identique KILL et SECRET MVP (différenciation magnitude Tier 2+). |
 | Easing | — | enum | `Tween.EASE_IN_OUT TRANS_SINE` | Cohérent Chrome Zen (pas de bounce, pas de spring, pas d'élastique). |
 
-**Output range** : `scale ∈ [1.0, 1.05]`, durée ≤ 100 ms wall-clock @ default. Tween non bloquant `_physics_process` (Godot Tween system tourne en `_process`).
+**Output range** : `scale ∈ [1.0, 1.05]`, durée ∈ `[100, 150]` ms wall-clock selon source. Tween non bloquant `_physics_process` (Godot Tween system tourne en `_process`).
 
-**Example** : kill grunt à `t = 0`. À `t = 0` : `scale = 1.0`. À `t = 50 ms` : `scale = 1.05` (pic). À `t = 100 ms` : `scale = 1.0` (retour au repos). Total durée 100 ms wall-clock indépendant de `Engine.time_scale` — au cas où un kill déclenche slow-mo Combat (`SLOW_MO_SCALE = 0.3`) au même tick, le pulse HUD utilise `wall-clock` (pas time_scaled) en passant `tween.set_ignore_time_scale(true)` (Godot 4.6 API — pattern Enemy GDD r2 set_ignore_time_scale, RESOLVED).
+**Example KILL** : kill grunt à `t = 0`, `source = KILL`. À `t = 0` : `scale = 1.0`. À `t = 50 ms` : `scale = 1.05` (pic). À `t = 100 ms` : `scale = 1.0` (retour au repos).
+
+**Example SECRET (r1.1)** : secret tier-1 collecté à `t = 0`, `source = SECRET`. À `t = 0` : `scale = 1.0`. À `t = 75 ms` : `scale = 1.05` (pic — milieu du tween 150 ms). À `t = 150 ms` : `scale = 1.0` (retour au repos). Le pulse dure 50% plus longtemps que pour un kill — perception viscérale "ce gain a pris plus de temps à mériter" cohérente Audio Rule 17 (clac aigu signature distincte).
+
+**Wall-clock invariance** : durée 100 ms (KILL) ou 150 ms (SECRET) reste wall-clock indépendant de `Engine.time_scale` — au cas où un kill déclenche slow-mo Combat (`SLOW_MO_SCALE = 0.3`) au même tick, le pulse HUD utilise `wall-clock` (pas time_scaled) en passant `tween.set_ignore_time_scale(true)` (Godot 4.6 API — pattern Enemy GDD r2 set_ignore_time_scale, RESOLVED).
 
 **Edge case** : multi-kill 3 emits dans le même tick. Trois `_on_credits_changed(N+i, +1, KILL)` séquentiels SYNC. À chaque emit : `tween.kill()` puis `create_tween()` redémarre le pulse à scale courante. Le pulse final atteint son pic ~50 ms après le dernier emit, puis retombe. Pas d'overshoot de scale > 1.05 ni de drift permanent. AC-HUD-19/20.
 
@@ -267,12 +279,13 @@ Toutes les dépendances amont citent HUD. Bidirectional check ✅.
 
 ## Tuning Knobs
 
-### MVP knobs (4 knobs design-active)
+### MVP knobs (5 knobs design-active — r1.1 différenciation source)
 
 | Knob | Default | Safe Range | Affecte | Notes |
 |---|---|---|---|---|
-| `CREDIT_COUNTER_TWEEN_MS` | `100` | `[60, 200]` ms | Pulse de scale credit counter (F-HUD-1) | < 60 ms : pulse imperceptible (anti-Pillar 2). > 200 ms : distrait du gameplay (anti-Pillar 1). Marqué provisoire — playtest 1 calibrera. |
-| `PULSE_SCALE_MAGNITUDE` | `1.05` | `[1.02, 1.10]` | Magnitude du pic de scale (F-HUD-1) | < 1.02 : pulse invisible. > 1.10 : attire l'œil hors zone centrale (anti-Pillar 1). |
+| `CREDIT_COUNTER_TWEEN_KILL_MS` (r1.1) | `100` | `[60, 200]` ms | Pulse de scale credit counter sur `source == KILL` (F-HUD-1) | Renommé r1.1 depuis `CREDIT_COUNTER_TWEEN_MS`. < 60 ms : pulse imperceptible (anti-Pillar 2). > 200 ms : distrait (anti-Pillar 1). Marqué provisoire — playtest 1 calibrera. |
+| `CREDIT_COUNTER_TWEEN_SECRET_MS` (r1.1) | `150` | `[120, 250]` ms | Pulse de scale credit counter sur `source == SECRET` (F-HUD-1) | Nouveau r1.1 amendement NB-CRD-6 Option A. **Invariant** : `CREDIT_COUNTER_TWEEN_SECRET_MS > CREDIT_COUNTER_TWEEN_KILL_MS` (différenciation perceptive Pillar 4 viscéralité). Cohérent Audio Rule 17 (clac aigu signature distincte +5 semitones). |
+| `PULSE_SCALE_MAGNITUDE` | `1.05` | `[1.02, 1.10]` | Magnitude du pic de scale (F-HUD-1) | < 1.02 : pulse invisible. > 1.10 : attire l'œil hors zone centrale (anti-Pillar 1). Identique KILL/SECRET MVP. |
 | `HUD_MARGIN_RIGHT_PX` | `24` | `[16, 48]` px | Position du counter (F-HUD-2) | Distance du bord droit. < 16 : risque de clipping sur certains aspects ratios. > 48 : counter empiète zone centrale. |
 | `HUD_MARGIN_TOP_PX` | `20` | `[16, 48]` px | Position du counter (F-HUD-2) | Distance du bord haut. Mêmes contraintes que ci-dessus. |
 
@@ -558,6 +571,14 @@ Le `Container` parent permet l'animation de scale unifiée (icon + label en bloc
 - **AC-HUD-33** [BLOCKING][AUTO] **GIVEN** HUD fully loaded, **WHEN** scene tree inspecté, **THEN** aucun node de type "health bar", "shield bar", "ammo counter" n'existe dans HUD (anti-Pillar 1 + anti-pillars game-concept).
 - **AC-HUD-34** [BLOCKING][AUTO] **GIVEN** `credits_changed(total, delta, SourceKind.KILL)` reçu, **WHEN** handler HUD s'exécute, **THEN** aucun appel à `AudioServer` ou `AudioStreamPlayer` (zero SFX MVP — audio-system.md ligne 169) — assertion via mock AudioServer ou spy method calls.
 - **AC-HUD-35** [BLOCKING][AUTO] **GIVEN** HUD initialized, **WHEN** scene tree inspecté + grep sur `.gd` source HUD, **THEN** HUD ne détient aucune référence directe à `CombatSystem`, `LevelSystem`, `MovementController`, `EnemySystem`, `Player`, `AudioSystem` — seules deps autorisées : `CreditEconomy` + `GameStateManager` (Rule 12 + lint cover-all à étendre).
+
+- **AC-HUD-36** (r1.1 — pulse durée différenciée par source) [BLOCKING][AUTO] **GIVEN** HUD initialisé en `State.PLAYING`, spy injecté sur `Tween.tween_property(Label, "scale", ...)`. **WHEN** deux signaux `credits_changed` séquentiels émis : (1) `credits_changed(N+1, +1, SourceKind.KILL)` puis (2) `credits_changed(N+6, +5, SourceKind.SECRET)` 500 ms plus tard (pas de chevauchement). **THEN** :
+    - (a) Le tween du 1er signal (KILL) a `duration ≈ 0.100 s ± 0.005 s` (`CREDIT_COUNTER_TWEEN_KILL_MS / 1000`).
+    - (b) Le tween du 2e signal (SECRET) a `duration ≈ 0.150 s ± 0.005 s` (`CREDIT_COUNTER_TWEEN_SECRET_MS / 1000`).
+    - (c) **Invariant balance** : `tween_secret.duration > tween_kill.duration` strictement. Pas d'égalité, pas d'inversion. Si invariant violé : FAIL avec message "Pillar 4 différenciation perceptive cassée — secret pulse durée doit dépasser kill pulse durée".
+    - (d) Magnitude pic de scale `(1.05, 1.05)` identique pour les deux tweens (différenciation magnitude réservée Tier 2+).
+    - (e) **Edge case `tween.kill()` collision** : si un 3e signal `credits_changed(... KILL)` arrive pendant que le tween (b) SECRET est encore en cours, le tween SECRET est `kill()` et un nouveau tween KILL démarre avec `duration ≈ 0.100 s`. La durée du tween courant reflète toujours le `source` du dernier signal reçu.
+    Test : `tests/integration/hud/credit_counter_pulse_source_diff_test.gd`. Pillar 4 viscéralité MVP minimum, cohérent Audio Rule 17 (clac aigu pitch +5 semitones bus `SFX`). Cascade NB-CRD-6 Option A creative-director adjudication 2026-04-28.
 
 ### Coverage matrix
 

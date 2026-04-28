@@ -1,6 +1,6 @@
 # Audio System
 
-> **Status**: Draft r2.1 — Phase A (vision) + Phase B (spec) + 14 BLOCKING re-review fixes appliqués 2026-04-27 via `/design-system audio-system r2` solo auto-approve + `/design-review` fresh session post A+B (4 specialists adversariaux : game-designer, audio-director, qa-lead, godot-specialist).
+> **Status**: Draft r2.2 — Amendement éditorial 2026-04-28 (NB-CRD-6 Option A creative-director adjudication — secret collect clac différencié pitch +5 semitones bus `SFX`). Précédent r2.1 : Phase A (vision) + Phase B (spec) + 14 BLOCKING re-review fixes appliqués 2026-04-27 via `/design-system audio-system r2` solo auto-approve + `/design-review` fresh session post A+B (4 specialists adversariaux : game-designer, audio-director, qa-lead, godot-specialist).
 >
 > **Phase A vision (vision call CD adjudications + Martin D3)** :
 > - **D3 Martin REOPEN tranchée Option A** : pitch-shift -2..-4 semitones autorisé sur `COMBAT_KILL` + `AMBIENCE` sous slow-mo via allowlist bus-level. `MUSIC` + `SWING_ACTIVE` invariants. Rule 11 réécrite, Formula 5 ajoutée, AC-AUD-15 reformulée. ADR-0009 D-3 amendé (allowlist `pitch_scale_follows_time_scale` per bus).
@@ -16,9 +16,9 @@
 >
 > **Phase C (formules+ACs) + Phase D (impl)** sont les 2 phases CD restantes — adressables après re-review fresh post A+B.
 >
-> **Author**: Martin + design-system skill r2 Phase A+B (auto mode, solo) — r1 → r2 surgical OQ#1 + Phase A vision + Phase B spec, r2 → r2.1 design-review fresh session 14 BLOCKING fixes (editorial coherence + spec gaps + AC testability + ADR-0002/0009 D-6 reconciliation)
-> **Last Updated**: 2026-04-27 (r2.1 post re-review)
-> **Last Verified**: 2026-04-27
+> **Author**: Martin + design-system skill r2 Phase A+B (auto mode, solo) — r1 → r2 surgical OQ#1 + Phase A vision + Phase B spec, r2 → r2.1 design-review fresh session 14 BLOCKING fixes (editorial coherence + spec gaps + AC testability + ADR-0002/0009 D-6 reconciliation), r2.1 → r2.2 amendement éditorial NB-CRD-6 Option A (CD adjudication 2026-04-28 — secret collect clac différencié, audio-director Mécanisme α validé)
+> **Last Updated**: 2026-04-28 (r2.2 amendement NB-CRD-6 — Rule 17 + Formula 7 + AC-AUD-16 secret collect)
+> **Last Verified**: 2026-04-28
 > **Implements Pillar**: Pillar 1 (FLOW AVANT TOUT — wall-clock fades, zéro hitching), Pillar 3 (UNE SECONDE CHANCE N'EST JAMAIS LOIN — death feedback 60-80 ms wall-clock, overlap respawn frame intentionnel — RESPAWN_DELAY 50 ms figé, queue audio Godot survit scene reload — Rule 14 r2)
 
 ## Summary
@@ -143,6 +143,18 @@ Le joueur ne pense jamais à l'Audio System — il **sent** ses effets. La Fanta
     - **Edge case multi-kill** : si `_kill_count_this_swing >= 2` (multi-kill), les clacs successifs prolongent le sidechain ducking (release reset à chaque clac). Cohérent Couche 4 climax sonique multi-kill.
     - **Edge case swings rapides** : deux swings successifs séparés de `SWING_DURATION_MS (120) + cooldown (50) = 170 ms` — release sidechain non terminée (200 ms). Le 2e clac arrive en pleine release, le ducking est cumulatif → ~350-400 ms total. Perceptuellement acceptable (renforce urgence rythmique combat) — valider playtest Sprint Audio. Si pumping indésirable : abaisser `sidechain_release_ms` à ≤ 150 ms via Tuning Knob.
 
+17. **Secret collect clac — pitch +5 semitones sur bus `SFX`, positionnel 3D depuis `secret_node` (r2.2 — NB-CRD-6 Option A creative-director adjudication, audio-director Mécanisme α)**. Sur `Secret.secret_collected(secret_node: Node, tier: int)` reçu en `CONNECT_DEFERRED`, l'Audio handler `_on_secret_collected` :
+    - Capture `position := secret_node.global_position` immédiatement au tick de réception (même règle Rule 7 — évite null ref si secret `queue_free` après collect).
+    - Joue `play_3d_at(clac_stream, position, AudioBuses.SFX)` avec `pitch_scale = SECRET_PITCH_SCALE` (Formula 7 = `2.0 ** (5.0 / 12.0) ≈ 1.335`).
+    - **Bus `SFX`, PAS `COMBAT_KILL`** : le sidechain compressor Rule 16 (`MUSIC ← COMBAT_KILL`) ne s'arme PAS sur un secret — une découverte n'écrase pas la continuité musicale. Le joueur entend le clac aigu sans silence rythmique Couche 1 associé, ce qui différencie sémantiquement kill (rupture) vs secret (découverte). Pillar 4 viscéralité MVP minimum livrée par contraste de timbre + bus + ducking absent (vs présent côté kill).
+    - **Pas de ducking `SWING_ACTIVE`** : aucun appel `duck_bus()` — le secret n'est pas un event combat, il ne coupe pas le swoosh en cours.
+    - **Pas d'incrément `_kill_count_this_swing`** : le compteur multi-kill est exclusif au combat (Rule 13 r2). Un secret collecté pendant un swing actif ne contamine pas la progression pitch +0/+2/+4 de la Rule 13.
+    - **Pas de blood ambiance** : aucun `blood_stream` associé.
+    - **Tier indifférent au MVP** : `tier ∈ {1, 2, 3}` reçu mais ignoré — `pitch_scale` identique pour tous les tiers. Extension Tier 2+ : `pitch_scale` variable par tier via tuning knob `secret_tier_pitch_offsets: Array[float]` (réservé contrat futur).
+    - **Signal canonique** : `Secret.secret_collected` (upstream, porte `secret_node` avec position 3D). Signal `Credit.credits_changed(source=SECRET)` **non utilisé** côté Audio — pas de position 3D, SYNC, trop downstream.
+    - **Collision pitch Rule 13 évitée** : +5 semitones est délibérément hors plage `[+0, +4]` de la Rule 13 multi-kill sur `COMBAT_KILL`. Les deux signaux jouent sur des bus distincts (`COMBAT_KILL` vs `SFX`) — ambiguïté perceptive nulle même si les deux events coïncident dans le même tick (kill + secret collect simultanés).
+    - **Asset pipeline** : aucun nouveau asset requis. `clac_stream` existant est réutilisé avec pitch shift paramétrique. Décision audio-director Mécanisme α (vs Mécanisme β bus dédié `SECRET_COLLECT` + asset distinct) — minimalisme palette Chrome Zen synthwave + livraison <2h éditorial validation criteria CD.
+
 ### States and Transitions
 
 | State | Entry Condition | Exit Condition | Behavior |
@@ -163,6 +175,7 @@ Le joueur ne pense jamais à l'Audio System — il **sent** ses effets. La Fanta
 | **Level System** (amont) | Signal `level_active(etage_id, player_start)` (Level GDD r3+, formalisé Level r4 §Interactions row Audio) consommé en `CONNECT_DEFERRED`. Handler `_on_level_active(etage_id, _player_start)` lookup synchrone `LevelSystem.get_etage_audio_streams(etage_id) -> Dictionary{music, ambient}` puis `play_music(streams.music)` + crossfade ambient (Formula 4). Signal `level_unloading(etage_id)` → `stop_music(0.5)` + ambient fade-out. Signal `room_entered(room_index, total_rooms)` consommé pour ambient layer swap intra-étage éventuel (optionnel MVP). | Level owns signals + lookup API, Audio owns playback. r2 Option C — pas de signal `etage_loaded` dédié. |
 | **Player Combat** (amont) | Signals consommés en `CONNECT_DEFERRED` : `swing_started` → `play_2d(swoosh_stream, AudioBuses.SWING_ACTIVE)` + reset `_kill_count_this_swing = 0`. `swing_ended` → `_start_swoosh_fade()` (30 ms wall-clock) + reset `_kill_count_this_swing = 0`. `enemy_killed(enemy, position)` → counter `_kill_count_this_swing += 1` puis pitch_scale rang (1.0/1.122/1.260 cap), `play_3d_at(clac_stream, position, AudioBuses.COMBAT_KILL)` + tracker `_active_clac_players[slot_idx] = true` (exclusion pitch shift slow-mo Rule 11) + `duck_bus(SWING_ACTIVE, -6, 30)` + `play_3d_at(blood_stream, position, AudioBuses.COMBAT_KILL)` after 50 ms delay wall-clock (slot blood, pitch_scale=Formula5 si time_scale!=1.0). `multi_kill(count)` → **NON connecté côté Audio** (signal Combat ignoré — la logique multi-kill climax est intégralement dans les rangs `enemy_killed` via `_kill_count_this_swing` r2 Rule 13, pas dans `multi_kill` handler). | Combat owns signals, Audio owns dispatch. Contracts AC-CMB-51 / AC-CMB-audio-01 / AC-CMB-audio-02 vérifiables côté Audio via mocks. |
 | **Player Movement** (amont) | Signals consommés en `CONNECT_DEFERRED` : `dash_started` → `play_2d(dash_stream)`. `dash_rejected` (futur — Movement Open Question) → `play_2d(dash_reject_stream, AudioBuses.UI)` -12 dB. `wall_run_entered` → `play_2d(wallrun_loop_stream)` ; `wall_run_exited` → fade out 100 ms wall-clock. `wall_jumped` → `play_2d(walljump_stream)`. `died` → `play_2d(death_stream)` 60-80 ms duration (Rule 14 r2 — overlap respawn frame intentionnel). `respawned` → noop MVP (silence intentionnel post-respawn pour clarté). | Movement owns signals, Audio owns dispatch. |
+| **Secret System** (amont, r2.2) | Signal `secret_collected(secret_node: Node, tier: int)` consommé en `CONNECT_DEFERRED`. Handler `_on_secret_collected` → `play_3d_at(clac_stream, secret_node.global_position, AudioBuses.SFX)` avec `pitch_scale = SECRET_PITCH_SCALE` (Formula 7, default `+5 semitones ≈ 1.335`). Rule 17 — bus `SFX`, PAS `COMBAT_KILL` (sidechain ne s'arme pas — découverte vs rupture). Tier indifférent MVP (extension Tier 2+). NB-CRD-6 Option A creative-director adjudication 2026-04-28 — Pillar 4 viscéralité différenciée par contraste timbre + bus + ducking absent. Résout OQ-SEC-4 (bus dédié `SECRET_COLLECT` rejeté Mécanisme β au profit Mécanisme α paramétrage). | Secret owns signal, Audio owns dispatch. |
 | **Input System** (amont, soft) | Pas de connexion directe. UI clicks (menu navigation) via Menu System future, route `play_2d(click_stream, AudioBuses.UI)`. | Input → Menu → Audio (chain indirect). |
 | **Accessibility System** (aval, Tier 3) | Audio System expose API `set_bus_volume_db_user(bus, db)` qui persiste dans `audio_settings.tres` (Save/Load Tier 2+). Sliders UI : `master_volume`, `music_volume`, `sfx_volume`. Toggle `subtitles_enabled` (post-MVP, Voice/VO ADR Tier 3). | Accessibility owns UI sliders, Audio owns persistence + AudioServer wiring. |
 | **VFX & Feedback** (aval, peer) | Pas d'interaction directe. VFX et Audio sont peers consumers des mêmes signals Combat (`swing_started`, `enemy_killed`, `multi_kill`) — chacun connecte indépendamment. VFX est SYNC pour flash blanc (exemption ADR-0005 D-5 amendment), Audio est DEFERRED. Les deux émettent leurs effets en parallèle frame N+1 par rapport au tick kill. | Combat owns signals, VFX et Audio sont consumers parallèles indépendants. |
@@ -296,6 +309,23 @@ release window = 200 ms expo decay
 
 **Mécanisme Godot** : configuré au `_ready()` AudioSystem via `AudioServer.add_bus_effect(MUSIC_idx, AudioEffectCompressor.new())`, paramètres set via `AudioEffectCompressor.threshold/ratio/attack_us/release_ms/sidechain`. Cohérent `audio.md` engine reference.
 
+### Formula 7 — Pitch shift secret collect (r2.2 — NB-CRD-6 Option A)
+
+```
+SECRET_PITCH_SCALE = 2.0 ** (SECRET_PITCH_SEMITONES / 12.0)
+```
+
+| Variable | Symbol | Type | Range | Description |
+|----------|--------|------|-------|-------------|
+| `SECRET_PITCH_SEMITONES` | `s` | float | `[4.0, 7.0]` | Décalage pitch du clac secret en demi-tons. Default `5.0` (`pitch_scale ≈ 1.335`, intervalle de quarte juste au-dessus du nominal). Hors plage Rule 13 `[0, 4]` pour éviter collision perceptive multi-kill. Tuning knob `secret_pitch_semitones`. |
+| `SECRET_PITCH_SCALE` | `p` | float | `[1.260, 1.498]` | Output `pitch_scale` passé à `AudioStreamPlayer3D.pitch_scale`. Borne basse `1.260` = +4 semitones (cap Rule 13, exclusif), borne haute `1.498` = +7 semitones (limite avant timbre méconnaissable). |
+
+**Output Range** : `pitch_scale ∈ [1.260, 1.498]` borné par `safe_range` semitones `[4, 7]`.
+
+**Example** : `SECRET_PITCH_SEMITONES = 5.0` → `pitch_scale = 2.0 ** (5/12) = 1.3348...`. Clac joué à `pitch_scale = 1.335` sur bus `SFX`. Si comparé au 3e kill multi-kill Rule 13 (`pitch_scale = 1.260`), différence audible immédiate (+1 semitone perceptuel, +0.075 absolu).
+
+**Invariance time_scale** : Formula 7 NE composite PAS avec Formula 5 (pitch shift slow-mo). Le bus `SFX` n'est PAS dans la pitch allowlist Rule 11 (`PITCH_SCALE_FOLLOWS_TIME_SCALE_PER_BUS[SFX] = false`) — le pitch secret reste invariant à `SECRET_PITCH_SCALE` même sous `time_scale != 1.0`. Comportement intentionnel : la découverte d'un secret n'est pas colorée par le drone HLM combat.
+
 ## Edge Cases
 
 - **If pool 2D saturé (5 sons 2D simultanés — r2 sizing)** : le 6e `play_2d` interrompt le slot le plus ancien via `stop()` (round-robin). `push_warning("AudioPool 2D saturé — interruption son 2D actif")`. Au MVP scenario stress (1 swoosh + 1 dash + 1 walljump + 1 death + 1 UI = 5 simultanés), ce cas n'apparaît pas. Si combo system Tier 2 ou stress audio additionnel : augmenter pool à 6-8× (Tuning Knob safe range `[5, 8]`, R-1 ADR-0009).
@@ -311,6 +341,10 @@ release window = 200 ms expo decay
 - **If pool 3D saturé pendant multi-kill** (12+ ennemis tués au même tick — édge case Tier 2+) : round-robin interrompt les blood ambiance les plus anciennes. Au MVP, `MAX_KILLS_PER_SWING = 3` (Combat) → max 3 blood ambiance simultanées sur pool 12 → pas de saturation possible (r2 sizing).
 - **If `Ambience #1` et `Ambience #2` jouent simultanément crossfade en cours quand `state_changed(PAUSED)` arrive** : Master mute coupe les deux. Au resume, le crossfade reprend où il était (état préservé via `_crossfade_pause_msec` offset, comme fades wall-clock). Sound-designer Sprint Audio valide UX.
 - **If `AudioListener3D` Camera3D actif est freed mid-frame** (e.g. Camera switch lourd, scene reload) : Godot 4.6 default behavior fallback à 0,0,0 listener (origin). Sons 3D positional vont jouer atténués au origin pendant 1 frame. Acceptable (cas transitoire). Coordination ADR-0002 garantit Camera3D toujours présent en runtime stable.
+- **If `Secret.secret_collected` reçu pendant slow-mo (`time_scale != 1.0`)** : Rule 17 + Formula 7 — bus `SFX` n'est PAS dans la pitch allowlist Rule 11, donc `pitch_scale = SECRET_PITCH_SCALE` (Formula 7) reste invariant. Le clac secret n'est PAS pitch-shifted vers le drone HLM même si le slow-mo combat est actif. Cas pratique : kill multi → slow-mo → secret collecté pendant slow-mo → clac secret aigu identifiable malgré le drone combat. Comportement intentionnel — le secret transcende le système combat.
+- **If `Secret.secret_collected` reçu pendant `MUTED_PAUSED`** : le handler ne joue PAS le clac (Master bus muted). Pas de tracking d'état persistant nécessaire (contrairement à `_kill_sound_played_this_swing` Rule 13) — le secret est un event one-shot, pas multi-step. Au resume PLAYING, prochain `secret_collected` reçoit le traitement normal.
+- **If `secret_node.global_position` est `(NaN, +Inf)`** au moment du payload `secret_collected` : fallback `play_2d(clac_stream, AudioBuses.SFX, pitch_scale=SECRET_PITCH_SCALE)` head-locked. `push_warning("AudioSystem: secret_node.global_position invalid, fallback 2D")`. Cas pathologique (Secret System émet position valide en pratique).
+- **If kill simultané + secret collect dans le même tick** (ennemi tué pendant qu'on collecte un secret) : les deux Audio handlers tirent indépendamment. Combat clac sur `COMBAT_KILL` à `pitch_scale ∈ [1.0, 1.260]`, secret clac sur `SFX` à `pitch_scale ≈ 1.335`. Les deux clacs jouent en parallèle, bus distincts, ducking sidechain MUSIC armed par COMBAT_KILL seulement. Lisibilité garantie par séparation de bus.
 
 ## Dependencies
 
@@ -321,6 +355,7 @@ release window = 200 ms expo decay
 | **Level System** | This depends on Level | Hard pour music/ambient. Consume `level_active(etage_id, player_start)` (Level r3+) en CONNECT_DEFERRED + lookup synchrone `LevelSystem.get_etage_audio_streams(etage_id) -> Dictionary{music, ambient}` (Level r4 amendment Option C). Consume aussi `level_unloading(etage_id)` pour fade-out music + `room_entered(room_index, total_rooms)` pour ambient layer swap intra-étage (optionnel MVP). Sans Level : music statique du menu uniquement. |
 | **Player Combat** | This depends on Combat (signals) | Hard pour audio combat. Consume `swing_started`, `swing_ended`, `enemy_killed(enemy, position)`, `multi_kill(count)` en CONNECT_DEFERRED. Contrats AC-CMB-51 (fade-out swoosh wall-clock 25-50 ms), AC-CMB-audio-01 (multi-kill clac dedup), AC-CMB-audio-02 (ducking event ordering). Sans Combat : pas de SFX combat. |
 | **Player Movement** | This depends on Movement (signals) | Hard pour audio movement. Consume `dash_started`, `dash_rejected` (futur), `wall_run_entered`, `wall_run_exited`, `wall_jumped`, `died`, `respawned` en CONNECT_DEFERRED. Sans Movement : pas de SFX déplacement. |
+| **Secret System** | This depends on Secret (signal, r2.2) | Hard pour audio secret. Consume `secret_collected(secret_node, tier)` en CONNECT_DEFERRED (Rule 17 r2.2). Sans Secret : pas de clac différencié, Pillar 4 viscéralité MVP minimum non livrée. |
 | **Input System** | This depends on Input (indirect) | Soft via Menu System. UI clicks routés indirectement (Input → Menu Widget → Audio.play_2d). Pas de connexion directe Input → Audio. |
 | **Accessibility System** | Accessibility depends on this | Soft, future Tier 3. Accessibility expose UI sliders volume per bus, persiste via Audio System API `set_bus_volume_db_user`. |
 | **VFX & Feedback** | Peers (no dependency) | Aucun. VFX et Audio sont consumers parallèles indépendants des mêmes signals Combat. Aucun appel direct entre les deux. |
@@ -333,6 +368,7 @@ release window = 200 ms expo decay
 - `level-system.md` : ✅ **RÉSOLU r2** par Level GDD r4 amendement (2026-04-27 Option C). Audio consume `level_active` existant + lookup `LevelSystem.get_etage_audio_streams(etage_id)` ; pas de signal `etage_loaded` créé. Bidirectionalité Level r4 §Interactions row Audio + §Tuning Knobs `ETAGE_AUDIO_MAPPING` + §Dependencies Downstream Audio = présentes.
 - `player-combat-system.md` : déjà documenté §Audio Requirements (APPROVED r6). Ajouter ref vers ce GDD comme "Audio System (aval)" pour bidirectionalité explicite (mineur, déjà couvert par Cross-References Combat).
 - `player-movement-system.md` : déjà documenté §Visual/Audio Requirements. Ajouter ref vers ce GDD (mineur).
+- `secret-system.md` (r2.2) : ajouter Audio System dans Dependencies + Interactions table aval (consume `secret_collected`). Mention Rule 17 + Formula 7 différenciation pitch +5 semitones bus `SFX`. Bidirectionalité confirme cascade NB-CRD-6 Option A.
 
 ## Tuning Knobs
 
@@ -356,6 +392,7 @@ release window = 200 ms expo decay
 | `pitch_shift_max_semitones_slow_mo` (r2) | -4.0 | `[-6.0, -2.0]` | Drone-down trop grave, ambient inintelligible | Drone-down imperceptible, identité HLM perdue |
 | `sidechain_music_attenuation_db` (r2) | -3.0 dB | `[-6.0, -1.0]` dB | Music ducked trop fort, breathing artifact audible (pumping) | Music pas assez ducked, masque silence rythmique Couche 1 |
 | `sidechain_release_ms` (r2) | 200.0 | `[100, 400]` ms | Release lente → music reste ducked longtemps après clac (sensation lourde) | Release rapide → music pop-up audible immédiatement après clac |
+| `secret_pitch_semitones` (r2.2) | +5.0 | `[+4.0, +7.0]` | Trop aigu → timbre clac méconnaissable, secret perd la signature partagée avec kill | Trop bas → collision Rule 13 multi-kill `[+0, +4]`, ambiguïté perceptive kill 3+ vs secret |
 | `music_default_fade_seconds` | 1.0 | `[0.3, 3.0]` s | Music transitions molles | Music cuts brutaux |
 
 **Knobs non-tuneable (invariants)** :
@@ -515,6 +552,21 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 ### Multi-kill counter reset (r2 Phase A — VC-10)
 
 - **AC-AUD-17** (r2) `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** swing actif, `_kill_count_this_swing` after 3 kills = 3. **WHEN** swing termine (`swing_ended` reçu). **THEN** : (a) `_kill_count_this_swing` reset à `0` au tick `swing_ended` reception (DEFERRED frame N+1) ; (b) prochain swing commencé (`swing_started` reçu) confirme counter `0` ; (c) prochain `enemy_killed` premier kill nouveau swing : clac joué `pitch_scale = 1.0` (pas +6 semitones bug carry-over). Test inclus dans `tests/integration/audio/multi_kill_pitch_shift_test.gd` (extension AC-AUD-05).
+
+### Secret collect différenciation (r2.2 — NB-CRD-6 Option A)
+
+- **AC-AUD-18** (r2.2 — secret collect clac aigu bus SFX) `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** AudioSystem prêt, AudioBuses configurés (Rule 16 sidechain armed sur `COMBAT_KILL`), spy injecté sur `play_3d_at` et `play_2d`, mock Secret node `secret_node_mock` avec `global_position = Vector3(5, 1, 3)`. **WHEN** `Secret.secret_collected.emit(secret_node_mock, 1)` émis (tier 1) depuis le main thread, propagation DEFERRED frame N+1. **THEN** :
+    - (a) **Dispatch correct** : `play_3d_at` est appelé exactement 1 fois avec `stream == clac_stream`, `bus == AudioBuses.SFX`, `pitch_scale ≈ 1.335 ± 0.001` (`SECRET_PITCH_SCALE = 2.0 ** (5/12)`, Formula 7).
+    - (b) **Bus exclusif `SFX`** : `play_3d_at` n'est PAS appelé avec `bus == AudioBuses.COMBAT_KILL` ni `bus == AudioBuses.SWING_ACTIVE`. Vérifier via spy assert `bus_arg != AudioBuses.COMBAT_KILL`.
+    - (c) **Pas de ducking SWING_ACTIVE** : `duck_bus` n'est PAS appelé suite à ce signal (vs Rule 13 kill qui appelle `duck_bus(SWING_ACTIVE, -6, 30)`).
+    - (d) **Compteur multi-kill intact** : `_kill_count_this_swing` reste inchangé après réception `secret_collected`. Le secret n'incrémente PAS le compteur combat.
+    - (e) **Position 3D capturée** : la position passée à `play_3d_at` `== secret_node_mock.global_position` (`Vector3(5, 1, 3) ± 0.001`) capturée au tick de réception (pas une ref live au node — pour cohérence avec Rule 7 et défense queue_free post-collect).
+    - (f) **Pas de blood ambiance** : `play_3d_at` n'est PAS appelé avec `stream == blood_stream` suite à ce signal (vs kill Rule 13 qui chain blood ambiance 50 ms après clac).
+    - (g) **Tier indifférent** : ré-émission `Secret.secret_collected.emit(secret_node_mock, 3)` (tier 3) → mêmes assertions (a)-(f), `pitch_scale` identique. MVP ne différencie pas les tiers.
+    - (h) **Position invalide fallback** : si `secret_node_mock.global_position = Vector3(NAN, NAN, NAN)`, alors `play_2d` est appelé (head-locked fallback) avec `bus == AudioBuses.SFX` et `pitch_scale ≈ 1.335` ; `play_3d_at` n'est PAS appelé. `push_warning` capturé.
+    Test : `tests/integration/audio/secret_collect_pitch_shift_test.gd`. Cohérent Rule 17 + Formula 7 r2.2. Pillar 4 viscéralité MVP minimum.
+
+- **AC-AUD-19** (r2.2 — secret pitch invariant slow-mo) `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** AudioSystem prêt, `Engine.time_scale = 0.3` (slow-mo Combat actif). **WHEN** `Secret.secret_collected.emit(secret_node_mock, 1)` reçu DEFERRED. **THEN** : (a) `play_3d_at` appelé avec `pitch_scale ≈ 1.335 ± 0.001` (`SECRET_PITCH_SCALE` invariant — bus `SFX` PAS dans pitch allowlist Rule 11) ; (b) le `pitch_scale` n'est PAS composite avec Formula 5 slow-mo (`pitch_scale != 1.335 × 0.8821`) ; (c) à `time_scale = 1.0` retour, prochain `secret_collected` produit toujours `pitch_scale ≈ 1.335`. Test inclus dans `tests/integration/audio/secret_collect_pitch_shift_test.gd`.
 
 ## Open Questions
 

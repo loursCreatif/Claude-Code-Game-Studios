@@ -10,7 +10,7 @@
 
 Secret System est l'autoload qui détecte la collection des secrets placés par Level System dans la géométrie d'un étage, gère leur état binaire UNCOLLECTED/COLLECTED, et émet le signal `secret_collected(secret_node: Node, tier: int)` SYNC consommé par Credit Economy. Le système est volontairement minimaliste : pas de logique de placement (Level est l'autorité spatiale), pas de logique économique (Credit est l'autorité monétaire), pas de logique visuelle (VFX écoute le signal). Secret System est le **détecteur de franchissement** + le **garde-fou idempotent** + l'**autorité de l'état "collected"** entre deux events Level (`level_active`) et Credit (`secret_collected`). Il sert **Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT)** comme contrat primaire — chaque body_entered sur un `SecretCollectVolume_NN` est par construction la conclusion d'un défi de mouvement, jamais d'une énigme.
 
-> **Quick reference** — Layer: `Feature` · Priority: `MVP` · Key deps: `Level System (APPROVED r3 r4), Credit Economy (Designed r1), Game State Manager (APPROVED r1), VFX System (Not Started — visual feedback), Audio System (APPROVED r2.1 — collect cue), Save/Load System (Not Started — persist collected_secret_ids)`
+> **Quick reference** — Layer: `Feature` · Priority: `MVP` · Key deps: `Level System (APPROVED r3 r4), Credit Economy (Designed r1), Game State Manager (APPROVED r1), VFX System (Not Started — visual feedback), Audio System (APPROVED r2.2 — collect cue Rule 17 r2.2 cascade NB-CRD-6 Option A), Save/Load System (Not Started — persist collected_secret_ids)`
 
 ## Overview
 
@@ -229,7 +229,7 @@ caduc en Tier 2+ post-MVP.
 | **Credit Economy** (Designed r1) | Aval — Credit écoute | Signal `secret_collected(secret_node: Node, tier: int)` SYNC, flags=0 | Secret System émet ; Credit Economy consomme et crédite `BASE_SECRET_CREDIT × tier` (F-CRD-2). Contrat confirmé — clôture OQ-CRD-1 Credit Economy : `tier ∈ {1, 2, 3}`, signal émis depuis callback physique main thread. Tier invalide filtré en amont par R-SEC-05 — Credit ne devrait jamais recevoir un tier hors plage depuis Secret System. |
 | **Game State Manager** (APPROVED r1) | Amont — Secret observe | Signal `state_changed(new_state: State)` (ADR-0007 D-10) + verb `request_new_run()` | Secret System maintient `_current_gsm_state` synchrone pour la garde R-SEC-08. `request_new_run()` → reset complet `_collected_secret_ids` (R-SEC-10). Secret System ne modifie jamais l'état GSM. |
 | **VFX System** (Not Started) | Aval — VFX s'auto-connecte | Signal `secret_collected(secret_node: Node, tier: int)` | VFX System se connecte au signal depuis son propre `_ready()` (outbound-only — Secret ne connaît pas VFX). Sur réception : éteint le glow cyan du `SecretLureMarker_NN` référencé via `secret_node`. Secret System n'a aucune responsabilité visuelle. |
-| **Audio System** (APPROVED r2.1) | Aval — Audio s'auto-connecte | Signal `secret_collected(secret_node: Node, tier: int)` | Audio System joue le clac secret (signature distincte du clac combat — Audio GDD Rule). Connexion self-managed depuis Audio `_ready()`. Secret System ne connaît pas Audio. |
+| **Audio System** (APPROVED r2.2) | Aval — Audio s'auto-connecte | Signal `secret_collected(secret_node: Node, tier: int)` | Audio System joue le clac secret différencié via Rule 17 r2.2 + Formula 7 (`pitch_scale ≈ 1.335`, +5 semitones, bus `SFX`). Cascade NB-CRD-6 Option A creative-director adjudication 2026-04-28. Connexion self-managed depuis Audio `_ready()` (CONNECT_DEFERRED). Secret System ne connaît pas Audio. |
 | **Save/Load System** (Not Started) | Aval — persist post-MVP | `SaveLoad.save_int_array("collected_secret_ids", ids)` | MVP : état session-only via Checkpoint snapshot in-memory. Post-MVP : Secret System appelle Save/Load dans le handler `state_changed(MENU)` pour persister `collected_secret_ids` entre sessions. Format : `Array[int]` d'instance_ids. |
 | **Checkpoint System** (Not Started — **r2 B-1 [GATE] amendement Checkpoint r2 requis**) | Bidirectionnel — snapshot | Getter `checkpoint.get_collected_secrets() -> Array[int]` (Secret lit au `level_active`) + setter `Secret.inject_collected_secrets(ids: Array[int])` (Checkpoint pousse la liste vers Secret au moment du restore — verbe **renommé r2 B-1** depuis `restore_collected_secrets` pour clarifier la direction d'appel) + getter `Secret.get_collected_ids() -> Array[int]` (Checkpoint lit l'état courant au moment du checkpoint latch) | MVP path : Checkpoint fournit la liste `collected_secret_ids` à Secret à `level_active` (R-SEC-10). **Interface PROVISOIRE [GATE]** : Checkpoint GDD r1 (In Design) ne liste actuellement pas Secret dans §Interactions ni ces verbes — amendement Checkpoint r2 requis avant `/create-epics secret-system`. AC-SEC-12 + AC-SEC-33 sont conditionnés à cet amendement. |
 | **Movement System** (APPROVED r3) | Cousin — aucune interface directe | (aucune) | Movement gère implicitement la capability gate : le joueur ne peut pas physiquement atteindre un `SecretCollectVolume_NN` sans la `required_ability` encodée dans la géométrie de l'étage (R-SEC-09). Secret System ne dépend pas de Movement et ne l'interroge jamais. Absence de couplage intentionnelle. |
@@ -364,7 +364,7 @@ Ces cas ne sont pas des edge cases runtime mais des erreurs d'authoring Level Sy
 | Système | Status | Interface canonique | Direction |
 |---------|--------|---------------------|-----------|
 | **VFX System** | Not Started | Self-connect au signal `secret_collected` | Aval — passive listener |
-| **Audio System** | APPROVED r2.1 ✅ | Self-connect au signal `secret_collected` | Aval — passive listener |
+| **Audio System** | APPROVED r2.2 ✅ | Self-connect au signal `secret_collected` (Rule 17 r2.2 — clac aigu pitch +5 semitones bus `SFX`, Formula 7) | Aval — passive listener avec différenciation Pillar 4 viscéralité MVP minimum livrée (cascade NB-CRD-6 Option A) |
 | **HUD System** | Not Started | Indirect via Credit `credits_changed(total, delta, SECRET)` | Aval — passive listener (chaîne) |
 | **Checkpoint System** | Not Started — **r2 B-1 [GATE] amendement Checkpoint r2 requis** | Bidirectionnel : `Secret.get_collected_ids() -> Array[int]` (Checkpoint lit) + `Secret.inject_collected_secrets(ids: Array[int])` (Checkpoint écrit, renommé r2 depuis `restore_*`) + `checkpoint.get_collected_secrets() -> Array[int]` (Secret lit au `level_active`) | Bidirectionnel — **PROVISOIRE pending Checkpoint r2** |
 | **Save/Load System** | Not Started | `save_int_array("collected_secret_ids", ...)` + `load_int_array(...)` post-MVP | Aval — passive write/read |
@@ -382,7 +382,7 @@ Ces cas ne sont pas des edge cases runtime mais des erreurs d'authoring Level Sy
 - **Level System GDD §Interactions Table** liste Secret comme aval avec `get_secret_slots()` + `level_active` ✅ (déjà documenté dans Level GDD)
 - **Credit Economy GDD §Detailed Rules R-9** liste `secret_collected` comme contrat d'entrée provisoire OQ-CRD-1 ✅ (Secret System ferme cette OQ — voir §Open Questions)
 - **GSM GDD §Interactions** liste les consumers de `state_changed` : Secret doit être ajouté via amendement GSM r2 (recommandation Phase 5 propagation)
-- **Audio System GDD r2.1** : Audio écoute `secret_collected` mais le clac secret n'est pas explicitement listé dans Audio Rule 11. **Recommandation amendement Audio r2.2** : ajouter Rule entrée pour le clac secret (signature distincte de `combat_kill`, bus `combat_kill` ou nouveau bus `secret_collect` à trancher avec audio-director).
+- **Audio System GDD r2.2** ✅ : amendement Audio r2.2 (2026-04-28) livré — Rule 17 + Formula 7 + AC-AUD-18/19. Audio handler `_on_secret_collected` consomme `secret_collected(secret_node, tier)` en CONNECT_DEFERRED, joue `play_3d_at(clac_stream, secret_node.global_position, AudioBuses.SFX)` avec `pitch_scale = SECRET_PITCH_SCALE ≈ 1.335`. OQ-SEC-4 RESOLVED par cascade. Différenciation Pillar 4 viscéralité MVP livrée intégralement (3 mécanismes simultanés : pitch +5 semitones, bus distinct, ducking absent).
 - **VFX System GDD** : Not Started — le contrat "VFX éteint le glow cyan sur réception `secret_collected`" doit être codé dans VFX GDD futur.
 
 ### Provisional contracts (à confirmer lors du design des systèmes Not Started)
@@ -503,24 +503,25 @@ Secret System est data-pure : il n'instancie aucun visuel et ne joue aucun son. 
 - L'extinction post-collect doit être **brutale** (pas de fade lent qui prolonge l'événement) — Pillar 1 FLOW : le secret est consommé en 1 frame, pas en cinematic.
 - **Aucun particle burst additionnel** au moment de la collection (pas de gerbe d'étoiles, pas de flash blanc) — le clac audio + l'extinction du glow + la pulse HUD du compteur suffisent. Ajouter du particle viole l'austérité Pillar 4.
 
-### Audio — Audio System (APPROVED r2.1, amendement Audio r2.2 recommandé)
+### Audio — Audio System APPROVED **r2.2** (amendement 2026-04-28 NB-CRD-6 Option A — Rule 17 + Formula 7 livrés)
 
-| Trigger | Réaction audio attendue | Délai max | Source autorité |
-|---------|------------------------|-----------|-----------------|
-| `secret_collected.emit(volume, tier)` | Clac secret joué sur bus dédié (recommandation : nouveau bus `SECRET_COLLECT` séparé du `COMBAT_KILL`) | 1 frame (16 ms @ 60 fps) | Audio GDD r2.2 amendement requis — Rule "secret collect cue" |
-| (idem, position spatiale) | Son joué via `AudioStreamPlayer3D` avec `position = secret_node.global_position` (positional 3D) | — | Audio GDD r2.2 |
+| Trigger | Réaction audio livrée | Délai | Source autorité |
+|---------|----------------------|-------|-----------------|
+| `secret_collected.emit(secret_node, tier)` | Clac aigu joué via `play_3d_at(clac_stream, secret_node.global_position, AudioBuses.SFX)` avec `pitch_scale = SECRET_PITCH_SCALE ≈ 1.335` (Formula 7 = `2.0 ** (5/12)`, +5 semitones) | 1 frame DEFERRED (16 ms @ 60 fps) | Audio GDD r2.2 Rule 17 + Formula 7 + AC-AUD-18/19 — RESOLVED 2026-04-28 |
 
-**Spec critique Pillar 4** :
-- Le clac secret doit être **distinct timbralement du clac combat** (`COMBAT_KILL` bus). Recommandation audio-director : son **plus grave** (downshift 100-200 cents) et **plus long** (durée 200-300 ms vs 60-80 ms pour kill) — il marque un moment de récompense, pas un kill staccato.
-- **Pas de musique stinger**, pas de jingle, pas de "ding" de progression — le clac doit s'intégrer dans le mix existant comme une percussion isolée (cf. Player Fantasy §22 « un riff isolé »).
-- **Pas de variation par tier au MVP** : tier 1, 2, 3 jouent le même clac (différenciation suffisante via le saut visible du compteur HUD). Tier 2+ pourrait introduire pitch-shift +0/+2/+4 semitones par tier (réservé OQ-SEC-3, dépend playtest).
-- **Bus dédié** : Audio GDD actuel liste `MASTER / MUSIC / SFX / SWING_ACTIVE / COMBAT_KILL / AMBIENCE / UI`. Recommandation Phase 5 : amendement Audio r2.2 ajoute `SECRET_COLLECT` bus parented à SFX, avec ducking spec à définir avec audio-director.
+**Spec finale Pillar 4 (r2.2 cascade NB-CRD-6 Option A)** :
+- Le clac secret est **différencié timbralement** du clac combat par **3 mécanismes simultanés** : (1) **pitch +5 semitones** vs kill nominal (`pitch_scale 1.0`) ou multi-kill (`+2/+4 semitones cap`) — hors plage Rule 13 `[+0, +4]` → ambiguïté nulle ; (2) **bus `SFX` distinct** de `COMBAT_KILL` → sidechain compressor Rule 16 `MUSIC ← COMBAT_KILL` ne s'arme PAS sur secret → pas de silence rythmique Couche 1 (découverte vs rupture sémantique) ; (3) **pas de blood ambiance chained**, pas de ducking `SWING_ACTIVE` (event one-shot, pas multi-step combat).
+- **Réutilisation `clac_stream` existant** : décision audio-director Mécanisme α (vs Mécanisme β bus dédié `SECRET_COLLECT` + asset distinct) — minimalisme palette Chrome Zen synthwave, livraison <2h éditorial validation criteria CD, pas de gate asset pipeline. Le timbre clac partagé avec kill est **intentionnel** : signature percussive commune, registre aigu différencié.
+- **Pas de musique stinger**, pas de jingle, pas de "ding" — le clac s'intègre dans le mix existant comme une percussion isolée (cf. Player Fantasy §22 « un riff isolé »).
+- **Tier indifférent au MVP** : tier 1, 2, 3 jouent le même `pitch_scale = 1.335`. Différenciation HUD par durée pulse (`CREDIT_COUNTER_TWEEN_SECRET_MS = 150 ms` vs KILL `100 ms` — HUD r1.1 Rule 5). Tier 2+ pitch-shift par tier réservé via tuning knob `secret_tier_pitch_offsets: Array[float]` (OQ-SEC-3 inchangé).
+- **Position 3D capturée au tick** (Audio Rule 17 spec) : évite null ref si `secret_node.queue_free()` post-collect. Fallback `play_2d` head-locked si `global_position` invalide (NaN/+Inf) — cas pathologique.
+- **Invariance slow-mo** : bus `SFX` PAS dans pitch allowlist Rule 11 → `SECRET_PITCH_SCALE` invariant même sous `Engine.time_scale = 0.3` (slow-mo combat). Un secret collecté pendant slow-mo reste identifiable (clac aigu non drone-shifté). AC-AUD-19.
 
 ### Asset spec flag
 
 📌 **Asset Spec** — Visual/Audio requirements ci-dessus définissent les contrats. Après l'art bible approuvée, `/asset-spec system:secret-system` produira :
 - Asset visuel : aucun (le glow cyan est rendu par VFX, le LureMarker est un Marker3D pur — pas d'asset à produire pour Secret System spécifiquement)
-- Asset audio : `secret_collect.wav` (durée 200-300 ms, peak frequency 200-400 Hz pour timbre grave, sample rate 48 kHz mono)
+- Asset audio : **AUCUN nouveau asset requis r2.2** — réutilise `clac_stream` (combat kill) avec `pitch_scale = 1.335` paramétrique. Mécanisme α audio-director. Tier 2+ pourrait introduire `secret_collect.wav` dédié pour signature timbrale propre (durée 200-300 ms, peak 200-400 Hz grave) si playtest MVP révèle différenciation insuffisante.
 
 ## UI Requirements
 
@@ -789,14 +790,13 @@ Au MVP, tier 1/2/3 jouent le même clac audio (différenciation suffisante via l
 - **Owner** : audio-director + qa-lead (playtest data)
 - **Target** : Tier 2+ post-MVP playtest
 
-**OQ-SEC-4 — Bus audio dédié `SECRET_COLLECT`** *(PROVISOIRE — amendement Audio r2.2)*
-Audio System r2.1 liste 7 bus (`MASTER / MUSIC / SFX / SWING_ACTIVE / COMBAT_KILL / AMBIENCE / UI`). Le clac secret pourrait :
-- (a) Réutiliser `COMBAT_KILL` (refroidi par sidechain Music + cohérence kill-ish)
-- (b) Réutiliser `SFX` générique (simple, mais perd l'identité)
-- (c) Créer nouveau bus `SECRET_COLLECT` parented à SFX (clean, identifie le bus dans Audio profiler)
-- **Recommandation** : option (c). Amendement Audio r2.2 requis avant epic Secret System.
-- **Owner** : audio-director
-- **Target** : Phase 5 propagation (Audio r2.2)
+**OQ-SEC-4 — Bus audio dédié `SECRET_COLLECT`** ✅ **RESOLVED 2026-04-28 (cascade NB-CRD-6 Option A)**
+Adjudication audio-director Mécanisme α (vs Mécanisme β bus dédié) : option **(b) bus `SFX` réutilisé avec pitch +5 semitones** retenue.
+- **Décision finale** : Audio Rule 17 r2.2 + Formula 7 — clac secret joué sur `AudioBuses.SFX` avec `pitch_scale = SECRET_PITCH_SCALE ≈ 1.335` (réutilise `clac_stream` existant, zéro nouveau asset).
+- **Justification** : (1) sidechain Rule 16 `MUSIC ← COMBAT_KILL` ne s'arme pas sur `SFX` → différenciation sémantique (découverte ≠ rupture) ; (2) pitch +5 hors plage Rule 13 multi-kill `[+0, +4]` → ambiguïté nulle ; (3) gate <2h éditorial validation criteria CD respecté (vs option c bus dédié = asset pipeline gate).
+- **Cascade** : Audio r2.1 → r2.2, HUD r1 → r1.1 (pulse durée différencié), Credit r2 §Audio amendement (cross-ref Rule 17). OQ-CRD-8 RESOLVED en cascade.
+- **Owner** : audio-director + creative-director
+- **Target** : RESOLVED 2026-04-28
 
 ### Décisions design en attente (non-PROVISOIRE)
 

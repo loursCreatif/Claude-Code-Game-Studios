@@ -144,7 +144,29 @@ P-5 du r1 review proposait correction précise : `< 1 ms médiane sur N=100, exc
 
 ---
 
-### NB-CRD-6 — Asymétrie 5:1 viscérale : Player Fantasy non livrée MVP, claim non retiré [BLOCKING — Pillar 4 critical]
+### NB-CRD-6 — Asymétrie 5:1 viscérale : Player Fantasy non livrée MVP, claim non retiré [BLOCKING — Pillar 4 critical] ✅ **RESOLVED 2026-04-28 (Option A LIVRÉE)**
+
+> **Adjudication creative-director 2026-04-28** : Verdict **Option A (LIVRER)** — retirer une promesse North Star coûte plus cher en identité que ~3h cross-system éditorial. "Une fois qu'une promesse North Star est écrite et approuvée en r2, la retirer (Option B) c'est signaler à l'équipe qu'on rétracte la viscéralité — ça contamine toutes les futures décisions de feedback." Option C (gate) procrastine sur une décision qui ne deviendra pas plus facile en r3 et bloque Sprint A backbone sur 2 epics critiques pour gagner ~3h. MVP minimum n'est pas "deux SFX distincts polish AAA" — c'est "Secret System transmet `is_secret:true` → Audio joue une variation pitch sur bus dédié, HUD pulse 150ms au lieu de 100ms" — implémentable en une story Sprint A sans nouveaux assets, juste paramétrage.
+>
+> **Adjudication audio-director 2026-04-28** : Mécanisme **α** retenu (pitch shift +5 semitones sur `clac_stream` existant, bus `SFX`) vs Mécanisme β (bus dédié `SECRET_COLLECT` + asset distinct, rejeté pour gate <2h éditorial validation criteria CD). Pitch +5 semitones (`pitch_scale ≈ 1.335`) délibérément hors plage Rule 13 multi-kill `[+0, +4]` → ambiguïté perceptive nulle. Bus `SFX` distinct de `COMBAT_KILL` → sidechain compressor Rule 16 (`MUSIC ← COMBAT_KILL`) ne s'arme PAS sur secret → différenciation sémantique (découverte vs rupture). Estimation amendement r2.2 : ~45 min (livré).
+>
+> **Cascade livrée 2026-04-28** :
+> - `audio-system.md` r2.1 → r2.2 : Rule 17 + Formula 7 (`SECRET_PITCH_SCALE = 2.0 ** (5/12) ≈ 1.335`) + AC-AUD-18 (logic spec testable) + AC-AUD-19 (invariance slow-mo) + Interactions table row Secret System + Tuning Knob `secret_pitch_semitones` (default 5, safe `[4, 7]`) + Edge Cases (slow-mo + paused + invalid position + simultané kill+secret) + Dependencies row Secret System hard.
+> - `hud-system.md` r1 → r1.1 : Rule 5 différenciée par `source` + F-HUD-1 variables (`CREDIT_COUNTER_TWEEN_KILL_MS = 100 ms` renommé, `CREDIT_COUNTER_TWEEN_SECRET_MS = 150 ms` nouveau) + AC-HUD-36 (durée tween source-dependent + invariant `SECRET_MS > KILL_MS`) + Tuning Knobs (4 → 5 MVP).
+> - `credit-economy-system.md` §Audio : table Event Credit row "Gain crédit secret" mise à jour vers Audio Rule 17 r2.2 + cross-ref Formula 7. OQ-CRD-8 RESOLVED par cascade.
+> - `secret-system.md` §Audio : section "Audio System APPROVED r2.2" reformulée — 3 mécanismes simultanés différenciation Pillar 4 (pitch +5, bus distinct, ducking absent), réutilisation `clac_stream` existant zéro asset MVP, asset dédié `secret_collect.wav` réservé Tier 2+ playtest. Quick reference + Interactions + Soft deps + Bidirectional check mis à jour. OQ-SEC-4 RESOLVED par cascade.
+> - `systems-index.md` : Audio row 4 Status r2.1 → r2.2, HUD row 17 Status r1 → r1.1, Last Updated header 2026-04-28 entry "NB-CRD-6 Option A LIVRÉE" prepended.
+>
+> **Risques acceptés (post-livraison)** :
+> - Polish AAA non livré : pitch +5 semitones réutilise timbre clac partagé. Si playtest MVP révèle différenciation trop subtile, escalade Sprint B avec asset audio dédié `secret_collect.wav` (~4h supplémentaires + asset pipeline gate). Validation criteria : 80% testeurs identifient kill vs secret AVANT regard compteur.
+> - Audio r2.2 amendement livré <2h confirmé (audio-director estimation 45 min, validation criteria CD respectée).
+> - HUD r1.1 amendement livré (~30 min). Pas d'escalade retour CD.
+>
+> **Sprint A backbone débloqué** : `/create-epics credit-economy-system` ET `/create-epics secret-system` peuvent maintenant procéder sans gate NB-CRD-6.
+
+---
+
+> **Note historique r2 (avant adjudication)** :
 
 **Source** : `[game-designer G-1]` + adjudication CD r1 non-honorée + `[game-designer R-4]`
 
