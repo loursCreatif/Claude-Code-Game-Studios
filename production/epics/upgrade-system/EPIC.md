@@ -4,7 +4,35 @@
 > **GDD**: `design/gdd/upgrade-system.md` (APPROVED r2, 2026-04-28)
 > **Architecture Module**: `UpgradeSystem` (`docs/architecture/architecture.md` §4.3 ligne 149 — Feature Layer Game Systems)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories upgrade-system`
+> **Stories**: 11 stories écrites 2026-04-28 — voir table ci-dessous
+
+## Stories
+
+| # | Story | Type | Status | ADR / Source |
+|---|-------|------|--------|--------------|
+| 001 | [autoload-skeleton-capability-vars](story-001-autoload-skeleton-capability-vars.md) | Integration | Ready | ADR-0007 D-1/D-4 + R-UPG-1/2/11 |
+| 002 | [logger-di-unknown-id-warning](story-002-logger-di-unknown-id-warning.md) | Logic | Ready | R-UPG-9 + GDD r2 B-11 |
+| 003 | [apply-upgrade-helper-flag-sync-idempotent](story-003-apply-upgrade-helper-flag-sync-idempotent.md) | Logic | Ready | ADR-0001 + R-UPG-4 (1/3/4) + C.1 helper |
+| 004 | [apply-upgrade-resync-guard-step2](story-004-apply-upgrade-resync-guard-step2.md) | Logic | Ready | R-UPG-4 step 2 r2 + EC-UPG-13/14 |
+| 005 | [boot-hydration-saveload-readyfn](story-005-boot-hydration-saveload-readyfn.md) | Integration | Ready | ADR-0010 + R-UPG-5 (1/3/4) + F-UPG-2 |
+| 006 | [save-bloat-truncation-defense](story-006-save-bloat-truncation-defense.md) | Logic | Ready | R-UPG-5 step 2 r2 + EC-UPG-36 |
+| 007 | [pull-pattern-movement-integration](story-007-pull-pattern-movement-integration.md) | Integration | Ready | ADR-0001 + R-UPG-7/8 |
+| 008 | [catalog-sanity-test-fupg3](story-008-catalog-sanity-test-fupg3.md) | Logic | Ready | F-UPG-3 + R-UPG-3 |
+| 009 | [anti-patterns-lint-static](story-009-anti-patterns-lint-static.md) | Logic | Ready | R-UPG-6/10/12/14 |
+| 010 | [performance-headless-ci](story-010-performance-headless-ci.md) | Logic | Ready | F-UPG-2 + ADR-0001 frame budget |
+| 011 | [playtest-pillar2-understanding-evidence](story-011-playtest-pillar2-understanding-evidence.md) | Visual/Feel | Ready | Pillar 2 — AC-UPG-37/37-bis |
+
+**Décomposition** : 7 Logic + 3 Integration + 1 Visual/Feel. Manifest v2026-04-23. Engine Risk LOW.
+
+**Ordre de pickup recommandé** (dépendances) : 001 → 002 → 003 → 004 → 005 → 006 → 008 → 007 → 009 → 010 → 011.
+
+**Notes scope finalisé** :
+- Story 002 introduit le pattern Logger DI pour testabilité `push_warning` (refactor Sprint 1 obligatoire).
+- Story 004 résout le Cas C/D resync (B-4 r2 amendement) — sans cette story, regression vers early return strict r1.
+- Story 006 livre la truncation `MAX_CATALOG_SIZE_TIER_2 * 2 = 14` (B-6 r2).
+- Story 008 décide OQ-UPG-10 RESOLVED : F-UPG-3 path = `tests/integration/upgrade/catalog_sanity_test.gd` (instancie autoload pour `get_property_list()`) ; lint statique grep va dans `tests/static/`.
+- Story 009 AC-UPG-29 cross-GDD shop integration : Sprint 1 fallback grep statique seul si Shop story `try_buy` pas mergée — promotion full integration coordonnée Shop epic.
+- Story 011 AC-UPG-37 partiellement automatisable (SceneTree inspector) ; AC-UPG-37-bis playtest manuel obligatoire avec sign-off game-designer + creative-director.
 
 ## Overview
 
