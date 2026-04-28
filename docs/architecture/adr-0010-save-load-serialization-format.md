@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted (promoted 2026-04-27 from Proposed — débloque shop-system stories 003/005/010/011/015 et credit-economy/save-load epic Sprint 1)
 
 ## Date
 
