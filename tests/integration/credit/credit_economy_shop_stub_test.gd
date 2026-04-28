@@ -1,34 +1,48 @@
-## Integration test for CreditEconomy + Shop stub (AC-CRD-35).
-##
-## Verifies that a minimal Shop call site using try_spend(cost) once is
-## sufficient: returns true, decrements balance, emits credits_changed —
-## the shop does NOT need a second verification call.
-##
-## GDD   : design/gdd/credit-economy-system.md (AC-CRD-35)
-## Story : production/epics/credit-economy-system/story-001-autoload-skeleton-try-spend.md
-## Framework: GUT 9 (GutTest)
+# Test d'intégration Story-001 — CreditEconomy + Shop stub (AC-CRD-35).
+#
+# Vérifie qu'un Shop minimal qui appelle try_spend(cost) une seule fois est
+# suffisant : retourne true, décrémente le solde, émet credits_changed.
+# Le shop ne re-vérifie PAS le solde après — guardrail AC-CRD-35.
+#
+# Framework : GdUnit4 (extends GdUnitTestSuite).
+# Type : Integration.
+# Naming : test_credit_economy_[scenario]_[expected_result].
+#
+# GDD   : design/gdd/credit-economy-system.md (AC-CRD-35)
+# Story : production/epics/credit-economy-system/story-001-autoload-skeleton-try-spend.md
 
-extends GutTest
+extends GdUnitTestSuite
 
 # ---------------------------------------------------------------------------
 # ShopStub — minimal inline call site
 # ---------------------------------------------------------------------------
-## Minimal shop that records its own call sequence so the test can verify
-## it never called try_spend a second time and never called get_total.
+
+## Shop minimal qui enregistre sa séquence d'appels pour que le test puisse
+## vérifier qu'il n'a JAMAIS appelé try_spend une seconde fois ni get_total.
 class ShopStub extends Node:
-	## true if the last attempt_purchase returned true.
+	## true si le dernier attempt_purchase a retourné true.
 	var purchase_result: bool = false
 
-	## Ordered list of calls made: each entry is a String.
-	## Entries: "try_spend(<amount>)" for each call to CreditEconomy.try_spend.
-	## get_total is intentionally never called — test asserts its absence.
+	## Liste ordonnée des appels effectués vers CreditEconomy.
+	## Entrées : "try_spend(<amount>)" pour chaque appel à try_spend.
+	## get_total est intentionnellement jamais appelé — le test assert son absence.
 	var call_log: Array[String] = []
 
-	## Performs a purchase attempt. Calls try_spend once and stores result.
-	## Does NOT call get_total before or after (AC-CRD-35 guardrail).
+	## Tente un achat. Appelle try_spend une seule fois et stocke le résultat.
+	## N'appelle PAS get_total avant ou après (AC-CRD-35 guardrail).
 	func attempt_purchase(cost: int) -> void:
 		call_log.append("try_spend(%d)" % cost)
 		purchase_result = CreditEconomy.try_spend(cost)
+
+# ---------------------------------------------------------------------------
+# Signal spy — manual capture
+# ---------------------------------------------------------------------------
+
+var _emit_calls: Array = []
+
+
+func _on_credits_changed_capture(total: int, delta: int, source: int) -> void:
+	_emit_calls.append([total, delta, source])
 
 # ---------------------------------------------------------------------------
 # Setup / teardown
@@ -36,15 +50,20 @@ class ShopStub extends Node:
 
 var _shop: ShopStub = null
 
-func before_each() -> void:
+
+func before_test() -> void:
 	CreditEconomy._total_credits = 0
 	CreditEconomy._is_hydrated = false
 	CreditEconomy._credited_this_run.clear()
+	_emit_calls = []
 	_shop = ShopStub.new()
 	add_child(_shop)
+	CreditEconomy.credits_changed.connect(_on_credits_changed_capture)
 
 
-func after_each() -> void:
+func after_test() -> void:
+	if CreditEconomy.credits_changed.is_connected(_on_credits_changed_capture):
+		CreditEconomy.credits_changed.disconnect(_on_credits_changed_capture)
 	if is_instance_valid(_shop):
 		_shop.queue_free()
 	_shop = null
@@ -58,36 +77,33 @@ func test_credit_economy_shop_stub_try_spend_once_sufficient_decrements_and_sign
 	const COST: int = 30
 
 	CreditEconomy._total_credits = INITIAL
-	watch_signals(CreditEconomy)
 
-	# Act: shop calls try_spend exactly once.
+	# Act : le shop appelle try_spend exactement une fois.
 	_shop.attempt_purchase(COST)
 
-	# --- Result assertions ---
-	assert_true(_shop.purchase_result, "ShopStub must receive true from try_spend")
+	# --- Result ---
+	assert_bool(_shop.purchase_result) \
+		.override_failure_message("ShopStub doit recevoir true depuis try_spend") \
+		.is_true()
 
-	# --- State assertions ---
-	assert_eq(
-		CreditEconomy._total_credits,
-		INITIAL - COST,
-		"Balance must be decremented by cost"
-	)
+	# --- State ---
+	assert_int(CreditEconomy._total_credits) \
+		.override_failure_message("Balance doit être décrémentée du COST") \
+		.is_equal(INITIAL - COST)
 
-	# --- Signal assertions ---
-	assert_signal_emit_count(CreditEconomy, "credits_changed", 1)
-	assert_signal_emitted_with_parameters(
-		CreditEconomy,
-		"credits_changed",
-		[INITIAL - COST, -COST, CreditEconomy.SourceKind.SPEND_SHOP]
-	)
+	# --- Signal ---
+	assert_int(_emit_calls.size()) \
+		.override_failure_message("Exactement 1 credits_changed emit attendu") \
+		.is_equal(1)
+	assert_array(_emit_calls[0]) \
+		.override_failure_message("Payload doit être (INITIAL-COST, -COST, SPEND_SHOP)") \
+		.is_equal([INITIAL - COST, -COST, CreditEconomy.SourceKind.SPEND_SHOP])
 
 	# --- Call sequence guardrail ---
-	# ShopStub must have called try_spend(COST) exactly once and nothing else.
-	# Exact-content match is the real guardrail for AC-CRD-35: any extra call
-	# (a get_total verification, a second try_spend) breaks this assertion.
+	# ShopStub doit avoir appelé try_spend(COST) exactement une fois — rien d'autre.
+	# Match exact = vrai guardrail AC-CRD-35 : tout appel supplémentaire (get_total
+	# de vérification, second try_spend) casse cette assertion.
 	var expected_log: Array[String] = ["try_spend(%d)" % COST]
-	assert_eq(
-		_shop.call_log,
-		expected_log,
-		"ShopStub must call try_spend(cost) exactly once and make no other calls (AC-CRD-35)"
-	)
+	assert_array(_shop.call_log) \
+		.override_failure_message("ShopStub doit appeler try_spend(cost) exactement une fois (AC-CRD-35)") \
+		.is_equal(expected_log)
