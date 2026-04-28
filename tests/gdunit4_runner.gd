@@ -1,13 +1,20 @@
-# GdUnit4 test runner — invoked by CI and /smoke-check
-# Usage: godot --headless --script tests/gdunit4_runner.gd
+# DEPRECATED — broken stub kept for legacy CI references.
+#
+# The actual safe headless invocation pattern is:
+#
+#   godot --headless --script res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+#     --add tests/ --ignoreHeadlessMode
+#
+# Prerequisite : .godot/global_script_class_cache.cfg must exist
+# (Editor must have opened the project at least once).
+#
+# See CLAUDE.md §Godot CLI Safety §Authorized exception for full context.
 extends SceneTree
 
 func _init() -> void:
-	var runner := load("res://addons/gdunit4/GdUnitRunner.gd")
-	if runner == null:
-		push_error("GdUnit4 not found. Install via AssetLib or addons/.")
-		quit(1)
-		return
-	var instance = runner.new()
-	instance.run_tests()
-	quit(0)
+	push_error(
+		"tests/gdunit4_runner.gd is deprecated. " +
+		"Use: godot --headless --script res://addons/gdUnit4/bin/GdUnitCmdTool.gd " +
+		"--add tests/ --ignoreHeadlessMode"
+	)
+	quit(1)

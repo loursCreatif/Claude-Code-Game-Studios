@@ -103,6 +103,30 @@ macOS dialog alerts that interrupt every other session. **Never** invoke the
    into the alert paths above**. Defensive arg construction > defensive
    exception handling.
 
+### Authorized exception : GdUnit4 headless test runs
+
+The following pattern is **validated safe** (zero GUI alert across parallel
+sessions, run 2026-04-28) and may be used by Claude sessions to execute the
+test suite :
+
+```bash
+godot --headless --script res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+  --add tests/<path> [--add tests/<other>] \
+  --ignoreHeadlessMode
+```
+
+**Why safe** : `GdUnitCmdTool.gd` extends `SceneTree` (proper MainLoop), the
+flag set respects rule #1 (`--headless --script`), and `--ignoreHeadlessMode`
+bypasses GdUnit4's default display check.
+
+**Hard prerequisite** : `.godot/global_script_class_cache.cfg` must exist on
+disk. Without it the parser cannot resolve `class_name GdUnitTestCIRunner` and
+fails (without GUI alert — fail-loud is acceptable). The cache is built only
+by the Godot Editor on first project open. If absent : ask the user to open
+the project once in Godot Editor, then retry.
+
+**Reports** auto-emitted to `reports/report_N/` (gitignored).
+
 ### If alerts appear anyway
 
 Run this immediately to clear orphaned processes — safe in any session:
