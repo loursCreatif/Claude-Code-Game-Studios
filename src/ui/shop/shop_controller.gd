@@ -20,6 +20,7 @@ const _TIER_COST_STEP_FALLBACK: int = 20
 const _SAVE_KEY: String = "owned_upgrades"
 
 var _owned_upgrades: Array[StringName] = []
+var _credit_display_text: String = ""    # story-004 — pull depuis CreditEconomy
 
 
 func _ready() -> void:
@@ -27,8 +28,21 @@ func _ready() -> void:
 		assert(_CATALOG.size() == N_UPGRADES_MVP,
 			"Catalogue size %d != N_UPGRADES_MVP %d" % [_CATALOG.size(), N_UPGRADES_MVP])
 	_hydrate_owned_upgrades()
-	# Story-004 : credit display init via CreditEconomy.get_total_credits()
+	_pull_initial_credit_display()
 	# Story-007 : connect credits_changed CONNECT_DEFERRED
+
+
+# Story-004 — boot pull pattern (ADR-0007 D-9, EC-SHP-4 BOOT_HYDRATE perdu protégé).
+# Lecture passive non-mutante du total credits courant. À appeler dans _ready()
+# AVANT toute connexion `credits_changed` ou `await`. Stocke le texte formaté
+# pour assignation au CreditValueLabel quand le scene est ready (story-005+).
+func _pull_initial_credit_display() -> void:
+	_credit_display_text = str(CreditEconomy.get_total())
+
+
+# Test seam — lecture publique du texte credit affiché (post-pull initial).
+func get_credit_display_text() -> String:
+	return _credit_display_text
 
 
 # Story-003 : boot hydration depuis SaveLoadSystem.

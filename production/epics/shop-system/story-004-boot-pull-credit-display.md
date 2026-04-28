@@ -1,7 +1,7 @@
 # Story 004: Boot Pull Credit Display
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -88,3 +88,12 @@ func _ready() -> void:
 
 - Depends on: Story 002 (controller boot)
 - Unlocks: Story 007 (credits_changed handler updates même label)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing — AC-SHP-3 (`get_total()==35` → `_credit_display_text=="35"`), edges 0/9999, pull pattern enforcement (lint statique vérifie `CreditEconomy.get_total(` apparaît dans `shop_controller.gd`).
+**Deviations**: ADVISORY — pull stocké dans `_credit_display_text: String` (test seam) au lieu d'assignation directe à `%CreditValueLabel.text` — le scene-attach Label rendering est déféré à story-005 (purchase cycle) car les tests integration hors scene tree ne peuvent pas accéder au `@onready %`. Pattern split logique (pull data) / présentation (assign Label) cohérent avec ADR-0007 D-9.
+**Test Evidence**: Integration — `tests/integration/shop/boot_pull_credit_display_test.gd` 4/4 PASSED ; suite shop globale 17/17 PASSED 142 ms (`reports/report_58/`).
+**Code Review**: Skipped (Solo mode).
