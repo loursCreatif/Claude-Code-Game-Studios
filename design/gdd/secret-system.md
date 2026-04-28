@@ -1,10 +1,12 @@
 # Secret System
 
-> **Status**: In Design (r2 — full revision 2026-04-27 : 3 BLOCKING résolus B-1..B-3 ; 4 RECOMMENDED + 5 NICE-TO-HAVE déférés batch séparé)
+> **Status**: In Design (r3 ciblée editorial — 2026-04-28 : 6 NB-SEC review r2 résolus ; pending fresh `/design-review` lean re-pass → APPROVED)
 > **Author**: Martin + agents (game-designer, level-designer, systems-designer, qa-lead, creative-director)
-> **Last Updated**: 2026-04-27 (r2 full revision after fresh /design-review)
+> **Last Updated**: 2026-04-28 (r3 ciblée editorial after fresh /design-review r2 full)
 > **Implements Pillar**: **Pillar 4 (LES SECRETS RÉCOMPENSENT LE MOUVEMENT)** primaire ; Pillar 2 (LA PROGRESSION SE VOIT) secondaire ; Pillar 1 (FLOW AVANT TOUT) garde-fou
-> **Review history** : `design/gdd/reviews/secret-system-review-r1-2026-04-27.md` — NEEDS REVISION → r2 résout les 3 BLOCKING (B-1 contrat Checkpoint renommé `inject_collected_secrets` + gate flag amendement Checkpoint r2 ; B-2 invariant instance_id stabilité via nouvelle Rule R-SEC-16 ; B-3 Tuning Knobs data-driven via `src/gameplay/secret/secret_constants.gd`). 4 RECOMMENDED + 5 NICE-TO-HAVE reportés séparément.
+> **Review history** :
+> - r1 (`secret-system-review-r1-2026-04-27.md`) — NEEDS REVISION → r2 résout B-1/B-2/B-3.
+> - r2 (`secret-system-review-r2-2026-04-28.md`) — NEEDS REVISION (r3 ciblée XS/S) → r3 résout 6 NB-SEC : (NB-SEC-1) R-SEC-10 PULL canonique MVP / PUSH Tier 2+ + AC-SEC-NB-1 union ; (NB-SEC-2) R-SEC-13 push_warning défensif `CollisionShape3D.disabled` + AC-SEC-NB-2 lint Level ; (NB-SEC-3) AC-SEC-25 reformulé sans `is_physics_processing()` ; (NB-SEC-4) AC-SEC-18 reformulé séquence déconnexion-puis-connexion + AC-SEC-NB-4 ADVISORY MANUAL overlap réel ; (NB-SEC-5) §Authoring `MAX_SECRETS_PER_ROOM` + escalade tiers + 1 secret cross-capability ; (NB-SEC-6) §Authoring `REQUIRED_MOVEMENT_CHALLENGE_TYPE` obstacle de mouvement obligatoire + AC STATIC. Total ACs r3 : 53 → 60 (+7 nouveaux NB-SEC-1/-2/-2-LINT/-3-MANUAL/-4-MANUAL/-5/-6).
 
 ## Summary
 
@@ -122,18 +124,44 @@ par analogie). Level System garantit physiquement que le volume est inatteignabl
 `required_ability` via la géométrie de l'étage. Les cas de glitch sont acceptés — Pillar 3
 SECONDE CHANCE étend sa tolérance au skill gap, et punir un glitch réussi serait anti-Pillar 4.
 
-**R-SEC-10 — Persistance Pillar 3 : collecté reste collecté au respawn (r2 B-1 — interface Checkpoint clarifiée)**
+**R-SEC-10 — Persistance Pillar 3 : collecté reste collecté au respawn (r3 NB-SEC-1 — pull canonique MVP, push réservé Tier 2+ ; r2 B-1 — interface Checkpoint clarifiée)**
 `_collected_secret_ids` survit aux morts. À `level_active`, Secret System peuple le dictionnaire
 depuis le snapshot Checkpoint actif (liste d'instance_ids déjà collectés dans cet étage + les
 étages précédents du run). Les secrets collectés avant une mort ne sont pas re-collectables après
 respawn. Ce comportement est intentionnel — Pillar 3 SECONDE CHANCE garantit que le joueur ne
 perd pas ce qu'il a acquis par compétence. **MVP** : Checkpoint System maintient la liste
-`collected_secret_ids` en mémoire (session-scoped, pas de disque). À `level_active` :
+`collected_secret_ids` en mémoire (session-scoped, pas de disque).
 
-- **Lecture (Secret hydrate depuis Checkpoint)** : Secret appelle `checkpoint.get_collected_secrets() -> Array[int]` pour peupler `_collected_secret_ids`.
-- **Écriture (Secret injecte son état dans Checkpoint au moment du checkpoint latch)** : Secret expose `Secret.get_collected_ids() -> Array[int]` que Checkpoint lit. Le verbe d'**appel de Checkpoint vers Secret** s'appelle **`inject_collected_secrets(ids: Array[int])`** (renommé r2 B-1 — ex `restore_collected_secrets`) — Secret reçoit cette injection comme alternative à la lecture pull. Le nom `inject_*` clarifie que c'est Secret qui *reçoit* l'injection, pas Checkpoint qui *restore* (ambiguïté nominale r1).
+> **r3 NB-SEC-1 — précédence pull/push tranchée** : le mécanisme **PULL est canonique au MVP**
+> (Secret est owner de son état, Secret tire activement le snapshot depuis Checkpoint à `level_active`).
+> Le mécanisme **PUSH (`Secret.inject_collected_secrets(ids)`) est réservé Tier 2+** (Checkpoint-initiated
+> fast-restore lors d'un `SaveLoad.load_run` disque). Implémentation Secret System MVP : appeler
+> uniquement `checkpoint.get_collected_secrets()` à la réception de `level_active`. La méthode
+> `Secret.inject_collected_secrets(ids: Array[int])` reste exposée dans la Published API mais
+> n'est **pas appelée par Checkpoint au MVP** — elle existe pour permettre les tests
+> AC-SEC-33 + AC-SEC-NB-1 et préparer le contrat Tier 2+ sans casser l'API publique. Si pour
+> une raison de robustesse opérationnelle (load disque race, restauration mid-frame) Checkpoint
+> appelle `inject_collected_secrets(ids)` AVANT que `level_active` n'arrive, et que le PULL
+> arrive ensuite, le résultat doit être l'**union** des deux ensembles d'ids — jamais un
+> surécrasement (vérifié AC-SEC-NB-1).
 
-**Post-MVP** : Checkpoint snapshot persiste via `SaveLoad.save_int_array("collected_secret_ids", ...)` — voir aussi R-SEC-16 pour l'invariant `instance_id` stabilité MVP. Reset **uniquement** à `request_new_run()` (signal GSM) — dictionnaire vidé et Checkpoint snapshot purgé.
+À `level_active` (MVP — chemin canonique unique) :
+
+- **PULL — Secret hydrate depuis Checkpoint** : Secret appelle `checkpoint.get_collected_secrets() -> Array[int]`
+  pour peupler `_collected_secret_ids`. Implémentation : pour chaque `id` du retour,
+  `_collected_secret_ids[id] = true` (idempotent — si déjà true, no-op).
+- **READ — Checkpoint pull depuis Secret** : Secret expose `Secret.get_collected_ids() -> Array[int]`
+  que Checkpoint lit au moment du latch checkpoint pour rafraîchir son snapshot.
+
+À tout moment (MVP exposé mais Tier 2+ utilisé) :
+
+- **PUSH — Checkpoint inject vers Secret (Tier 2+)** : verbe `Secret.inject_collected_secrets(ids: Array[int])`
+  (renommé r2 B-1 — ex `restore_collected_secrets`). Secret reçoit cette injection et fait
+  l'union avec `_collected_secret_ids` existant : pour chaque `id`, `_collected_secret_ids[id] = true`
+  (jamais de `clear()` préalable). Ainsi PULL puis PUSH ou PUSH puis PULL produisent le même
+  état final = union des deux retours (idempotence ensembliste).
+
+**Post-MVP** : Checkpoint snapshot persiste via `SaveLoad.save_int_array("collected_secret_ids", ...)` — voir aussi R-SEC-16 pour l'invariant `instance_id` stabilité MVP. Reset **uniquement** à `request_new_run()` (signal GSM) — dictionnaire `_collected_secret_ids` vidé par Secret. **r3 NR-SEC-4 clarification ownership purge** : la purge du Checkpoint snapshot lui-même est exécutée **par Checkpoint System** sur le même broadcast `request_new_run()` (Checkpoint owner de son snapshot, Secret owner de son dictionnaire). Secret ne touche jamais le snapshot Checkpoint.
 
 > **[GATE r2 B-1] amendement Checkpoint r2 requis avant `/create-epics secret-system`** : le Checkpoint GDD r1 (In Design) ne liste pas Secret dans §Interactions ni les verbes `get_collected_secrets()` / `inject_collected_secrets(ids)`. Amendement Checkpoint r2 doit ajouter une ligne §Interactions Secret System bidirectionnel + Published API ces deux verbes. Sans cet amendement, AC-SEC-12 + AC-SEC-33 sont non-testables et R-SEC-10 est non-implémentable.
 
@@ -156,13 +184,24 @@ glow, Audio joue le clac, HUD pulse le compteur) via le signal `secret_collected
 extension Tier 2+ (cinematic, drop) passe par un nouveau signal ou un payload étendu — jamais
 par injection de logique dans Secret System.
 
-**R-SEC-13 — Comportement défensif sur slot mal formé**
+**R-SEC-13 — Comportement défensif sur slot mal formé (r3 NB-SEC-2 — défense Pillar 4 silencieuse)**
 Lors de l'itération R-SEC-04, chaque SecretSlot est validé :
 - `slot.lure == null` ou `slot.collect_volume == null` → `push_error("SecretSystem: slot
   incomplet lure=%s volume=%s — ignoré" % [str(slot.lure), str(slot.collect_volume)])` + skip.
   Pas de crash.
 - `slot.collect_volume` n'est pas un `Area3D` → `push_error` + skip.
 - `slot.lure.tier` hors `{1, 2, 3}` → `push_warning` + skip (R-SEC-05).
+- **r3 NB-SEC-2 — détection runtime d'un volume inerte (`CollisionShape3D.disabled = true`)** : si
+  `slot.collect_volume.get_children().filter(func(c): return c is CollisionShape3D and not c.disabled).is_empty()`,
+  alors le volume est un `Area3D` valide mais ne firra **jamais** `body_entered` —
+  conséquence : Pillar 4 cassé silencieusement (lure brillant, joueur arrive, rien ne
+  se passe). Émettre **`push_warning("SecretSystem: volume %s a zéro CollisionShape3D
+  active (toutes disabled=true) — body_entered ne firra jamais ; secret inerte" %
+  slot.collect_volume.name)`** puis **connecter `body_entered` quand même** (le shape
+  peut être ré-activé runtime par Level/VFX dans un cas Tier 2+, ne pas pré-empter).
+  Cette règle défend Pillar 4 contre une faute d'authoring où le lint Level
+  (OQ-SEC-7, Sprint 1, hors MVP) n'aurait pas attrapé le cas. Coût runtime nul (vérification
+  une seule fois par slot à `level_active`). Voir AC-SEC-NB-2.
 - Tableau `get_secret_slots()` vide → comportement normal (ACTIVE sans slots connectés). Level
   F7 impose ≥ 3 secrets par étage : si le tableau retourne 0 éléments, c'est un bug Level System,
   pas un cas d'erreur Secret System.
@@ -459,6 +498,39 @@ Ces valeurs ne sont pas tunées à runtime mais sont les contraintes que Level D
 | `MIN_VOLUME_TO_VOLUME_VERTICAL_SEP` | `4.0` | m | `[3.0, 8.0]` | Alternative à séparation horizontale (volumes empilables verticalement avec gap) | < 3.0 m : ascension rapide déclenche les deux volumes en moins d'une frame. |
 | `MIN_WALL_RUN_LONG_PATH_LENGTH` | `6.0` | m cumulé | `[4.0, 10.0]` | Définit structurellement quand `required_ability: wall_run_long` est applicable (vs wall_run simple) | < 4.0 m : path tier 3 trivialisé, devient tier 2 effectif. > 10.0 m : path inatteignable même avec wall_run_long. |
 
+### Règles d'authoring distribution + défi de mouvement (r3 NB-SEC-5 + NB-SEC-6 — single source of truth Secret-spécifique)
+
+> **r3 contexte** : Level F7 contraint le **nombre total** de secrets par étage (≥ 3, plafond 5)
+> mais **pas la distribution interne** ni la **nature physique du défi**. Les règles ci-dessous
+> existent ici (proximité authoring secret) et sont propagées vers Level GDD r5 §Authoring
+> Guidelines comme cross-ref. Les knobs runtime ne suffisent pas à garantir Pillar 4 — ces
+> règles authoring le complètent. Lint Level pré-build (Sprint 1, OQ-SEC-7) implémente la
+> vérification statique ; en MVP sans lint, ces règles sont des **conventions d'authoring
+> contractuelles** que le level-designer respecte avec sign-off lead.
+
+**Règle A — Distribution intra-étage (NB-SEC-5)**
+
+| Knob authoring | Valeur MVP | Garantit | Anti-pattern bloqué |
+|----------------|------------|----------|---------------------|
+| `MAX_SECRETS_PER_ROOM` | `1` | Évite cluster d'un étage entier dans une seule salle | Frontload (3 secrets salle 1, 0 dans salles 2-5) tue la découverte progressive |
+| `MIN_SECRETS_OUTSIDE_NOMINAL_PATH` | `≥ 1` (sur 3-5 secrets total) | Au moins un secret hors du chemin direct sortie d'étage (cul-de-sac, alcôve, hauteur) | All-aligned-to-exit trivialise Pillar 4 |
+| `DISTRIBUTION_RECOMMENDED` | `1 début / 1-2 médian / 1 fin` | Escalade perçue le long de la traversée d'étage | Tous-fin (joueur trouve 0-2 secrets et en voit 3 d'un coup à l'arrivée) |
+| `MIN_SECRETS_REQUIRING_FUTURE_CAPABILITY` | `≥ 1` (sur 3-5 secrets total) | Crée la "promesse de retour" Pillar 4 (Player Fantasy §29) — au moins 1 secret a `required_ability` non disponible au premier passage de l'étage | Tous-accessibles dès premier passage = sous-utilisation moveset, métroidvania promise vide |
+
+**Règle B — Défi de mouvement obligatoire (NB-SEC-6)**
+
+| Knob authoring | Valeur MVP | Garantit | Anti-pattern bloqué |
+|----------------|------------|----------|---------------------|
+| `REQUIRED_MOVEMENT_CHALLENGE_TYPE` | `{height_gap, wall_gap, timed_sequence, multi_element}` (tag obligatoire `@export var movement_challenge: StringName` sur `SecretLureMarker_NN`) | Chaque secret a un défi physique de mouvement explicite — pas seulement une distance euclidienne `MIN_LURE_TO_VOLUME_DISTANCE` | Lure 6 m horizontal couloir plat (marche directe) ; lure 8 m derrière mur avec ouverture latérale piéton ; volume à 2 m hauteur sans dash requis |
+| Cohérence `tier == 1` + `movement_challenge` | `height_gap` minimum (≥ `MIN_VOLUME_HEIGHT_ABOVE_FLOOR`) | Tier 1 = saut nécessaire (R-SEC-09 capability gate vide implicite si trajet ≥ 2 m vertical) | Tier 1 sans gap vertical = pickup au sol anti-Pillar 4 |
+| Cohérence `tier ∈ {2, 3}` + `required_ability != "none"` | Capability nécessaire sur segment lure→volume (vérification heuristique navmesh : sans la capability, navmesh ne connecte pas lure→volume) | La capability est physiquement nécessaire, pas optionnelle |  Capability bypass-able par contournement géométrique (escalier latéral, raccourci) |
+
+**Conséquence runtime** : ces règles n'imposent **aucune logique runtime à Secret System** — Secret reste data-pure (R-SEC-12). Elles sont des contraintes **d'authoring** vérifiées par lint Level pré-build (AC-SEC-NB-5 + AC-SEC-NB-6 ci-dessous) et par sign-off lead level-designer en MVP.
+
+> **Cross-ref Level GDD r5 §Authoring Guidelines** : ces règles A et B doivent apparaître en
+> miroir dans Level r5 lors de sa prochaine révision (gate r5 amendement Level). Single source
+> of truth = Secret GDD §Tuning Knobs §Authoring (proximité). Level r5 référence par lien.
+
 ### Mapping default `required_ability` ↔ `tier` (authoring convention)
 
 Mapping recommandé pour les Level Designers — applicable comme default lors de l'authoring d'un nouveau `SecretLureMarker_NN`. Override possible via `@export var tier: int` (R-SEC-05) avec justification commentée.
@@ -547,18 +619,22 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 
 ## Acceptance Criteria
 
-### Tableau récapitulatif (r2)
+### Tableau récapitulatif (r3)
 
-| Dimension | Compte |
-|-----------|--------|
-| **Total ACs (r2)** | 53 (52 r1 + 1 nouveau AC-SEC-NEW r2 B-3 lint constants) |
-| **BLOCKING** | 30 (29 r1 + 1 nouveau B-3) |
-| **ADVISORY** | 23 (count r1 corrigé — voir review N-1 et recompte r2) |
-| **AUTO** (testable headless GUT) | 27 |
-| **MANUAL** (playtest requis) | 9 |
-| **STATIC** (lint pré-build / lint constants) | 8 (7 r1 + 1 r2 B-3) |
+| Dimension | Compte r3 | Delta r2 → r3 |
+|-----------|-----------|----------------|
+| **Total ACs (r3)** | 60 | +7 (NB-SEC-1, NB-SEC-2, NB-SEC-2-LINT, NB-SEC-3-MANUAL, NB-SEC-4-MANUAL, NB-SEC-5, NB-SEC-6) |
+| **BLOCKING** | 33 | +3 (AC-SEC-NB-1, AC-SEC-NB-2, **AC-SEC-25 reformulé reste BLOCKING**, **AC-SEC-18 reformulé reste BLOCKING**) |
+| **ADVISORY** | 27 | +4 (AC-SEC-NB-2-LINT, AC-SEC-NB-3-MANUAL, AC-SEC-NB-4-MANUAL, AC-SEC-NB-5, AC-SEC-NB-6) |
+| **AUTO** (testable headless GUT) | 30 | +3 (NB-1, NB-2, et reformulations 18/25 restent AUTO) |
+| **MANUAL** (playtest requis) | 11 | +2 (NB-3-MANUAL, NB-4-MANUAL) |
+| **STATIC** (lint pré-build / lint constants) | 11 | +3 (NB-2-LINT, NB-5, NB-6) |
 
-> **r2 note** : le tableau récap r1 annonçait 43 ACs ; le contenu effectif r1 = 52 ACs (review N-1). r2 ajoute 1 AC Static (`AC-SEC-NEW` ci-dessous) pour le lint constants → 53 total. Décomptes BLOCKING/ADVISORY ajustés en conséquence.
+> **r3 note** : la r3 ne reclassifie pas AC-SEC-18 ni AC-SEC-25 — ces deux ACs étaient
+> intestables tels quels (NB-SEC-3 + NB-SEC-4) ; leur reformulation BLOCKING est le fix.
+> En regard, deux nouveaux ACs ADVISORY MANUAL (`AC-SEC-NB-3-MANUAL` + `AC-SEC-NB-4-MANUAL`)
+> couvrent les garanties non simulables headless (main thread physics + overlap réel),
+> sign-off lead-programmer / qa-lead Sprint 1, hors gate `/create-epics`.
 
 > **Nouveau AC r2 B-3** :
 >
@@ -628,8 +704,11 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 **AC-SEC-17** — GIVEN `state_changed(PAUSED)` puis `state_changed(PLAYING)` sont reçus dans cet ordre, WHEN `body_entered` arrive après le retour en PLAYING sur un volume UNCOLLECTED, THEN le secret est collecté normalement (signal émis, `_collected_secret_ids` mis à jour).
 `[BLOCKING | AUTO]` — cycle complet simulé, assert emit_count == 1 après résumption PLAYING.
 
-**AC-SEC-18** — GIVEN `level_active` arrive alors que le joueur chevauche déjà un volume (EC-SEC-09), WHEN le cleanup R-SEC-11 déconnecte les anciens body_entered et reconnecte les nouveaux, THEN aucun signal parasite n'est émis pour l'étage précédent et le nouveau volume n'émet qu'au prochain body_entered distinct.
-`[BLOCKING | AUTO]` — simulation overlap pendant transition, assert zéro émission parasite.
+**AC-SEC-18 (r3 NB-SEC-4 — reformulé : test ordre déconnexion-puis-connexion, viable GUT headless)** — GIVEN Secret System en phase ACTIVE avec slot_A connecté (étage N, body_entered établi), WHEN `level_active(etage_id=N+1, ...)` est reçu et le cleanup R-SEC-11 s'exécute, THEN la **séquence d'opérations vérifiable** est : (1) `slot_A.collect_volume.body_entered.disconnect(_on_body_entered.bind(slot_A))` est appelé ; (2) PUIS `_slots_this_level` est vidé ; (3) PUIS les nouveaux slots de l'étage N+1 sont récupérés via `LevelSystem.get_secret_slots()` ; (4) PUIS chaque nouveau slot a son `body_entered` connecté avec `flags = 0`. L'ordre est vérifié par espion sur ordre d'appel (call_recorder spy).
+`[BLOCKING | AUTO]` — spy `Callable.disconnect` + spy `Callable.connect` + assert `disconnect_call_index < connect_call_index` ; assert connections finales = slots étage N+1 uniquement ; assert zéro connexion résiduelle vers slot_A (`slot_A.collect_volume.body_entered.is_connected(...)` retourne false).
+
+**AC-SEC-NB-4-MANUAL (r3 NB-SEC-4 — overlap réel scène réelle)** — GIVEN une scène test avec MovementController + 1 SecretCollectVolume_NN étage N + 1 SecretCollectVolume_NN étage N+1 dans la même position spatiale (overlap forcé authoring), WHEN le joueur reste sur le volume étage N pendant qu'un `level_active(N+1)` est émis manuellement (debug shortcut), THEN aucun signal `secret_collected` n'est émis pour l'étage N (volume déconnecté avant trigger) et le volume étage N+1 n'émet qu'au prochain mouvement distinct du joueur (re-enter).
+`[ADVISORY | MANUAL]` — sign-off qa-lead. Couvre la garantie "physical overlap pendant transition" non simulable headless.
 
 ---
 
@@ -657,8 +736,11 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 
 ### Groupe E — Émission signal SYNC (R-SEC-07, R-SEC-09, R-SEC-12)
 
-**AC-SEC-25** — GIVEN un secret tier=1 est UNCOLLECTED et GSM est en PLAYING, WHEN `body_entered` est déclenché sur son volume, THEN `secret_collected(secret_node, 1)` est émis exactement une fois avec `secret_node == volume_node` et `tier == 1`, depuis le callback physique main thread (flags=0, pas CONNECT_DEFERRED).
-`[BLOCKING | AUTO]` — assert signal émis avec payload correct, assert appelé depuis physics callback (is_physics_processing == true dans l'émetteur).
+**AC-SEC-25 (r3 NB-SEC-3 — reformulé : retrait `is_physics_processing()` non viable GUT headless)** — GIVEN un secret tier=1 est UNCOLLECTED et GSM est en PLAYING, WHEN `body_entered` est déclenché sur son volume, THEN (1) `secret_collected(secret_node, 1)` est émis exactement une fois avec `secret_node == volume_node` et `tier == 1` ; (2) la connexion `body_entered → _on_body_entered` est établie avec `flags = 0` (pas `CONNECT_DEFERRED`, vérification structurelle déjà présente AC-SEC-02) ; (3) un spy connecté au signal `secret_collected` voit son handler s'exécuter **dans le même call stack** que le callable `_on_body_entered` (vérifié par espion d'ordre d'appel — le spy_called timestamp précède le retour du callback body_entered).
+`[BLOCKING | AUTO]` — assert signal émis avec payload correct ; assert `secret_system.body_entered_connection.flags == 0` ; assert ordre des appels par spy stack-frame (`spy_secret.was_called_before(handler_returned)`). **La garantie "main thread physics step" est propriété infrastructure Godot non testable headless** — renvoyée vers AC-SEC-NB-3-MANUAL (ADVISORY MANUAL séparé) si validation runtime nécessaire.
+
+**AC-SEC-NB-3-MANUAL (r3 NB-SEC-3 — bridge GUT headless → scène réelle)** — GIVEN une scène test avec MovementController + 1 SecretCollectVolume_NN + Secret System autoload chargés, WHEN le joueur traverse physiquement le volume en build editor (F5 run scene), THEN inspection runtime via `print_debug` ou debugger révèle que `_on_body_entered` est appelé depuis un thread tel que `OS.get_thread_caller_id() == OS.get_main_thread_id()` ET pendant un tick `_physics_process` (capturable via flag `_in_physics = true` dans `_physics_process` du test harness).
+`[ADVISORY | MANUAL]` — sign-off lead-programmer + qa-lead. Test harness `tests/scenes/secret_main_thread_check.tscn` à créer en Sprint 1 (post-MVP, hors gate `/create-epics`).
 
 **AC-SEC-26** — GIVEN un secret tier=3, WHEN `body_entered` déclenche la collection, THEN `secret_collected(secret_node, 3)` est émis SYNC dans le même call stack que le body_entered (pas de deferred, pas de `call_deferred`). Le consumer Credit Economy reçoit le signal avant que le callback physique ne retourne.
 `[BLOCKING | AUTO]` — spy Credit handler : assert `total_credits` est incrémenté avant retour du callback body_entered.
@@ -735,6 +817,25 @@ Aucun screen UI dédié Secret System à designer via `/ux-design` au MVP. Si Ti
 
 **AC-SEC-45** — GIVEN un `SecretLureMarker_NN` et son `SecretCollectVolume_NN` associé sont séparés de moins de 3.0 m (MIN_LURE_TO_VOLUME_DISTANCE trop petit), WHEN le lint Level s'exécute, THEN un WARNING est émis : `"Lure-Volume trop proches: [nom] distance=[d]m < 3.0m"`.
 `[ADVISORY | STATIC]` — lint Level, assert warning.
+
+---
+
+### Groupe NB (r3) — Nouveaux ACs review r2 résolution
+
+**AC-SEC-NB-1 (r3 NB-SEC-1 — coexistence pull/push union, pas surécrasement)** — GIVEN Checkpoint mock appelle `Secret.inject_collected_secrets([id_A, id_B])` AVANT que `level_active` ne soit reçu, GIVEN le mock `checkpoint.get_collected_secrets()` retournera `[id_B, id_C]` lors du PULL à `level_active`, WHEN `level_active` est reçu et le PULL s'exécute, THEN l'état final `_collected_secret_ids` contient exactement `{id_A: true, id_B: true, id_C: true}` (union des deux ensembles) — aucun id n'est perdu, aucune entrée n'est surécrasée à `false`.
+`[BLOCKING | AUTO]` — séquence push puis pull, assert dictionnaire keys = `{id_A, id_B, id_C}` ; symétrique : assert pull puis push (séquence inverse) produit le même état final.
+
+**AC-SEC-NB-2 (r3 NB-SEC-2 — push_warning défensif CollisionShape disabled)** — GIVEN un `SecretCollectVolume_NN` est posé avec un `CollisionShape3D` enfant ayant `disabled = true` (cas authoring oublié), WHEN Secret System itère ce slot à `level_active` (R-SEC-13), THEN (1) `push_warning("SecretSystem: volume %s a zéro CollisionShape3D active...")` est émis avec le nom du volume ; (2) la connexion `body_entered → _on_body_entered` est établie quand même (slot non skippé) ; (3) aucun crash, aucun `push_error`, l'itération continue normalement vers les slots suivants.
+`[BLOCKING | AUTO]` — mock slot avec CollisionShape3D.disabled=true, assert `gut.get_warnings()` contient le message attendu, assert connexion établie, assert iteration des slots suivants non interrompue.
+
+**AC-SEC-NB-2-LINT (r3 NB-SEC-2 — lint Level pré-build STATIC)** — GIVEN un `SecretCollectVolume_NN` est posé dans une scène Level avec un `CollisionShape3D` enfant ayant `disabled = true` sans commentaire `# disabled-justified-reason:`, WHEN le lint Level pré-build analyse la scène, THEN le lint retourne un FAIL avec le message `"SecretCollectVolume CollisionShape3D désactivé sans justification: [nom volume] — body_entered ne firra jamais"`.
+`[ADVISORY | STATIC]` — lint Level (scope Level System Sprint 1 OQ-SEC-7, hors MVP).
+
+**AC-SEC-NB-5 (r3 NB-SEC-5 — distribution intra-étage authoring lint)** — GIVEN un fichier de scène Level (étage complet) avec ses `SecretSlot` posés, WHEN le lint Level pré-build analyse la distribution des secrets, THEN les checks suivants s'exécutent : (1) **`MAX_SECRETS_PER_ROOM`** : aucune salle ne contient > 1 secret (FAIL si violé) ; (2) **`MIN_SECRETS_OUTSIDE_NOMINAL_PATH`** : ≥ 1 secret dans la liste a son volume hors du chemin direct entrée→sortie (heuristique : volume non sur le navmesh principal entrée→sortie ; FAIL si 0) ; (3) **`MIN_SECRETS_REQUIRING_FUTURE_CAPABILITY`** : ≥ 1 secret a `required_ability` non disponible au premier passage de l'étage selon Level §progression map (FAIL si 0). Messages de fail explicites avec nom des secrets et nom de la salle.
+`[ADVISORY | STATIC]` — lint Level Sprint 1 (Level GDD r5 §Authoring Guidelines miroir attendu).
+
+**AC-SEC-NB-6 (r3 NB-SEC-6 — défi de mouvement obligatoire authoring lint)** — GIVEN chaque `SecretLureMarker_NN` posé dans une scène Level, WHEN le lint Level pré-build analyse les secrets, THEN les checks suivants s'exécutent : (1) **tag obligatoire** : chaque marker a `@export var movement_challenge: StringName` parmi `{height_gap, wall_gap, timed_sequence, multi_element}` non vide (FAIL si vide ou hors plage) ; (2) **cohérence tier=1** : si `tier == 1`, alors `movement_challenge` doit inclure `height_gap` ET le delta vertical lure→volume mesuré ≥ `MIN_VOLUME_HEIGHT_ABOVE_FLOOR` (FAIL sinon) ; (3) **cohérence tier ∈ {2,3}** : si `required_ability != "none"`, alors heuristique navmesh : sans la capability, le navmesh ne connecte pas lure→volume (FAIL si bypass piéton détecté). Messages de fail explicites avec nom du secret et `movement_challenge` actuel.
+`[ADVISORY | STATIC]` — lint Level Sprint 1 (Level GDD r5 §Authoring Guidelines miroir attendu).
 
 ---
 

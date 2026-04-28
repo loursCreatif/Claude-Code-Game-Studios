@@ -6,6 +6,32 @@
 
 ---
 
+## r3 Targeted Revision — 2026-04-28 — Verdict: Designed r3 (pending fresh lean re-pass)
+
+**Scope signal** : XS-S (focused editorial — 4 BLOCKING ciblés, ~1h éditorial, 0 nouvelle section, 0 nouvelle Rule structurelle)
+**Method** : `/design-system credit-economy-system` r3 solo auto-approve, targeted Edit on 4 BLOCKING résiduels post r2 (NB-CRD-1 et NB-CRD-6 résolus par cascade externe avant r3).
+**Trigger** : verdict r2 NEEDS REVISION (6 BLOCKING). NB-CRD-1 (cross-GDD `BASE_UPGRADE_COST` Shop) RESOLVED par Shop r2.1 amendement cosmetic propagation `8 cr` (commit antérieur). NB-CRD-6 (Pillar 4 viscéralité asymétrie 5:1) RESOLVED par cascade Audio r2.2 + HUD r1.1 Option A LIVRÉE 2026-04-28 (commit `731c64c`). Reste 4 BLOCKING editorial pour r3 ciblée.
+
+**Resolved (4 BLOCKING NB-CRD-2/3/4/5)** :
+
+- **NB-CRD-2 — Anti soft-lock B-2 pile-poil : `N_KILLS_ETAGE_1` borne minimale Level non blindée** : Cross-tuning §Tuning Knobs reformulé avec invariant explicite `BASE_UPGRADE_COST ≤ N_KILLS_ETAGE_1_MIN × kill_credit["grunt"]` ; documente `N_KILLS_ETAGE_1_MIN = 2 × 3 = 6` (plancher conservatif R-2.6 Level GDD) vs `N_KILLS_ETAGE_1_NOMINAL = 8` (cas nominal MVP) ; ajoute garde-fous opérationnels (test `tests/integration/balance/credit_anti_softlock_test.gd`, tuner alert balance-check, coordination cross-GDD Level GDD futur amendement) ; marge Pillar 2 absorbée par persistance cross-session `total_credits` (joueur qui rate 1 grunt n'est pas soft-locked définitif).
+- **NB-CRD-3 — §UI Requirements l.436 conserve tween hardcodé après délégation B-3** : Tableau §UI Requirements rows "Pulse VFX gain" + "Animation soustraction" reformulés pour déléguer durées et styles à HUD GDD §J + Rule 5 r1.1 (cross-référence Audio/HUD r1.1 cascade NB-CRD-6 Option A) ; Credit ne fixe plus que les requirements pillar-driven (KILL court Pillar 1, SECRET visiblement plus marqué Pillar 4) ; pattern aligné §Visual l.402 corrigé en r2 B-3.
+- **NB-CRD-4 — AC-CRD-10 + AC-CRD-49 : triggers `_on_level_unloaded()` / `_on_level_loaded()` non spec Detailed Rules** : AC-CRD-10 reformulé sur trigger canonique `request_new_run()` (GSM ADR-0007 D-10) — handler `_on_request_new_run()` aligné Rule 6 ; AC-CRD-49 reformulé sur trigger canonique `level_active` (Level GDD R-2) — premier signal session pour connexion event-driven Rule 5, second signal pour purge `_credited_this_run` Rule 6 ; ACs maintenant testables et alignés sur signaux documentés Detailed Rules (zéro contrat invisible).
+- **NB-CRD-5 — AC-CRD-39 perf gate 0.1 ms intestable en CI** : Reformulé `< 1 ms médiane N=100`, P95 `< 3 ms`, outliers exclus si plateforme non-reproductible ; gate level explicité **BLOCKING dev hardware** / **ADVISORY CI** (cohérent DA-CRD-2 r2 adjudication) ; rationale documenté inline (seuil r2 produisait test fantôme rouge permanent).
+
+**No blocking added** : 0 nouveaux BLOCKING introduits par r3. Couverture ACs stable (49 → 49, count inchangé, AC-CRD-10/39/49 reformulés sur place).
+
+**Files changed** :
+- `design/gdd/credit-economy-system.md` (header status r2 → r3 ; Cross-tuning §Tuning Knobs invariant blindé ; §UI Requirements rows VFX gain + Animation soustraction délégation HUD ; AC-CRD-10 + AC-CRD-39 + AC-CRD-49 reformulés ; Acceptance Criteria header note changements r3).
+- `design/gdd/reviews/credit-economy-system-review-log.md` (this entry).
+- `design/gdd/systems-index.md` (Credit row status `Designed r2 — NEEDS REVISION (r3 ciblée)` → `Designed r3 (pending fresh lean re-pass)`).
+
+**Path to APPROVED** : `/design-review credit-economy-system --depth lean` single-session 5-15 min pour valider non-régression r2 + résolution effective des 4 BLOCKING NB-CRD-2/3/4/5 → APPROVED → unlock `/create-epics credit-economy-system`.
+
+**Prior verdict resolved** : r2 NEEDS REVISION (6 BLOCKING) → 6/6 RESOLVED (NB-CRD-1 cascade Shop r2.1, NB-CRD-6 cascade Audio r2.2 + HUD r1.1 Option A, NB-CRD-2/3/4/5 éditorial r3).
+
+---
+
 ## Review — 2026-04-27 — Verdict: NEEDS REVISION
 
 **Scope signal** : M

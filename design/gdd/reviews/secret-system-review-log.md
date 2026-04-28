@@ -6,6 +6,51 @@
 
 ---
 
+## r3 ciblée editorial — 2026-04-28 — Verdict: pending fresh `/design-review` lean re-pass
+
+**Scope signal** : XS/S (editorial — reformulations + ajouts §Authoring + 4 nouveaux ACs)
+**Authoring session** : `/design-system secret-system r3 ciblée` (solo auto-approve, scope-bounded 6 NB-SEC editorial)
+**Specialists spawned** : none (solo mode + scope editorial pure — aucun redesign de règle ou formula, aucun ADR à amender)
+**Resolution** : 6 NEW BLOCKING r2 → résolus | 0 RECOMMENDED | 0 NICE-TO-HAVE (déférés batch ultérieur)
+
+### Fixes r3 appliqués (6 NB-SEC editorial)
+
+| # | NB | Fix éditorial | Sections touchées | Nouveaux ACs |
+|---|----|--------------- |-------------------|--------------|
+| 1 | NB-SEC-1 | R-SEC-10 expliciter PULL canonique MVP / PUSH Tier 2+ avec règle d'union (jamais surécrasement) ; clarification ownership purge `request_new_run` (Secret purge `_collected_secret_ids`, Checkpoint purge son snapshot) — résout aussi NR-SEC-4 par cascade | R-SEC-10 (réécrite) | AC-SEC-NB-1 BLOCKING AUTO (union pull+push) |
+| 2 | NB-SEC-2 | R-SEC-13 : ajout détection runtime `CollisionShape3D.disabled = true` → `push_warning` + connexion quand même (jamais skip) — défense Pillar 4 silencieuse même sans lint Level (Sprint 1 OQ-SEC-7) | R-SEC-13 (5e bullet ajouté) | AC-SEC-NB-2 BLOCKING AUTO (push_warning runtime) + AC-SEC-NB-2-LINT ADVISORY STATIC (lint Level pré-build) |
+| 3 | NB-SEC-3 | AC-SEC-25 reformulé : retrait assertion `is_physics_processing()` (faux pass garanti GUT headless) ; remplacement par espion d'ordre d'appel SYNC dans le call stack ; bridge ADVISORY MANUAL pour la garantie main-thread physics non testable headless | AC-SEC-25 (réécrite) | AC-SEC-NB-3-MANUAL ADVISORY MANUAL (test scène réelle) |
+| 4 | NB-SEC-4 | AC-SEC-18 reformulé : retrait simulation overlap synchrone (non viable headless) ; remplacement par test ordre déconnexion-puis-connexion via call_recorder spy ; bridge ADVISORY MANUAL pour overlap réel scène | AC-SEC-18 (réécrite) | AC-SEC-NB-4-MANUAL ADVISORY MANUAL (overlap scène réelle) |
+| 5 | NB-SEC-5 | §Tuning Knobs §Authoring : nouvelle section "Règles d'authoring distribution + défi de mouvement" — Règle A distribution : `MAX_SECRETS_PER_ROOM=1`, `MIN_SECRETS_OUTSIDE_NOMINAL_PATH≥1`, `DISTRIBUTION_RECOMMENDED=1 début/1-2 médian/1 fin`, `MIN_SECRETS_REQUIRING_FUTURE_CAPABILITY≥1` (promesse de retour) | §Tuning Knobs §Authoring (nouvelle section avant §Mapping) | AC-SEC-NB-5 ADVISORY STATIC (lint Level Sprint 1) |
+| 6 | NB-SEC-6 | §Tuning Knobs §Authoring : Règle B défi de mouvement obligatoire — `REQUIRED_MOVEMENT_CHALLENGE_TYPE` tag obligatoire `{height_gap, wall_gap, timed_sequence, multi_element}` ; cohérences tier=1 height_gap + tier∈{2,3} navmesh sans capability ne connecte pas | §Tuning Knobs §Authoring (Règle B même section que NB-SEC-5) | AC-SEC-NB-6 ADVISORY STATIC (lint Level Sprint 1) |
+
+### Counts r2 → r3 ACs
+
+- Total : 53 → **60** (+7 nouveaux NB)
+- BLOCKING : 30 → **33** (+3 ; AC-SEC-NB-1 + AC-SEC-NB-2 + reformulations BLOCKING 18/25 conservées)
+- ADVISORY : 23 → **27** (+4 ; AC-SEC-NB-2-LINT + AC-SEC-NB-3-MANUAL + AC-SEC-NB-4-MANUAL + AC-SEC-NB-5 + AC-SEC-NB-6)
+- AUTO : 27 → **30** (+3) | MANUAL : 9 → **11** (+2) | STATIC : 8 → **11** (+3)
+
+### Items review r2 NON adressés r3 (déférés)
+
+- **NR-SEC-1..NR-SEC-13** (13 RECOMMENDED) : déférés batch ultérieur ou stories implém — non bloquants pour `/create-epics`. Notables résolus par cascade : NR-SEC-3 (Audio r2.2 promotion gate) **LIVRÉE** par NB-CRD-6 Option A 2026-04-28 commit `731c64c` ; NR-SEC-4 (ownership purge `request_new_run`) **résolu r3** par cascade dans R-SEC-10 (clarification écrite dernière phrase). NR-SEC-10 (renommer `AC-SEC-NEW` → `AC-SEC-53`) éditorial pur, déféré.
+- **NN-SEC-1..NN-SEC-4** (4 NICE-TO-HAVE) : polish, déférés post-`/create-epics`.
+
+### Path to APPROVED
+
+1. ✅ r3 ciblée editorial Secret GDD livrée (cette entrée) — ~2h editorial conforme estimation r2.
+2. **Next** : fresh `/design-review` lean re-pass single-session 10-15 min (mémoire vide reviewer) sur `design/gdd/secret-system.md` r3 → APPROVED → unlock `/create-epics secret-system`.
+
+### Files touched (3)
+
+1. `design/gdd/secret-system.md` (header bump r2 → r3 + R-SEC-10 réécrite + R-SEC-13 5e bullet + AC-SEC-25 réécrite + AC-SEC-18 réécrite + §Tuning Knobs §Authoring nouvelle section Règles A + B + tableau récap r3 + Groupe NB nouveaux ACs).
+2. `design/gdd/reviews/secret-system-review-log.md` (NEW entry top — cette entrée r3).
+3. `design/gdd/systems-index.md` (Secret row status r2 NEEDS REVISION → r3 ciblée pending fresh re-pass).
+
+**Solo gates** : CD-GDD-ALIGN skipped (`production/review-mode.txt` = solo).
+
+---
+
 ## Review — 2026-04-27 — Verdict: NEEDS REVISION
 
 **Scope signal** : S (Small — ciblage architectural cross-GDD, pas re-design)
