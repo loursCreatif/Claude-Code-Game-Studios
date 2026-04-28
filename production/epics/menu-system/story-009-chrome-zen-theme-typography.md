@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (3-4 h, dont sourcing JetBrainsMono-Regular.ttf)
+> **Performance**: Theme + StyleBoxFlat resources one-shot load au boot/instanciation — pas d'impact runtime. Font preload absorbé warmup AC-MNU-42.
 
 ## Context
 

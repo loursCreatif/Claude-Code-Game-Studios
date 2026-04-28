@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h)
+> **Performance**: zéro impact — callbacks one-shot. Ordre release-avant-transition r2 vérifié via timestamp `Time.get_ticks_usec()` (assertion test, pas runtime overhead).
 
 ## Context
 

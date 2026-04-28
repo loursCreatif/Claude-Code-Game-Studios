@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h)
+> **Performance**: zéro alloc — `pause_panel.visible = bool` snap pur, pas de Tween/AnimationPlayer. Guard `is_inside_tree()` lecture sûre. Signature stable cross-caller.
 
 ## Context
 

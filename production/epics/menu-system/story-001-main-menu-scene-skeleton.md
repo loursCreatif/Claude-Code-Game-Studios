@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h)
+> **Performance**: zéro impact gameplay — Main Menu hors PLAYING (game frozen, GSM=MENU). Theme + StyleBoxFlat one-shot load au boot.
 
 ## Context
 

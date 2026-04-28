@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (3-4 h)
+> **Performance**: Pillar 1 critique — mouse capture timing influence pause/resume snap. `request_disable/release_enable_request` refcount idempotent (ADR-0004 D-4 zéro alloc). `tree_exiting` CONNECT_ONE_SHOT cleanup auto.
 
 ## Context
 

@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (3-4 h)
+> **Performance**: Pillar 1 critique — CONNECT_DEFERRED ajoute 1 frame skid (16.6 ms) absorbé dans budget pause < 100 ms. Guard `is_inside_tree()` zéro alloc.
 
 ## Context
 

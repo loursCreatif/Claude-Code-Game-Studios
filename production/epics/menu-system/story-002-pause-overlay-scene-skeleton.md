@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h)
+> **Performance**: zéro impact gameplay — Pause Overlay caché par défaut (`visible = false` au `_ready()`). PROCESS_MODE_ALWAYS = 3 set programmatique défensif (R-18) + propriété `.tscn`.
 
 ## Context
 

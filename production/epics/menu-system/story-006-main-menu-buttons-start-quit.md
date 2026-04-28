@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: XS (1-2 h)
+> **Performance**: zéro impact — callbacks one-shot, pas de hot path. `get_tree().quit()` déclenche `NOTIFICATION_WM_CLOSE_REQUEST` (SaveLoad R-SAV-9 intercepte autonome).
 
 ## Context
 

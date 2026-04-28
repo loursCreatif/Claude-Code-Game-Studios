@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h, CI yaml + rule file)
+> **Performance**: zéro runtime impact — lints statiques pur (grep + parse `.tscn/.tres`), exécutés en CI uniquement. Pas de code menu écrit dans cette story.
 
 ## Context
 

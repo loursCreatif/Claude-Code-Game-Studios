@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (3-4 h)
+> **Performance**: Pillar 1 critique — `_on_ui_cancel_pressed` handler < 0.5 ms CPU (match léger, pas d'I/O, pas d'instanciation). Pause snap perçu < 100 ms total (mesuré story 011).
 
 ## Context
 

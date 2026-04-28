@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Estimate**: M (3-4 h, 7 ECs r2 + tab wrap + process_mode runtime + layer convention M)
+> **Performance**: transitions OS (minimize/sleep/dual-monitor focus loss) hors hot path. AC-MNU-38/39 process_mode runtime check zéro alloc (lecture propriété).
 
 ## Context
 
@@ -30,6 +32,9 @@
 - [ ] **EC-MNU-41 (G-6 + G-9)** : étage gameplay sans Pause Overlay instancié → ESC silencieux (signal émis dans le vide) ; lint AC-MNU-59 enforce zero/double-instance authoring (couvert Story 002).
 - [ ] **EC-MNU-42 (Q-11)** : dual-monitor focus loss pendant Pause Menu visible ; mouse_mode délégué InputManager D-7 ; Menu ne pose pas son propre handler focus (AC-MNU-63 enforce).
 - [ ] **AC-MNU-61** [Logic — BLOCKING] *(r2 — F-MNU-3 tab cycle wrap)* : Pause Overlay visible (N=3 boutons) + `ResumeButton.has_focus()` ; Shift+Tab → `QuitButton.has_focus()` (wrap inverse vers dernier).
+- [ ] **AC-MNU-38** [Logic — ADVISORY] : GSM applique `get_tree().paused = true` ; `PauseLayer.process_mode == PROCESS_MODE_ALWAYS` ; `PauseLayer._process(delta)` est appelé sous tree paused — confirme que ALWAYS est opérationnel runtime, pas seulement déclaré .tscn.
+- [ ] **AC-MNU-39** [Logic — ADVISORY] : grep `process_mode` sur nodes gameplay (`MovementController`, `CombatSystem`, `LevelSystem`) dans `etage_*.tscn` retourne `process_mode = 1` (PAUSABLE) OU absence (héritage INHERIT) — confirme que le gameplay se fige bien pendant PAUSED.
+- [ ] **Layer convention M cross-overlay runtime** : pendant Pause Menu visible, vérifier que `HUD CanvasLayer.layer = 50 < Shop = 60 < Pause = 80 < GSM-fade = 100` ; Pause Overlay couvre HUD/Shop, GSM-fade couvre Pause (transition vers MENU).
 
 ---
 
@@ -53,7 +58,10 @@
 5. **EC-MNU-41 zero-instance silent ESC** :
    - Test : étage gameplay sans `pause_overlay.tscn` instancié (cas erreur authoring) ; `ui_cancel_pressed.emit()` → aucun crash, signal émis dans le vide.
    - Lint AC-MNU-59 (Story 002) enforce qu'en authoring, chaque étage en a exactement 1 — donc test runtime + lint authoring complémentaires.
-6. **AC-MNU-61 tab cycle wrap inverse F-MNU-3** :
+6. **AC-MNU-38 process_mode runtime opérationnel** : test integration vérifie que `PauseLayer._process()` est bien appelé alors que `get_tree().paused == true`. Méthode : flag `_process_call_count_under_paused` incrémenté dans `_process(delta)` ; assertion `> 0` après `MockGSM.request_pause()` + `await process_frame` ×3.
+7. **AC-MNU-39 gameplay nodes PAUSABLE** : test static parse `etage_*.tscn` ; pour chaque `[node ...]` qui inherite/hérite de `MovementController`/`CombatSystem`/`LevelSystem`, vérifier `process_mode = 1` ou absence.
+8. **Layer convention M cross-overlay runtime** : test integration instancie HUD + Shop + Pause + GSM-fade simultanément (cas edge transition Shop → Pause → MainMenu), vérifie ordering visuel via `get_canvas_layer()`. Cohérence avec AC-MNU-55 (static `layer = 80`) + AC-MNU-56 (static unique values {50,60,80,100}) couverts Stories 002 + 009.
+9. **AC-MNU-61 tab cycle wrap inverse F-MNU-3** :
    ```gdscript
    func test_pause_menu_shift_tab_wraps_to_last_button() -> void:
        _show_pause_overlay()
@@ -109,6 +117,23 @@
 - Given : étage chargé SANS `pause_overlay.tscn` instancié (cas erreur authoring) ; GSM=PLAYING.
 - When : `ui_cancel_pressed.emit()`.
 - Then : aucun crash ; `request_pause_call_count == 0` (aucun handler connecté côté Menu) ; lint AC-MNU-59 fail authoring time.
+
+**AC-MNU-38** : process_mode opérationnel runtime
+- Given : MockGSM `_state = PLAYING`, Pause Overlay instancié avec `process_mode = PROCESS_MODE_ALWAYS = 3`, flag `_process_call_count_under_paused = 0`.
+- When : `MockGSM.request_pause()` ; `get_tree().paused = true` ; `await get_tree().process_frame` ×3.
+- Then : `assert_gt(pause_layer._process_call_count_under_paused, 0)`.
+- Edge cases : si `process_mode = WHEN_PAUSED (2)` ou `DISABLED (4)` → `_process` non appelé → assertion fail.
+
+**AC-MNU-39** : gameplay nodes PAUSABLE
+- Setup : pour chaque `etage_*.tscn`, parser les nodes inheriting `MovementController`/`CombatSystem`/`LevelSystem`.
+- Verify : chacun a `process_mode = 1` (PAUSABLE) OU absence de propriété.
+- Pass condition : aucun node gameplay avec ALWAYS (3) ou DISABLED (4) — sinon le gameplay continuerait pendant Pause.
+
+**Layer convention M cross-overlay runtime** :
+- Given : étage avec HUD layer=50 + Shop layer=60 + PauseLayer layer=80 + GSM-fade layer=100 instanciés.
+- When : Pause Overlay visible (state PAUSED) ; transition vers MENU déclenche GSM-fade.
+- Then : ordre visuel runtime cohérent — Pause couvre HUD+Shop ; GSM-fade couvre Pause pendant transition.
+- Pass condition : pas de bleed-through visuel (vérification screenshot manuel + check `CanvasLayer.layer` runtime).
 
 **AC-MNU-61** : Shift+Tab wrap inverse
 - Given : Pause Overlay visible (3 boutons : Resume, MainMenu, Quit) ; `ResumeButton.has_focus()`.

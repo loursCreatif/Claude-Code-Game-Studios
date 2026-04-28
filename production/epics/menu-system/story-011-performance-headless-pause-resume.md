@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h, runner GUT + quantile P95/P99 math)
+> **Performance**: c'est le sujet de la story — F-MNU-1 budget total < 100 ms (Pillar 1). Headless CI mesure composé `T_in + T_gsm + T_def < 50 ms` ; xvfb rendu actif (AC-MNU-65 ADVISORY) mesure `+ T_ren`.
 
 ## Context
 

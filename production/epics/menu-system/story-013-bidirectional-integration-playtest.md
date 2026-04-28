@@ -5,6 +5,8 @@
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
+> **Estimate**: S (2-3 h, manual playtest + UX walkthrough + 3 sign-offs)
+> **Performance**: validation manuelle ressenti — Pillar 1 FLOW snap < 100 ms ressenti + Pillar 3 anti-pause RESPAWNING. Pas de mesure automatique (couverte story 011).
 
 ## Context
 
