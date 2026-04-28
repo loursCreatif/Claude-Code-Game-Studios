@@ -1,7 +1,7 @@
 # Story 005: Purchase Cycle 6 Étapes Déterministes
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -150,3 +150,15 @@ func _on_buy_pressed(id: StringName, n_index: int) -> void:
 
 - Depends on: Story 002 (controller + catalogue), Story 003 (`_owned_upgrades` initialisé)
 - Unlocks: Story 006 (idempotence détaillée), Story 010 (write back), Story 015 (bidirectional)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (9/9 unit purchase_cycle) — AC-SHP-6 (try_spend(40) executé), AC-SHP-7 (`_owned_upgrades.has(id)` immédiat post-spend), AC-SHP-8 (séquence save AVANT apply via `_call_order_log`), AC-SHP-9 (real `Upgrade.is_owned()` + `Upgrade.can_dash`), AC-SHP-11 (insufficient balance no-mutation), AC-SHP-48 (idempotent already_owned silent no-op — chain unblocked, real Upgrade autoload utilisé), full chain 2 upgrades + persistence, EC-SHP-23 atomicity lint static (zero `await`/`yield`/`process_frame` dans `_on_buy_pressed` body), EC-SHP-2 soft guard `cost <= 0` early return.
+**Deviations**: ADVISORY (3)
+  - **AC-SHP-48 PROMOTED non-PROVISIONAL** : real `Upgrade` autoload utilisé au lieu de mock — la chaîne upgrade-system stories 001-010 est Complete (chain unblocked OQ-SHP-2). Tests directs sur l'autoload réel ; mock_upgrade_system non créé.
+  - **EC-SHP-2 assert→soft-guard** : `assert(cost > 0)` retiré au profit de `if cost <= 0: return` — l'assert crashait en debug build (GdUnit4 runtime) sur `n_index` pathologique, alors que `_compute_cost` retourne 0 légitimement avec warning. Soft guard équivalent runtime-safe pour debug + release.
+  - **AC-SHP-10 (BuyButton.disabled)** : `_disable_buy_button_for(id)` utilise `get_node_or_null(NodePath("%BuyButton_id"))` avec skip silent si absent (test seam unit). UI rendering scene-attach déféré story-012 (Chrome Zen styling) ou story sub-équipe future.
+**Test Evidence**: Logic — `tests/unit/shop/purchase_cycle_test.gd` 9/9 PASSED ; suite shop globale 26/26 PASSED 388 ms (`reports/report_76/`).
+**Code Review**: Skipped (Solo mode).
