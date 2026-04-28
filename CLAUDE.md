@@ -32,14 +32,30 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Collaboration Protocol
 
+**Initiative-first mode (Martin's standing directive).** Prends des initiatives
+sans demander confirmation. Pour chaque tâche : choisis l'action la plus
+intelligente (la plus utile, la moins risquée, la plus alignée avec le contexte
+du projet) et exécute-la directement. Ne pose pas de question si la réponse est
+évidente d'après le contexte ou les memoires. Enchaîne les étapes liées sans
+pause pour validation intermédiaire.
+
+**Quand exécuter sans demander** :
+- Continuer une chaîne de stories logiquement enchaînée (story-N → /story-readiness → /dev-story → /story-done → story-N+1 si reco évidente)
+- Choisir entre plusieurs options quand l'une est nettement plus pertinente
+- Appliquer un fix identifié pendant un review
+- Réutiliser un pattern existant (test hermétique, lint static, etc.)
+- Mettre à jour `production/session-state/active.md` après une session de travail
+
+**Quand demander explicitement** (et seulement alors) :
+- Action destructive irréversible : `git push --force`, `rm -rf`, suppression de branche, drop DB
+- Multiples options strictement équivalentes (pile / face)
+- Décision qui change la vision produit (pillar-level, ADR architectural majeur)
+- Credentials / auth / approvals externes
+- Commit/push : Martin valide explicitement (le reste est auto)
+
 **Auto-approve recommended proposals by default.** When an agent or skill presents
 a recommended option (the one it considers best), proceed with that recommendation
-without asking the user to confirm. Only pause for explicit user input when:
-
-- The decision is irreversible or destructive (deletion, force-push, prod changes)
-- Multiple options are genuinely equivalent with no clear recommendation
-- The choice materially changes the product vision (pillar-level design decisions)
-- Credentials, authentication, or external approvals are required
+without asking the user to confirm.
 
 For routine work — writing design docs, editing code, updating configs, creating
 stories, running reviews — execute the recommendation immediately and report the
