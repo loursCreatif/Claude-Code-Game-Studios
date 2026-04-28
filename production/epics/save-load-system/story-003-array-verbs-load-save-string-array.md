@@ -1,7 +1,7 @@
 # Story 003: Array verbs load_string_array / save_string_array + String→StringName normalization
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -34,11 +34,11 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-10** [Logic] [BLOCKING] : GIVEN `save_string_array("upg", [&"double_jump", &"dash_horizontal"])`, WHEN `load_string_array("upg", [])`, THEN retour `Array[StringName]([&"double_jump", &"dash_horizontal"])` (taille=2, types StringName).
-- [ ] **AC-SAV-11** [Logic] [BLOCKING] : GIVEN array vide saved, WHEN reload, THEN `[]` retourné (pas null).
-- [ ] **AC-SAV-12** [Logic] [BLOCKING] : GIVEN clé existe avec int (corruption), WHEN `load_string_array("k", [])`, THEN retour `[]` + warning.
-- [ ] **AC-SAV-13** [Logic] [BLOCKING] : GIVEN array contient `[StringName, int, null, String]`, WHEN load, THEN retour `[StringName, StringName(String)]` (2 elements valides), 2 warnings émis. Couvre Shop EC-SHP-7.
-- [ ] **AC-SAV-14** [Logic] [BLOCKING] : GIVEN array de 100 StringName saved, WHEN load, THEN retour identique (taille=100, ordre préservé, tous StringName).
+- [x] **AC-SAV-10** [Logic] [BLOCKING] : GIVEN `save_string_array("upg", [&"double_jump", &"dash_horizontal"])`, WHEN `load_string_array("upg", [])`, THEN retour `Array[StringName]([&"double_jump", &"dash_horizontal"])` (taille=2, types StringName).
+- [x] **AC-SAV-11** [Logic] [BLOCKING] : GIVEN array vide saved, WHEN reload, THEN `[]` retourné (pas null).
+- [x] **AC-SAV-12** [Logic] [BLOCKING] : GIVEN clé existe avec int (corruption), WHEN `load_string_array("k", [])`, THEN retour `[]` + warning.
+- [x] **AC-SAV-13** [Logic] [BLOCKING] : GIVEN array contient `[StringName, int, null, String]`, WHEN load, THEN retour `[StringName, StringName(String)]` (2 elements valides), 2 warnings émis. Couvre Shop EC-SHP-7.
+- [x] **AC-SAV-14** [Logic] [BLOCKING] : GIVEN array de 100 StringName saved, WHEN load, THEN retour identique (taille=100, ordre préservé, tous StringName).
 
 ---
 
@@ -138,13 +138,48 @@
 **Required evidence**:
 - `tests/unit/save_load/array_verbs_test.gd` — must exist and pass (5 tests AC-SAV-10/11/12/13/14)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/save_load/array_verbs_test.gd` (207 L, 5 tests, 5/5 PASSED en 73 ms via GdUnit4 2026-04-28). Suite save_load globale 17/17 vert (9 scalar + 5 array + 3 integration).
 
 ---
 
 ## Dependencies
 
-- Depends on: **story-001** (skeleton autoload obligatoire)
+- Depends on: **story-001** (skeleton autoload obligatoire) — Status Complete ✓
 - Unlocks:
   - shop-system story-001 (Shop boot hydrate `owned_upgrades` via `load_string_array`)
   - upgrade-system story-005 (Upgrade boot hydration via Shop indirect — Shop fournit `get_owned_upgrades()`)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 5/5 passing (AC-SAV-10/11/12/13/14 all BLOCKING covered)
+**Verdict**: COMPLETE WITH NOTES
+**Test Evidence**: Logic — `tests/unit/save_load/array_verbs_test.gd` 5 tests / 207 L / GdUnit4 vert 5/5 PASSED 73 ms (2026-04-28). Suite save_load globale 17/17 vert (no regression scalar story-002 ni integration story-001).
+**Code Review**: Skipped (Solo mode — `production/review-mode.txt = solo`)
+
+**Deviations (ADVISORY)**:
+
+1. **Implementation refinement vs §Implementation Notes** — la spec proposait `var raw = _config.get_value("data", key, default)` + branche `if typeof(raw) != TYPE_ARRAY: if raw != default: push_warning(...)`. Cette comparaison `raw != default` échoue en Godot 4 strict-mode quand `raw` est un type primitif (ex: int) et `default` est `Array[StringName]` — runtime error `Invalid operands 'int' and 'Array' in operator '!='`. **Refactor appliqué** : `_config.has_section_key("data", key)` guard explicite + `_config.get_value("data", key)` sans default + `push_warning` inconditionnel sur type mismatch. Sémantiquement équivalent (key absente → silent default ; key présente non-Array → warning + default ; key présente Array → itération normalisation), techniquement plus propre, fidèle à l'intention ADR-0010 D-2. Aucune AC affectée.
+
+**Code shipped**:
+- `src/core/save_load_system.gd` 107 L → 156 L (+49 L) :
+  - `load_string_array(key: String, default: Array[StringName]) -> Array[StringName]` — `_assert_main_thread()` + guard `_config_loaded` + guard `has_section_key` + boucle normalisation `String → StringName` avec `push_warning` skip elements invalides (R-SAV-12).
+  - `save_string_array(key: String, value: Array[StringName]) -> void` — `_assert_main_thread()` + guard `_config_loaded` + `_config.set_value` + `_config.save()` + `push_error` sur err disque (D-2).
+- `tests/unit/save_load/array_verbs_test.gd` 207 L NEW : 5 tests GdUnit4 pattern hermétique (`before_test`/`after_test` rm savegame.cfg + `get_tree().paused = false` safety), helper `_instantiate_save_load()`, naming `test_save_load_[scenario]_[expected]`, doc-comment Given/When/Then + AC-SAV-* source par test.
+
+**Conformité ADR-0010**:
+- D-2 (sémantique verbes) ✓ — `save_*` void + push_error ; `load_*` jamais crash + push_warning sur mismatch ; normalisation String → StringName.
+- D-5 (outbound-zero) ✓ — `grep -c 'emit\|connect\|class_name\|CameraSystem\|CombatSystem\|ShopSystem\|UpgradeSystem'` sur les 2 verbes ajoutés = 0.
+- D-7 (main-thread-only) ✓ — `_assert_main_thread()` first call débugged dans chaque verbe.
+- R-SAV-12 (normalisation String → StringName) ✓ — itération boucle + cast `StringName(elem)` pour `TYPE_STRING`.
+
+**Out of Scope respecté** :
+- Aucune sémantique story-004+ (`_save_version` lazy init, `NOTIFICATION_WM_CLOSE_REQUEST`, Tier 2+ stubs `int_array`, lints, perf gate strict).
+- Aucun signal / connect / consumer reference (R-SAV-10/11/17 + ADR-0010 D-5).
+
+**Unblocks immédiat** :
+- shop-system story-001 — `Shop.owned_upgrades: Array[StringName]` désormais hydratable via `SaveLoadSystem.load_string_array("owned_upgrades", [])`.
+- upgrade-system story-005 — Upgrade boot hydration via Shop indirect (Shop fournit `get_owned_upgrades()`).
+- save-load story-004 (`_save_version` lazy init) — verbes scalar + array livrés, story-004 peut wrapper toutes les writes.

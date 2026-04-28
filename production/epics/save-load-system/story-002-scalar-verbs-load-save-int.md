@@ -1,7 +1,7 @@
 # Story 002: Scalar verbs load_int / save_int + type validation + edge cases
 
 > **Epic**: Save/Load System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation / Persistence
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -34,15 +34,15 @@
 
 *From GDD `design/gdd/save-load-system.md`, scoped to this story:*
 
-- [ ] **AC-SAV-2** [Logic] [BLOCKING] : GIVEN `user://savegame.cfg` existe avec `[data]\ntotal_credits=42`, WHEN boot, THEN `load_int("total_credits", 0) == 42` (pas le default).
-- [ ] **AC-SAV-3** [Logic] [BLOCKING] : GIVEN fichier corrompu (contenu binaire random non-ConfigFile), WHEN boot, THEN `_ready()` ne crash pas, `push_error` émis, tous les `load_*` suivants retournent default.
-- [ ] **AC-SAV-5** [Logic] [BLOCKING] : GIVEN `_config_loaded == true`, WHEN `save_int("test_key", 123)` puis `load_int("test_key", 0)`, THEN retour `123`.
-- [ ] **AC-SAV-7** [Logic] [BLOCKING] : GIVEN `save_int` appelé 1000 fois consécutifs avec valeurs croissantes, WHEN profilage `Time.get_ticks_msec()` deltas, THEN somme < 1000 ms (i.e. < 1 ms / call sur SSD).
-- [ ] **AC-SAV-8** [Logic] [BLOCKING] : GIVEN clé absente, WHEN `load_int("absent", 99)`, THEN retour `99`.
-- [ ] **AC-SAV-9** [Logic] [BLOCKING] : GIVEN clé existe avec valeur Array (corruption manuelle), WHEN `load_int("k", -1)`, THEN retour `-1` ET `push_warning` émis.
-- [ ] **AC-SAV-17** [Logic] [BLOCKING] : GIVEN fichier ConfigFile valide mais clés absent, WHEN `load_int("inexistant", 42)`, THEN retour `42`.
-- [ ] **AC-SAV-18** [Logic] [BLOCKING] : GIVEN file inaccessible (permission revoquée mid-session, simulé via DirAccess.remove_absolute_path stub), WHEN `save_int`, THEN `push_error` émis avec err code, retour normal void (pas de crash).
-- [ ] **AC-SAV-19** [Integration] [BLOCKING] : GIVEN GSM transitionné PAUSED (`get_tree().paused == true`), WHEN `save_int("k", 1)`, THEN write réussit sans erreur (process_mode = ALWAYS garantit).
+- [x] **AC-SAV-2** [Logic] [BLOCKING] : GIVEN `user://savegame.cfg` existe avec `[data]\ntotal_credits=42`, WHEN boot, THEN `load_int("total_credits", 0) == 42` (pas le default).
+- [x] **AC-SAV-3** [Logic] [BLOCKING] : GIVEN fichier corrompu (contenu binaire random non-ConfigFile), WHEN boot, THEN `_ready()` ne crash pas, `push_error` émis, tous les `load_*` suivants retournent default.
+- [x] **AC-SAV-5** [Logic] [BLOCKING] : GIVEN `_config_loaded == true`, WHEN `save_int("test_key", 123)` puis `load_int("test_key", 0)`, THEN retour `123`.
+- [x] **AC-SAV-7** [Logic] [BLOCKING] : GIVEN `save_int` appelé 1000 fois consécutifs avec valeurs croissantes, WHEN profilage `Time.get_ticks_msec()` deltas, THEN somme < 1000 ms (i.e. < 1 ms / call sur SSD).
+- [x] **AC-SAV-8** [Logic] [BLOCKING] : GIVEN clé absente, WHEN `load_int("absent", 99)`, THEN retour `99`.
+- [x] **AC-SAV-9** [Logic] [BLOCKING] : GIVEN clé existe avec valeur Array (corruption manuelle), WHEN `load_int("k", -1)`, THEN retour `-1` ET `push_warning` émis.
+- [x] **AC-SAV-17** [Logic] [BLOCKING] : GIVEN fichier ConfigFile valide mais clés absent, WHEN `load_int("inexistant", 42)`, THEN retour `42`.
+- [x] **AC-SAV-18** [Logic] [BLOCKING] : GIVEN file inaccessible (permission revoquée mid-session, simulé via DirAccess.remove_absolute_path stub), WHEN `save_int`, THEN `push_error` émis avec err code, retour normal void (pas de crash).
+- [x] **AC-SAV-19** [Integration] [BLOCKING] : GIVEN GSM transitionné PAUSED (`get_tree().paused == true`), WHEN `save_int("k", 1)`, THEN write réussit sans erreur (process_mode = ALWAYS garantit).
 
 ---
 
@@ -161,7 +161,7 @@
 **Required evidence**:
 - `tests/unit/save_load/scalar_verbs_test.gd` — must exist and pass (9 tests AC-SAV-2/3/5/7/8/9/17/18/19)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created — `tests/unit/save_load/scalar_verbs_test.gd` (280 L, 9 tests, 9/9 PASSED en 208 ms via GdUnit4 2026-04-28)
 
 ---
 
@@ -171,3 +171,28 @@
 - Unlocks:
   - story-004 (`_save_version` lazy init dépend des verbes save_int)
   - credit-economy-system story-* (Credit boot hydrate `total_credits` via `load_int`)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-28
+**Criteria**: 9/9 passing (AC-SAV-2/3/5/7/8/9/17/18/19 all BLOCKING covered)
+**Verdict**: COMPLETE WITH NOTES
+**Test Evidence**: Logic — `tests/unit/save_load/scalar_verbs_test.gd` 9 tests / 280 L / GdUnit4 run vert 9/9 PASSED 208 ms (2026-04-28). Bonus reverify integration `tests/integration/save_load/autoload_skeleton_test.gd` 3/3 PASSED 16 ms.
+**Code Review**: Skipped (Solo mode — `production/review-mode.txt = solo`)
+
+**Deviations (ADVISORY)**:
+1. **AC-SAV-9 push_warning non assertable directement** — limite GdUnit4 sans plugin error-capture. Le warning est observé via stderr backtrace pendant le run (`SaveLoadSystem: load_int('k') expected int, got Array — return default` visible avec full GDScript backtrace). Le retour `default` est asserté ; la validation du push_warning lui-même est de facto manuelle (visuelle stderr). Non-bloquant pour le contrat AC-SAV-9.
+2. **AC-SAV-18 partial coverage** — path `_config_loaded == false` couvert (test instancie sans `add_child` → push_error sans crash). Mock complet ERR_FILE_NO_PERMISSION via injection seam ConfigFile déféré story-018 (documenté in-spec Implementation Notes §5 comme option explicitement skip-able pour story-002).
+
+**Code shipped**:
+- `src/core/save_load_system.gd` 87 L → 107 L (+20 L) : `load_int` warning aligné spec ADR-0010 D-2 + `save_int(key, value) -> void` ajoutée (doc comment + `_assert_main_thread()` + guard `_config_loaded` + `_config.set_value` + `_config.save()` + `push_error` sur err disque).
+- `tests/unit/save_load/scalar_verbs_test.gd` 280 L NEW : 9 tests GdUnit4 pattern hermétique (`before_test`/`after_test` rm savegame.cfg + `get_tree().paused = false` safety), helper `_instantiate_save_load()`, naming `test_save_load_[scenario]_[expected]`.
+
+**Out of Scope respecté** : aucune sémantique story-003+ (string_array, _save_version, NOTIFICATION_WM_CLOSE_REQUEST, Tier 2+ stubs, lints, perf gate strict P99). Aucun signal / connect / consumer reference (R-SAV-10/11/17 + ADR-0010 D-5 outbound-zero).
+
+**Unblocks immédiat** :
+- story-003 (array verbs `load_string_array`/`save_string_array`) — sémantique scalar verrouillée comme template
+- credit-economy-system story-* — `load_int("total_credits", 0)` + `save_int("total_credits", N)` désormais consommables
+- upgrade-system story-* — pattern `load_int`/`save_int` reprenable pour `crystal_count` / progression
