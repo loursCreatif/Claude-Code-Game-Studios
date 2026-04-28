@@ -40,7 +40,7 @@ du projet) et exécute-la directement. Ne pose pas de question si la réponse es
 pause pour validation intermédiaire.
 
 **Quand exécuter sans demander** :
-- Continuer une chaîne de stories logiquement enchaînée (story-N → /story-readiness → /dev-story → /story-done → story-N+1 si reco évidente)
+- **Auto-enchaînement de la chaîne story par défaut.** Quand une skill (`/code-review`, `/story-done`, `/story-readiness`, `/dev-story`) se termine et qu'une étape suivante est évidente dans la chaîne logique (story-N → /story-readiness → /dev-story → /code-review → /story-done → story-N+1 Ready), enchaîne **immédiatement et sans demander**. Pas de "Veux-tu enchaîner...?", pas de pause "tu confirmes...?". La directive Martin standing : *"enchaine directement par défaut"*. Martin interrompt explicitement s'il veut s'arrêter.
 - Choisir entre plusieurs options quand l'une est nettement plus pertinente
 - Appliquer un fix identifié pendant un review
 - Réutiliser un pattern existant (test hermétique, lint static, etc.)
