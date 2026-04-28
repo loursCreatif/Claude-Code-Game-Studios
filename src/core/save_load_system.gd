@@ -173,6 +173,56 @@ func save_string_array(key: String, value: Array[StringName]) -> void:
 	if err != OK:
 		push_error("SaveLoadSystem: save_string_array('%s') failed err=%d" % [key, err])
 
+
+## Charge un tableau d'entiers depuis la section [data] du fichier de sauvegarde.
+## Retourne [param default] si le fichier est absent, corrompu, ou si le type stocké n'est pas Array.
+## Les éléments non-int sont ignorés avec push_warning (validation par-élément).
+## Tier 2+ stub fonctionnel — signature R-SAV-4 figée pour Secret System Tier 2+ (OQ-SEC-2).
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## var ids: Array[int] = SaveLoadSystem.load_int_array("collected_ids", [])
+## [/codeblock]
+func load_int_array(key: String, default: Array[int]) -> Array[int]:
+	_assert_main_thread()
+	if not _config_loaded:
+		return default
+	# Key absente = nominal (cohérent story-003 — guard has_section_key évite
+	# cross-type comparison Godot 4 strict `int != Array`).
+	if not _config.has_section_key("data", key):
+		return default
+	var raw: Variant = _config.get_value("data", key)
+	if typeof(raw) != TYPE_ARRAY:
+		push_warning("SaveLoadSystem: load_int_array('%s') expected Array, got %s — return default" % [key, type_string(typeof(raw))])
+		return default
+	var result: Array[int] = []
+	for elem: Variant in raw:
+		if typeof(elem) == TYPE_INT:
+			result.append(elem)
+		else:
+			push_warning("SaveLoadSystem: load_int_array('%s') skip element type=%s" % [key, type_string(typeof(elem))])
+	return result
+
+
+## Persiste un tableau d'entiers dans la section [data] du fichier de sauvegarde.
+## Retourne void — pas de signal, pas de bool, push_error en cas d'échec disque (ADR-0010 D-2).
+## Tier 2+ stub fonctionnel — signature R-SAV-4 figée pour Secret System Tier 2+ (OQ-SEC-2).
+##
+## [b]Exemple usage[/b] :
+## [codeblock]
+## SaveLoadSystem.save_int_array("collected_ids", [1, 7, 42])
+## [/codeblock]
+func save_int_array(key: String, value: Array[int]) -> void:
+	_assert_main_thread()
+	if not _config_loaded:
+		push_error("SaveLoadSystem: save_int_array('%s') called before _config_loaded" % key)
+		return
+	_ensure_save_version_set()
+	_config.set_value("data", key, value)
+	var err: int = _config.save(SAVE_FILE_PATH)
+	if err != OK:
+		push_error("SaveLoadSystem: save_int_array('%s') failed err=%d" % [key, err])
+
 # =============================================================================
 # Private methods
 # =============================================================================
