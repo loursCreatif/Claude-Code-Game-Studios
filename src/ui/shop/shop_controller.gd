@@ -22,6 +22,7 @@ const _MAIN_MENU_SCENE_PATH: String = "res://scenes/menus/main_menu.tscn"
 
 var _owned_upgrades: Array[StringName] = []
 var _closing: bool = false    # story-008 — double-press guard EC-SHP-18
+var _ready_completed: bool = false    # story-009 — guard ESC pendant LOADING (AC-SHP-27)
 
 # Story-008 test seam — callable indirection pour `GameStateManager.request_scene_transition`.
 # Production runtime : null → fallback appel direct GSM. Tests : injection d'une
@@ -49,6 +50,30 @@ func _ready() -> void:
 	_connect_credits_changed_deferred()
 	# Compute initial affordability state (avant tout signal)
 	_recalc_affordability(CreditEconomy.get_total())
+	# Story-009 — guard ESC pendant LOADING : flag à la toute fin de _ready()
+	_ready_completed = true
+
+
+# Story-009 — ESC = Continue (R-SHP-11 anti-friction Pillar 1).
+# Action `ui_cancel` Godot stdlib (ESC + B/Circle gamepad mappés InputMap).
+# Délègue à `_on_continue_pressed` qui contient déjà `_closing` guard EC-SHP-18.
+# AC-SHP-27 : pendant LOADING (`_ready_completed == false`), ESC ignoré.
+func _unhandled_input(event: InputEvent) -> void:
+	if not _ready_completed:
+		return    # AC-SHP-27 LOADING guard
+	if event.is_action_pressed(&"ui_cancel"):
+		if is_inside_tree():
+			get_viewport().set_input_as_handled()
+		_on_continue_pressed()
+
+
+# Test seam story-009 — manipulation `_ready_completed` flag pour AC-SHP-27.
+func set_ready_completed_for_test(value: bool) -> void:
+	_ready_completed = value
+
+
+func get_ready_completed_for_test() -> bool:
+	return _ready_completed
 
 
 func _connect_credits_changed_deferred() -> void:

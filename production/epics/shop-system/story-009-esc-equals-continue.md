@@ -1,7 +1,7 @@
 # Story 009: ESC = Continue (anti-friction Pillar 1)
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -100,7 +100,7 @@ if _active_tween and _active_tween.is_valid():
 
 **Story Type**: Logic
 **Required evidence**: `tests/unit/shop/esc_equals_continue_test.gd` — must exist and pass
-**Status**: [ ] Not yet created
+**Status**: [x] 4/4 PASSED 38 ms (re-run 2026-04-28 `reports/report_93/`)
 
 ---
 
@@ -108,3 +108,16 @@ if _active_tween and _active_tween.is_valid():
 
 - Depends on: Story 008 (`_on_continue_pressed` handler)
 - Unlocks: Story 015 (bidirectional incl. ESC path)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28
+**Criteria**: passing (4/4) — AC-SHP-26 (ESC post-ready déclenche transition même path que click), AC-SHP-27 (LOADING `_ready_completed=false` → ESC ignoré), non-cancel events (ui_accept) ignorés, ESC double-press → 1 call partage `_closing` guard avec story-008 (EC-SHP-18).
+**Deviations**: ADVISORY (4)
+  - **`is_inside_tree()` guard sur `set_input_as_handled()`** : `get_viewport()` retourne null pour instance bare hors scene tree. Guard `if is_inside_tree()` avant l'appel évite le crash test, sans changer le comportement runtime (en runtime le Shop est toujours dans le scene tree).
+  - **EC-SHP-12 (ESC pendant shake tween)** : déférée — tweens implémentés story-013, pattern `tween.kill()` documenté in-spec.
+  - **EC-SHP-13 (ESC pendant counter tween post-achat)** : déférée — tweens story-013. État `_owned_upgrades` déjà persisté avant tween via cycle SYNC story-005 → no data loss.
+  - **EC-SHP-28 (ESC pendant LOADING input queue Godot)** : non testé strictement — Godot stdlib queue input pour traitement post-ready ; couvert par AC-SHP-27 LOADING guard (notre handler skip explicit sans s'appuyer sur queue). Sémantiquement équivalent.
+**Test Evidence**: Logic — `tests/unit/shop/esc_equals_continue_test.gd` 4/4 PASSED 44 ms (`reports/report_92/`).
+**Code Review**: Skipped (Solo mode).
