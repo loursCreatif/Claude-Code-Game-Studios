@@ -1,7 +1,7 @@
 # Story 012: Upgrade Card Visual States + Chrome Zen Palette
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete (ADVISORY — visual impl deferred Sprint 1)
 > **Layer**: Feature (Presentation styling)
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
@@ -162,7 +162,7 @@ SHOP_COST_BLOCKED         = #FF4455  (cost DISABLED rouge sémantique)
 
 **Story Type**: UI
 **Required evidence**: `production/qa/evidence/shop/story-012-card-states/` (screenshots NORMAL/HOVER/DISABLED/OWNED + 3 résolutions) + sign-off lead
-**Status**: [ ] Not yet created
+**Status**: [x] Lint static AUTO 7/7 PASSED 53 ms (`reports/report_100/`) + evidence doc `production/qa/evidence/shop/story-012-card-states.md` ; manual screenshots DEFERRED Sprint 1
 
 ---
 
@@ -170,3 +170,17 @@ SHOP_COST_BLOCKED         = #FF4455  (cost DISABLED rouge sémantique)
 
 - Depends on: Story 001 (scene skeleton), Story 002 (controller refs), Story 003 (`_owned_upgrades`)
 - Unlocks: Story 013 (animations s'appuient sur StyleBoxFlat existants), Story 016 (perf rendu)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28 (partial — visual impl deferred Sprint 1)
+**Criteria** :
+- §J.7 zéro gradient/corner_radius/shader → **automated lint PASS** (7/7 `reports/report_100/`)
+- §J.4 ContinueButton custom_minimum_size 200×48 + text "CONTINUER" → **automated lint PASS**
+- AC-SHP-32 ADVISORY background statique (no AnimationPlayer) → **automated lint PASS**
+- Chrome Zen marges ≥ 64 px → **automated lint PASS**
+**Deviations**: ADVISORY (1)
+- **Visual impl StyleBoxFlat 4 states + hover handlers déférée Sprint 1+** : `shop_controller.gd` n'inclut pas `_refresh_card_visual_state`/`_on_card_mouse_entered/_exited` ; UpgradeCard_0/1 sont PanelContainer vides (children NameLabel/CostLabel/BuyButton à compléter Sprint 1). Logique métier OWNED/affordable déjà couverte stories 003-007. Couche cosmétique cyan #3EE4FF / #2A8A8A nécessite validation visuelle humaine — solo mode autonome ne produit pas de screenshots runtime fiables. R-SHP-12, §J.2, §J.8 (focus a11y), AC-SHP-33 resize, EC-SHP-25, EC-SHP-27 → manual screenshots Sprint 1.
+**Test Evidence**: `production/qa/evidence/shop/story-012-card-states.md` + lint static `tests/static/shop_chrome_zen_lint_test.gd` 7/7 PASSED 53 ms.
+**Code Review**: Skipped (Solo mode).

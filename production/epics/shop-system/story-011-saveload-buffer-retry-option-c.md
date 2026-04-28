@@ -1,10 +1,12 @@
 # Story 011: SaveLoad Failure Buffer Retry (EC-SHP-9 Option C)
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Deprecated — Tier 2+ revisit
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+
+> ⚠️ **DEPRECATED 2026-04-28** : design contradiction avec ADR-0010 promu Accepted (D-2 `save_string_array(...) -> void` + D-5 outbound-zero) — caller ne peut pas détecter l'échec sans amendement r2 cascadant sur tout l'epic save_load. Risque résiduel ~0.5% (force-quit + disk full simultanés) accepté MVP via EC-SHP-24. Re-évaluer Tier 2+ si telemetry montre fréquence > 0.5%. Voir Completion Notes.
 
 > ✅ **ADR-0010 Accepted** (promu 2026-04-27) : pattern Option C consomme `save_string_array` SYNC void-return + `push_error` côté SaveLoad (ADR-0010 D-2 + D-5).
 
@@ -140,4 +142,23 @@ Recommandation : option 1 si scope amendement minimal. Sinon option 2 + warning 
 ## Dependencies
 
 - Depends on: Story 010 (write SYNC nominal), Story 008 (GSM connection établie)
-- Unlocks: Story 015 (bidirectional avec failure scenarios)
+- Unlocks: Story 015 (bidirectional avec failure scenarios) — close partial avec marker `[PROVISIONAL — no buffer retry coverage]`
+
+---
+
+## Completion Notes
+**Status**: Deprecated — Tier 2+ revisit
+**Decision Date**: 2026-04-28
+**Rationale** :
+- **Blocker design** : pattern Option C exige détecter l'échec côté Shop pour enqueue `_pending_save_retries`, mais `SaveLoadSystem.save_string_array(key, value) -> void` (ADR-0010 D-2 lock-in) expose seulement `push_error` log côté SaveLoad sans canal observable côté caller. ADR-0010 D-5 outbound-zero interdit hooks internes SaveLoad.
+- **Options évaluées** :
+  1. Amender ADR-0010 → ajouter `signal save_failed(key, err_code)` (rompt outbound-zero, r2 review obligatoire, cascade save_load epic)
+  2. Changer signature `-> int` retournant `Error` (rompt D-2 API lock-in, refactor toute la chaîne save_load)
+  3. **Retenue** : Déprécier story-011 et accepter risque résiduel EC-SHP-24
+- **Coût/bénéfice MVP** : ~80 lignes code (`_process` timer + GSM hook + quit-to-menu fallback) pour scénario combiné force-quit + disk full simultanés (~0.5%). ROI faible MVP.
+- **Pillar 1 cohérence** : silence cohérent anti-friction (pas de notification UX joueur prévue de toute façon — EC-SHP-9 ligne 36).
+- **Réversibilité** : si telemetry Tier 2+ montre fréquence > 0.5% ou plaintes joueurs, ré-ouvrir avec budget ADR amendment.
+- **Impact downstream** : story-015 (bidirectional integration) ferme partial avec marker `[PROVISIONAL — no buffer retry coverage]` ; pas de blocker autres stories (012-014, 016 indépendantes).
+
+**Code Review** : N/A (Deprecated avant impl).
+**Test Evidence** : N/A (Deprecated — risque accepté EC-SHP-24).

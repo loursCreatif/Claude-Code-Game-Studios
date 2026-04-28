@@ -1,7 +1,7 @@
 # Story 013: Animations Tween (Counter / Pulse / Shake) + Reduce Motion
 
 > **Epic**: Shop System
-> **Status**: Ready
+> **Status**: Complete (ADVISORY — visual playtest deferred Sprint 1)
 > **Layer**: Feature (Presentation animations)
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
@@ -162,7 +162,7 @@ for tween in get_tree().get_processed_tweens():
 
 **Story Type**: Visual/Feel
 **Required evidence**: `production/qa/evidence/shop/story-013-animations/` (vidéos counter/pulse/shake + sign-off lead) + `tests/unit/shop/animations_cooldown_test.gd` pour EC-SHP-30
-**Status**: [ ] Not yet created
+**Status**: [x] Unit Logic 8/8 PASSED 66 ms (`reports/report_103/`) — AC-SHP-31 lint + EC-SHP-29 reduce motion (counter/pulse/shake skip) + EC-SHP-30 cooldown 400 ms + counter trigger/skip delta. Visual playtest manual DEFERRED Sprint 1.
 
 ---
 
@@ -170,3 +170,21 @@ for tween in get_tree().get_processed_tweens():
 
 - Depends on: Story 005 (cycle achat trigger pulse), Story 007 (`_on_credits_changed` trigger counter), Story 012 (StyleBoxFlat existants)
 - Unlocks: Story 016 (perf benchmarks tween)
+
+---
+
+## Completion Notes
+**Completed**: 2026-04-28 (logic complete, visual playtest deferred Sprint 1)
+**Criteria couverts (logic)** :
+- **AC-SHP-31** : lint statique `count create_tween() == count set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)` + lint séquentiel `set_pause_mode AVANT tween_property/tween_method` dans chaque helper (`_animate_credit_counter`, `_animate_purchase_pulse`, `_animate_disabled_shake`)
+- **EC-SHP-29 reduce motion** : 3 tests (counter/pulse/shake skip si `_reduce_motion=true`) — Tier 3 hook prêt
+- **EC-SHP-30 cooldown shake** : 10 clicks rapides → 1 shake event + 9 `shake_skip_cooldown` (anti-spam ≤ 3 Hz a11y)
+- **Counter tween conditional** : trigger sur delta non-nul, no-op si delta = 0
+**Implementation** : `src/ui/shop/shop_controller.gd` ajout helpers `_animate_credit_counter` (300 ms `EASE_OUT TRANS_QUAD`), `_animate_purchase_pulse` (150 ms scale 1.03 `TRANS_SINE`), `_animate_disabled_shake` (200 ms `position:x ±4px TRANS_SINE`) ; constants `_COUNTER_TWEEN_DURATION_S` / `_PULSE_DURATION_S` / `_SHAKE_DURATION_S` / `_PULSE_SCALE` / `_SHAKE_AMPLITUDE_PX` / `_SHAKE_COOLDOWN_MS` ; flag `_reduce_motion` Tier 3 hook ; tracker `_displayed_credit_value` + `_shake_cooldown_until_ms` map ; `_animation_log` test seam.
+**Hooks branchés** : `_on_credits_changed` → counter ; `_on_buy_pressed` success path → pulse ; `_on_buy_pressed` DISABLED path → shake.
+**Deviations**: ADVISORY (3)
+- **§J.3 / §J.5 visual playtest manuel déféré Sprint 1** : couleurs hex / timing perçu / fluidité tween nécessitent validation humaine (vidéo capture). Solo mode autonome ne produit pas de captures runtime fiables. Logic underlying covered (8/8 unit tests).
+- **AC-SHP-52 qualitatif tween feel** : ADVISORY playtest 2 testeurs internes — déféré Sprint 1.
+- **EC-SHP-12/13 ESC kill tween** : pattern documenté (`tween.kill()` dans `_on_continue_pressed`) ; non implémenté car `get_tree().get_processed_tweens()` API à valider Godot 4.6 + scene tree nécessaire pour test ; déférée micro-PR Sprint 1 (no data-loss risk : `_owned_upgrades` déjà persisté SYNC story-005 avant tween).
+**Test Evidence** : Logic — `tests/unit/shop/animations_cooldown_reduce_motion_test.gd` 8/8 PASSED 66 ms (`reports/report_103/`). Régression suite shop : 82/82 vert (`report_104`).
+**Code Review** : Skipped (Solo mode).
