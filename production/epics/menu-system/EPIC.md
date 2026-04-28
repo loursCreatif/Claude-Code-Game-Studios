@@ -4,7 +4,27 @@
 > **GDD**: `design/gdd/menu-system.md` (Designed r2 full → APPROVED r2 par fresh `/design-review` lean 2026-04-28 commit `3c518a3` — header GDD à bumper en cosmetic follow-up)
 > **Architecture Module**: `MenuSystem` (`docs/architecture/architecture.md` ligne 159 — Feature Layer Game Systems table : "main menu, pause menu, settings menus")
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories menu-system`
+> **Stories**: 13 created (all Ready — 7 Integration + 3 Logic + 2 UI + 1 Config/Data + 1 Visual/Feel)
+
+## Stories
+
+| # | Story | Type | Status | ADR governing |
+|---|-------|------|--------|---------------|
+| 001 | [Main Menu scene skeleton + boot lifecycle](story-001-main-menu-scene-skeleton.md) | UI | Ready | ADR-0007 D-5 §a + D-9 |
+| 002 | [Pause Overlay scene skeleton + lifecycle boot](story-002-pause-overlay-scene-skeleton.md) | UI | Ready | ADR-0007 D-4 |
+| 003 | [Trigger ESC `ui_cancel_pressed` pause/resume](story-003-ui-cancel-trigger-pause-resume.md) | Integration | Ready | ADR-0004 D-4 + ADR-0007 D-2 |
+| 004 | [State sync `state_changed` CONNECT_DEFERRED + guard](story-004-state-sync-connect-deferred.md) | Integration | Ready | ADR-0007 D-9 + r2 BLK-1/BLK-3 |
+| 005 | [`_apply_visibility(show, recapture_mouse)` r2 BLK-2 + tree_exiting](story-005-apply-visibility-recapture-mouse.md) | Logic | Ready | ADR-0007 + r2 BLK-2 |
+| 006 | [Boutons MainMenu — Start Run + Quitter le jeu](story-006-main-menu-buttons-start-quit.md) | Integration | Ready | ADR-0007 D-10 + ADR-0010 R-SAV-9 |
+| 007 | [Boutons PauseMenu — Resume + MainMenu + Quit (release-before-transition)](story-007-pause-menu-buttons-resume-mainmenu-quit.md) | Integration | Ready | ADR-0007 D-10 + ADR-0004 D-4 |
+| 008 | [Refcount InputManager + Mouse capture coordination](story-008-input-refcount-mouse-capture.md) | Integration | Ready | ADR-0004 D-4 + r2 G-10 |
+| 009 | [Chrome Zen Theme — Typography + Palette + Button states](story-009-chrome-zen-theme-typography.md) | UI | Ready | (none Menu-specific) |
+| 010 | [Anti-patterns lint static — 8 grep + anti-deps + SaveLoad zero-ref](story-010-anti-patterns-lint-static.md) | Config/Data | Ready | ADR-0007 D-4 + ADR-0010 R-SAV-9 |
+| 011 | [Performance F-MNU-1 — pause/resume headless P95+P99 < 100 ms](story-011-performance-headless-pause-resume.md) | Logic | Ready | ADR-0001 + ADR-0007 D-9 + ADR-0004 D-3 |
+| 012 | [Edge cases r2 PRE-IMPL/POLISH — EC-MNU-36..42 + tab cycle wrap](story-012-edge-cases-r2-pre-impl-polish.md) | Logic | Ready | ADR-0007 D-2 + ADR-0004 D-7 + ADR-0010 R-SAV-8 |
+| 013 | [Bidirectional integration playtest + UX specs alignment](story-013-bidirectional-integration-playtest.md) | Visual/Feel | Ready | (manual sign-off) |
+
+**Pickup order recommandé** : 001+002 parallèle (skeletons) → 005 (signature `_apply_visibility`) → 003+004 parallèle (trigger ESC + state sync) → 006+007+008 parallèle (boutons + refcount) → 009 (Theme) → 010 (lints CI activated) → 011 (perf bench) → 012 (edge cases) → 013 (playtest finalize).
 
 ## Overview
 
