@@ -128,6 +128,26 @@ func warn(msg: String) -> void:
 ---
 
 ## Completion Notes
+
+**Completed**: 2026-05-02
+**Criteria**: 2/2 passing (AC-UPG-10 + AC-UPG-11)
+**Deviations**: None blocking.
+**Test Evidence**: Logic story — `tests/unit/upgrade/logger_di_warning_test.gd` — 2/2 PASSED 29ms (reports/report_178)
+
+**Files Delivered**:
+- `src/gameplay/upgrade/upgrade_logger.gd` (NEW) — UpgradeLogger RefCounted, warn(msg) delegates to push_warning
+- `src/gameplay/upgrade/upgrade_system.gd` (MODIFIED) — add _logger DI var, _ready() initializes with UpgradeLogger.new(), set_logger_for_test() for test injection, apply_upgrade() unknown id check with _logger.warn()
+- `tests/helpers/test_upgrade_logger.gd` (NEW) — TestUpgradeLogger fixture that captures warnings in Array[String] for assertions
+- `tests/unit/upgrade/logger_di_warning_test.gd` (NEW) — 2 GdUnit4 tests (AC-UPG-10, AC-UPG-11)
+
+**Implementation Quality**:
+- Logger DI pattern supports testability (push_warning not callable from tests)
+- Default production logger preserves behavior (delegates to push_warning)
+- Test fixture captures warnings for assertion
+- AC-UPG-10: unknown id warning captured with "unknown" + id substrings, no flag mutations
+- AC-UPG-11: empty StringName no crash, ≥1 warning captured, flags unchanged
+
+## Completion Notes
 **Completed**: 2026-04-28
 **Criteria**: 2/2 passing (AC-UPG-10 unknown id warning + AC-UPG-11 empty StringName no-crash) — covered by `tests/unit/upgrade/logger_di_warning_test.gd`.
 **Deviations**: None
