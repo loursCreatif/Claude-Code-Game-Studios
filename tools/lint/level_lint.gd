@@ -1307,3 +1307,130 @@ static func validate_tuning_knobs_present() -> Array[String]:
 
 	return errors
 
+
+# ---------------------------------------------------------------------------
+# Public API — enemy slot triplet (story-006 enemy-system, AC-ENM-23/24/25)
+# ---------------------------------------------------------------------------
+
+## Tolérance pour scale uniforme (autorise IDENTITY + tolérance flottante).
+const ENEMY_SLOT_SCALE_TOLERANCE: float = 0.001
+
+## Distance minimale entre 2 EnemySlot_* (Enemy GDD F-ENM-1 + EC-ENM-8).
+## Calc : 2 × R_ENEMY_MIN (0.35) + buffer ≈ 1.0 m.
+const ENEMY_SLOT_MIN_DISTANCE_M: float = 1.0
+
+
+## Itère sous root et collecte tous les Marker3D EnemySlot_*. Helper privé
+## pour les 3 validators enemy slot. find_children DFS — même contrat que
+## EnemySpawner runtime (story-003).
+static func _collect_enemy_slots(root: Node3D) -> Array[Marker3D]:
+	var slots: Array[Marker3D] = []
+	for n: Node in root.find_children("EnemySlot_*", "Marker3D", true, false):
+		var marker: Marker3D = n as Marker3D
+		if marker != null:
+			slots.append(marker)
+	return slots
+
+
+## Valide que chaque EnemySlot_* Marker3D a un scale uniforme = Vector3.ONE.
+##
+## **AC-ENM-23 / EC-ENM-6** : un Marker3D scaled non-uniformément produit un
+## cône laser visuellement déformé. Le runtime force orthonormalized() sur
+## %FacingPivot.global_basis (story-002), mais ce lint authoring-time catch les
+## EnemySlot avec scale non-uniform avant que le bug arrive en playtest.
+##
+## Tolérance : Vector3.ONE ± 0.001 par axe (autorise précision flottante).
+## Violation : "EnemySlot_NN scale not uniform: <Vector3>"
+##
+## Source : Enemy GDD r2 EC-ENM-6, AC-ENM-23, story-006.
+static func validate_enemy_slot_marker3d(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+
+	for slot: Marker3D in _collect_enemy_slots(root):
+		var s: Vector3 = slot.transform.basis.get_scale()
+		var dx: float = absf(s.x - 1.0)
+		var dy: float = absf(s.y - 1.0)
+		var dz: float = absf(s.z - 1.0)
+		if dx > ENEMY_SLOT_SCALE_TOLERANCE or dy > ENEMY_SLOT_SCALE_TOLERANCE or dz > ENEMY_SLOT_SCALE_TOLERANCE:
+			errors.append(
+				"%s EnemySlot scale not uniform: %s (EC-ENM-6 / AC-ENM-23)" % [slot.name, str(s)]
+			)
+
+	return errors
+
+
+## Valide que toute paire d'EnemySlot_* est séparée d'au moins 1.0 m.
+##
+## **AC-ENM-24 / EC-ENM-8** : 2 grunts trop proches voient leurs capsules
+## (R_ENEMY_MIN = 0.35 m chacune) collisionner → Jolt push automatique → grunts
+## qui « glissent » visuellement. Distance minimale = 2 × 0.35 + buffer = 1.0 m.
+##
+## Comparaison O(N²) — acceptable car typiquement < 30 EnemySlot par étage.
+## Violation : "EnemySlot_AA & EnemySlot_BB distance N.NNm < 1.0m"
+##
+## Source : Enemy GDD r2 EC-ENM-8, AC-ENM-24, story-006.
+static func validate_enemy_slot_min_distance(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+	var slots: Array[Marker3D] = _collect_enemy_slots(root)
+
+	for i in range(slots.size()):
+		for j in range(i + 1, slots.size()):
+			var a: Marker3D = slots[i]
+			var b: Marker3D = slots[j]
+			var distance: float = a.global_position.distance_to(b.global_position)
+			if distance < ENEMY_SLOT_MIN_DISTANCE_M:
+				errors.append(
+					"%s & %s distance %.3fm < 1.0m (EC-ENM-8 / AC-ENM-24)" % [a.name, b.name, distance]
+				)
+
+	return errors
+
+
+## Valide qu'aucun EnemySlot_* n'est placé À L'INTÉRIEUR d'un StaticBody3D
+## sous StaticEnvironment (mur / plafond / collidable).
+##
+## **AC-ENM-25 / EC-ENM-7** : un grunt instancié dans un mur est invisible et
+## non-tuable — pas de crash mais asset gaspillé. Le GDD décrit un raycast
+## vertical ; le lint static fait un check AABB équivalent (no physics dependency,
+## hermetic-compatible). Si le slot tombe DANS la AABB d'un BoxShape3D, FAIL.
+##
+## Limite : couvre uniquement BoxShape3D (cas dominant level MVP). Les autres
+## shapes (Convex, Mesh) ne sont pas utilisées sur l'étage MVP.
+## Violation : "EnemySlot_NN placed inside StaticBody3D <name>"
+##
+## Source : Enemy GDD r2 EC-ENM-7, AC-ENM-25, story-006.
+static func validate_enemy_slot_clearance(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+	var slots: Array[Marker3D] = _collect_enemy_slots(root)
+	if slots.is_empty():
+		return errors
+
+	var static_env: Node = root.find_child("StaticEnvironment", false, false)
+	if static_env == null:
+		return errors
+
+	for slot: Marker3D in slots:
+		var slot_pos: Vector3 = slot.global_position
+		var flagged: bool = false
+		for sb: StaticBody3D in static_env.find_children("*", "StaticBody3D", true, false):
+			if flagged:
+				break
+			for cs: CollisionShape3D in sb.find_children("*", "CollisionShape3D", true, false):
+				var shape: Shape3D = cs.shape
+				if not (shape is BoxShape3D):
+					continue
+				var box: BoxShape3D = shape as BoxShape3D
+				var local_pos: Vector3 = cs.global_transform.affine_inverse() * slot_pos
+				var half: Vector3 = box.size * 0.5
+				if (
+					absf(local_pos.x) <= half.x
+					and absf(local_pos.y) <= half.y
+					and absf(local_pos.z) <= half.z
+				):
+					errors.append(
+						"%s placed inside StaticBody3D %s (EC-ENM-7 / AC-ENM-25)" % [slot.name, sb.name]
+					)
+					flagged = true
+					break
+
+	return errors

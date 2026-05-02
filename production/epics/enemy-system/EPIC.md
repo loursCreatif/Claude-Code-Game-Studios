@@ -46,13 +46,13 @@ Pillar 3 SECONDE CHANCE (mort pédagogique — grunt reste à sa place au respaw
 | 003 | LevelSystem spawn integration (`EnemySlot_*` Marker3D iteration + archetype fallback) | ✅ Complete 2026-05-02 | Core | Integration | AC-ENM-08/09/10 |
 | 004 | Combat sweep + Player laser integration tests (cross-system) | Blocked (story-002+Combat impl) | Integration | Integration | AC-ENM-13/14/15 |
 | 005 | Pause/state lifecycle integration (GameStateManager) | ✅ Complete 2026-05-02 | Integration | Integration | AC-ENM-19/20 |
-| 006 | Authoring lints (`validate_enemy_slot_*` triplet) | Blocked (story-003) | Tooling | Logic | AC-ENM-23/24/25 |
+| 006 | Authoring lints (`validate_enemy_slot_*` triplet) | ✅ Complete 2026-05-02 | Tooling | Logic | AC-ENM-23/24/25 |
 | 007 | Performance benchmark 30 grunts (frame budget + zero-alloc) | Blocked (story-003) | Perf | Perf | AC-ENM-21/22 |
 | 008 | Visual/Feel playtest evidence | Blocked (story-007 build) | Polish | Visual | AC-ENM-26/27/28 |
 
-**Totaux** : 0 Ready / 4 Blocked / 4 Complete.
+**Totaux** : 0 Ready / 3 Blocked / 5 Complete.
 
-**Tests** : 34/34 PASSED (`reports/report_245`) — story-001 (11) + story-002 (13) + story-003 (6) + story-005 (4).
+**Tests** : 46/46 PASSED — story-001 (11) + story-002 (13) + story-003 (6) + story-005 (4) + story-006 lints (12).
 
 ## TR Coverage
 
@@ -64,6 +64,7 @@ Pillar 3 SECONDE CHANCE (mort pédagogique — grunt reste à sa place au respaw
 | TR-enm-001 | Tween wall-clock `set_ignore_time_scale(true)` | story-001 | ✅ Complete |
 | TR-enm-002 | LaserCone state guard `_state != ALIVE` | story-002 | ✅ Complete |
 | TR-enm-003 | Tween pause behavior `TWEEN_PAUSE_BOUND` (EC-ENM-9) | story-005 | ✅ Complete |
+| TR-enm-004 | Authoring lints `validate_enemy_slot_*` triplet | story-006 | ✅ Complete |
 
 ## Out of Scope MVP
 
