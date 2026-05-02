@@ -25,8 +25,8 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-UPG-10** : Logger DI capture warning unknown id ; message contient `"unknown"` ou `"inconnu"` ET substring `id` ; aucun flag ne mute ; `get_owned_count() == 0`.
-- [ ] **AC-UPG-11** : `apply_upgrade(StringName(""))` ne crash pas, capture ≥ 1 warning, aucun flag ne mute.
+- [x] **AC-UPG-10** : Logger DI capture warning unknown id ; message contient `"unknown"` ou `"inconnu"` ET substring `id` ; aucun flag ne mute ; `get_owned_count() == 0`.
+- [x] **AC-UPG-11** : `apply_upgrade(StringName(""))` ne crash pas, capture ≥ 1 warning, aucun flag ne mute.
 
 ---
 
@@ -116,7 +116,7 @@ func warn(msg: String) -> void:
 
 **Story Type** : Logic
 **Required evidence** : `tests/unit/upgrade/logger_di_warning_test.gd` couvrant AC-UPG-10 + AC-UPG-11 (instance bare, logger fixture injecté).
-**Status** : [ ] Not yet created
+**Status** : [x] Created and passing — `tests/unit/upgrade/logger_di_warning_test.gd` (2/2 PASSED 29ms — `reports/report_178`)
 
 ---
 
