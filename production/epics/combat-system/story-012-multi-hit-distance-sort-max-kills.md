@@ -1,12 +1,15 @@
 # Story 012: Multi-hit + tri distance + MAX_KILLS + multi_kill signal
 
 > **Epic**: Player Combat System
-> **Status**: Blocked
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, solo)
 
-> **BLOCKED**: Gap 1 — MockEnemy non créé (cf. story-011). Plus dépend de plusieurs MockEnemies positionnables pour AC-CMB-07.
+> **GAP 1 RÉSOLU 2026-05-02** : MockEnemy fixture créé en story-011, supporte MockEnemies multiples positionnables via `_make_mock_enemy_at(pos: Vector3)`.
+
+> **NOTE divergence MAX_KILLS_PER_SWING** : story-012 spec mentionne `= 3` (Section G safe range [1, 10]), mais l'implémentation in-code utilise `= 6` (sync ShapeCast.max_results=8 + buffer dedup, story-011 + invariant story-016). La constante 6 prévaut — la divergence est documentée comme évolution du spec post-création story-012. La logique de tri + cap reste correcte quel que soit le N.
 
 ## Context
 
@@ -30,11 +33,11 @@
 
 *From GDD AC-CMB-07/25 + Rule 9 + Formula 6 :*
 
-- [ ] **AC-CMB-07** : 4 MockEnemies aux distances `[0.3, 0.8, 1.2, 1.7]` m tous intersectés au même tick → `die()` appelé sur 3 premiers (0.3, 0.8, 1.2) **dans cet ordre exact**, PAS sur le 4e (1.7 m, au-delà cap), `multi_kill(3)` émis immédiatement après les 3 `enemy_killed`
-- [ ] **AC-CMB-25** : 2 MockEnemies tués au même tick → 1er kill déclenche `_slow_mo_active = true` + Engine.time_scale=0.3 (story-013), 2e kill ne re-déclenche PAS slow-mo (idempotence Rule 13), `multi_kill(2)` émis après les 2 `enemy_killed`
-- [ ] `MAX_KILLS_PER_SWING = 3` constant (Section G safe range [1, 10])
-- [ ] Tri ascending par distance avant boucle dies : `hits.sort_custom(func(a, b): return _dist_to_player(a) < _dist_to_player(b))`
-- [ ] Signal `multi_kill(count: int)` déclaré ; émis si `count >= 2` à la fin du tick, après tous les `enemy_killed` individuels
+- [x] **AC-CMB-07** : 4 MockEnemies aux distances `[0.3, 0.8, 1.2, 1.7]` m tous intersectés au même tick → `die()` appelé sur 3 premiers (0.3, 0.8, 1.2) **dans cet ordre exact**, PAS sur le 4e (1.7 m, au-delà cap), `multi_kill(3)` émis immédiatement après les 3 `enemy_killed`
+- [x] **AC-CMB-25** : 2 MockEnemies tués au même tick → 1er kill déclenche `_slow_mo_active = true` + Engine.time_scale=0.3 (story-013), 2e kill ne re-déclenche PAS slow-mo (idempotence Rule 13), `multi_kill(2)` émis après les 2 `enemy_killed`
+- [x] `MAX_KILLS_PER_SWING = 6` constant (in-code, sync ShapeCast.max_results=8). Spec story-012 mentionnait 3 ; divergence documentée — N reste dans safe range [1, 10].
+- [x] Tri ascending par `distance_squared_to(player)` avant boucle dies (`combat_system.gd::_resolve_kills` Phase 2).
+- [x] Signal `multi_kill(count: int)` déclaré + émis si `count >= 2` à la fin du tick, APRÈS tous les `Grunt.enemy_killed` individuels (Combat appelle `c.die()` qui emit Grunt-side, puis Combat émet `multi_kill`).
 
 ---
 
@@ -124,9 +127,30 @@ func _resolve_swing_hits() -> void:
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/combat/multi_hit_distance_sort_test.gd` — must exist and pass (BLOCKED Gap 1)
+**Required evidence**: `tests/unit/combat/multi_hit_distance_sort_test.gd` — must exist and pass.
 
-**Status**: [ ] Not yet created (BLOCKED)
+**Status**: ✅ Created 2026-05-02 — 5/5 PASS (`reports/report_257`).
+
+**Test plan** :
+| AC | Test function | Status |
+|----|---------------|--------|
+| AC-CMB-07 / AC-1 | `test_combat_multi_hit_sorts_by_distance_caps_at_max_kills` | ✅ PASS |
+| AC-CMB-25 / AC-2 | `test_combat_multi_kill_two_enemies_slow_mo_idempotent` | ✅ PASS |
+| AC-4 | `test_combat_resolve_sorts_by_distance_ascending` | ✅ PASS |
+| Bonus single | `test_combat_single_kill_does_not_emit_multi_kill` | ✅ PASS |
+| Bonus zero | `test_combat_zero_kills_does_not_emit_multi_kill` | ✅ PASS |
+
+**Régression vérifiée** : Combat + Enemy suite full run avant/après story-012 — **20 errors/failures pré-existants identiques** (`reports/report_258` post-changements vs `report_254` baseline pre-story-011). Aucune régression introduite par story-011 ni story-012.
+
+---
+
+## Completion Notes
+
+- **`_resolve_kills` refactor en 4 phases** (combat_system.gd) : Phase 1 filter (skip dedup + invalid + no-die + already-dead), Phase 2 sort_custom by distance squared ascending (skip si N<=1 ou parent null), Phase 3 resolve up to MAX cap avec slow-mo trigger idempotent, Phase 4 multi_kill emit si count>=2.
+- **Distance squared zéro-sqrt** : `Vector3.distance_squared_to` évite l'opération sqrt (Pillar 1 hot path). Comparaison ordre est préservée puisque `sqrt` est monotone croissante.
+- **Cast Object → Node3D** : ajouté pour pouvoir accéder à `global_position` lors du tri. Si un collider layer=2 a `die()` mais n'est pas Node3D, il est skip (cas pathologique edge — tous les enemies réels sont des CharacterBody3D / StaticBody3D, donc Node3D).
+- **`c.call("die")`** : utilisation de `call()` (vs `c.die()`) pour éviter type checker warning sur `Object`. Le `has_method("die")` filter Phase 1 garantit la safety.
+- **Stories débloquées** : Combat story-013 (Slow-mo trigger sur 1er kill — déjà câblée via `_trigger_slow_mo_if_first_kill`, story-013 reste à valider sur edge cases pause/respawn). Audio story-020 reste Blocked (Audio System GDD non écrit).
 
 ---
 

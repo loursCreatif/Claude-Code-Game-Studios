@@ -111,6 +111,12 @@ enum State { IDLE, SWINGING, DEAD }
 ## Émis une fois quand la fenêtre d'attaque active expire (transition SWINGING → IDLE).
 signal swing_ended()
 
+## Story 012 : émis à la fin du tick de résolution kill si count >= 2 (multi-hit
+## simultané sur le même swing tick). Émis APRÈS toutes les `Grunt.enemy_killed`
+## individuelles (Combat appelle `die()` sur chaque target avant d'émettre `multi_kill`).
+## Audio System (story-020) consommera pour le clac multi-kill perçu.
+signal multi_kill(count: int)
+
 
 # ---------------------------------------------------------------------------
 # Private variables
@@ -462,22 +468,26 @@ func _dedupe_collider_ids(colliders: Array[Object]) -> Array[int]:
 	return result
 
 
-## Story 011 — Résolution kill SYNC sur les hits du tick courant.
+## Story 011 + 012 — Résolution kill SYNC sur les hits du tick courant.
 ##
-## Pour chaque instance_id collecté par `_collect_swing_hits()` :
-##   - Skip si déjà dans `_hit_this_swing` (dedup intra-swing AC-CMB-06).
-##   - Skip si `instance_from_id` invalide (collider freed entre substeps).
-##   - Skip + push_warning(debug build) si pas de méthode `die()` (AC-CMB-45).
-##   - Skip si `is_dead()` retourne true (collider déjà mort tick précédent, AC-5).
-##   - Sinon : append id à `_hit_this_swing`, `c.die()` (Grunt emit `enemy_killed`
-##     SYNC OQ-ENM-1 amendment), puis `_trigger_slow_mo_if_first_kill()` (Combat
-##     consumer Rule 13).
-##   - Break dès que `_hit_this_swing.size() >= MAX_KILLS_PER_SWING`.
+## Pipeline :
+##   1. Filter : pour chaque instance_id, skip si déjà dans `_hit_this_swing`,
+##      collider invalide, pas de méthode `die()` (push_warning debug AC-CMB-45),
+##      ou `is_dead()` retourne true (skip déjà mort, AC-5).
+##   2. Sort (story-012 AC-CMB-07) : tri ascending par distance squared depuis le
+##      Player (parent CharacterBody3D). `distance_squared_to` zéro-sqrt (Pillar 1).
+##   3. Resolve : itérer candidates triés, append id à `_hit_this_swing`, `c.die()`
+##      (Grunt emit `enemy_killed` SYNC OQ-ENM-1), puis `_trigger_slow_mo_if_first_kill()`
+##      (Combat consumer Rule 13, idempotent multi-kill AC-CMB-25). Break dès cap atteint.
+##   4. Multi-kill emit (story-012 AC-CMB-07) : si `kills_this_tick >= 2`, émet
+##      `multi_kill(count)` APRÈS tous les die() individuels.
 ##
 ## Pure function : pas de physics query, testable en isolation via injection
-## de hit_ids (single_hit_kill_dedup_test.gd). Le `_collect_swing_hits` et son
-## ShapeCast restent testés en intégration story-018 soak.
+## de hit_ids (single_hit_kill_dedup_test.gd + multi_hit_distance_sort_test.gd).
+## `_collect_swing_hits` testé séparément en intégration story-018 soak.
 func _resolve_kills(hit_ids: Array[int]) -> void:
+	# Phase 1 : filter candidates
+	var candidates: Array[Node3D] = []
 	for id: int in hit_ids:
 		if id in _hit_this_swing:
 			continue
@@ -490,11 +500,36 @@ func _resolve_kills(hit_ids: Array[int]) -> void:
 			continue
 		if c.has_method("is_dead") and c.is_dead():
 			continue
-		_hit_this_swing.append(id)
-		c.die()
-		_trigger_slow_mo_if_first_kill()
+		var node: Node3D = c as Node3D
+		if node == null:
+			continue  # die() exists but pas Node3D — skip pour avoir global_position
+		candidates.append(node)
+
+	# Phase 2 : sort by distance squared ascending (Pillar 1 zero-sqrt)
+	# Story-012 AC-CMB-07 + Formula 6.
+	if candidates.size() > 1:
+		var parent: Node3D = get_parent() as Node3D
+		if parent != null:
+			var pp: Vector3 = parent.global_position
+			candidates.sort_custom(
+				func(a: Node3D, b: Node3D) -> bool:
+					return pp.distance_squared_to(a.global_position) < \
+						pp.distance_squared_to(b.global_position)
+			)
+
+	# Phase 3 : resolve up to MAX_KILLS_PER_SWING
+	var kills_this_tick: int = 0
+	for c: Node3D in candidates:
 		if _hit_this_swing.size() >= MAX_KILLS_PER_SWING:
 			break
+		_hit_this_swing.append(c.get_instance_id())
+		c.call("die")
+		_trigger_slow_mo_if_first_kill()
+		kills_this_tick += 1
+
+	# Phase 4 : multi-kill emit (story-012 AC-CMB-07)
+	if kills_this_tick >= 2:
+		multi_kill.emit(kills_this_tick)
 
 
 ## Exécute N_SUBSTEPS sweeps anti-tunneling et retourne les instance_ids dédupliqués

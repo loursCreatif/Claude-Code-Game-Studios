@@ -99,7 +99,7 @@ L'epic est complet quand :
 | 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | Ready | ADR-0001 + ADR-0006 (Gap 8 prereq lead-programmer) |
 | 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | **Blocked** | Gap 2 — AC-CMB-47-Prelim lead-programmer pré-Sprint 1 |
 | 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 + Gap 1 résolu (MockEnemy créé) |
-| 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | Ready | Gap 1 résolu (MockEnemy disponible) — MAX_KILLS cap déjà appliqué story-011 |
+| 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | ✅ Complete 2026-05-02 | ADR-0006 + Formula 6 (distance squared zéro-sqrt) |
 | 013 | Slow-mo wall-clock + Callable injection + restore + edge cases | Logic | Ready | ADR-0001 + ADR-0006 D-5 |
 | 014 | Mutual kill Hybrid M1 Option C `_death_pending` | Integration | Ready | ADR-0005 D-5 amendment r2 + ADR-0006 D-2 |
 | 015 | Mid-swing transitions + race Idle mitigation + pause spam | Integration | Ready | ADR-0006 + ADR-0004 |
@@ -111,7 +111,7 @@ L'epic est complet quand :
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 1 Complete (story-011) + 15 Ready (9 Logic + 5 Integration + 1 Logic ex-blocked-Gap1) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
+**Totaux** : 22 stories — 2 Complete (story-011/012) + 14 Ready (9 Logic + 5 Integration) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :
