@@ -232,6 +232,11 @@ func _physics_process(_delta: float) -> void:
 	_state = LevelState.ACTIVE
 	_loading_path = ""
 
+	# Enemy GDD r2 Rule 9 / OQ-ENM-2 : LevelSystem est la factory directe des grunts.
+	# Spawn AVANT level_active.emit pour que les consumers voient une scène populée.
+	# Helper static pur — pas d'autoload, pas de state, allocation mineure 1× par boot étage.
+	EnemySpawner.spawn_for_scene(_current_scene_root)
+
 	level_active.emit(_current_etage_id, _player_start)
 
 # ---------------------------------------------------------------------------

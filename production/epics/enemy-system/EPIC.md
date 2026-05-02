@@ -43,16 +43,16 @@ Pillar 3 SECONDE CHANCE (mort pédagogique — grunt reste à sa place au respaw
 |----|-------|--------|-------|------|--------------|
 | 001 | Foundation Grunt script + state machine + die idempotent + tween wall-clock | ✅ Complete 2026-05-02 | Foundation | Logic | AC-ENM-01/02/03/07/07b/11/12/18/18b |
 | 002 | Scene `Grunt.tscn` + collision layers + LaserCone Area3D + lethal handler | ✅ Complete 2026-05-02 | Core | Logic+Integration | AC-ENM-04/05/06/07c |
-| 003 | LevelSystem spawn integration (`EnemySlot_*` Marker3D iteration + archetype fallback) | Ready | Core | Integration | AC-ENM-08/09/10 |
+| 003 | LevelSystem spawn integration (`EnemySlot_*` Marker3D iteration + archetype fallback) | ✅ Complete 2026-05-02 | Core | Integration | AC-ENM-08/09/10 |
 | 004 | Combat sweep + Player laser integration tests (cross-system) | Blocked (story-002+Combat impl) | Integration | Integration | AC-ENM-13/14/15 |
 | 005 | Pause/state lifecycle integration (GameStateManager) | Blocked (story-001) | Integration | Integration | AC-ENM-19/20 |
 | 006 | Authoring lints (`validate_enemy_slot_*` triplet) | Blocked (story-003) | Tooling | Logic | AC-ENM-23/24/25 |
 | 007 | Performance benchmark 30 grunts (frame budget + zero-alloc) | Blocked (story-003) | Perf | Perf | AC-ENM-21/22 |
 | 008 | Visual/Feel playtest evidence | Blocked (story-007 build) | Polish | Visual | AC-ENM-26/27/28 |
 
-**Totaux** : 1 Ready / 5 Blocked / 2 Complete.
+**Totaux** : 0 Ready / 5 Blocked / 3 Complete.
 
-**Tests** : 24/24 PASSED (`reports/report_237`) — story-001 (11) + story-002 (13).
+**Tests** : 30/30 PASSED (`reports/report_238`) — story-001 (11) + story-002 (13) + story-003 (6).
 
 ## TR Coverage
 
@@ -60,7 +60,7 @@ Pillar 3 SECONDE CHANCE (mort pédagogique — grunt reste à sa place au respaw
 |-------|-------------|------------|--------|
 | TR-cmb-013 | `enemy.die()` idempotent contract | story-001 | ✅ Complete |
 | TR-cmb-014 | `Enemy.enemy_killed` signal SYNC | story-001 | ✅ Complete |
-| TR-lvl-009 | EnemySlot factory iteration | story-003 | Ready |
+| TR-lvl-009 | EnemySlot factory iteration | story-003 | ✅ Complete |
 | TR-enm-001 | Tween wall-clock `set_ignore_time_scale(true)` | story-001 | ✅ Complete |
 | TR-enm-002 | LaserCone state guard `_state != ALIVE` | story-002 | ✅ Complete |
 
