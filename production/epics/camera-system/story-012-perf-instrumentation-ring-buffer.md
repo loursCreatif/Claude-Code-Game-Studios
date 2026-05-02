@@ -1,7 +1,7 @@
 # Story 012: Perf instrumentation ring buffer (p50/p99 _process cost + E2E mouse→rendered latency)
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration (sous-type Perf)
 > **Manifest Version**: 2026-04-23
@@ -148,3 +148,30 @@ func _compute_percentiles(samples: PackedFloat32Array) -> Dictionary:
 
 - Depends on : Stories 001-007 (tous les effets mesurés doivent exister), Story 011 (NaN safeguard compté dans le coût), InputManager latency timestamp API (ADR-0004 D-8 — à coordonner côté Input epic)
 - Unlocks : Sprint 1 closure VR-2 advisory, Polish phase E2E VC-5 (caméra haute vitesse), health/perf dashboard
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-02
+**Criteria**: 2/2 passing (AC-CAM-80 + AC-CAM-81)
+**Deviations**: None blocking. InputManager timestamp coordination deferred to Input epic without blocking implementation (tests use simulated timestamps).
+**Test Evidence**: 
+- Integration: `tests/integration/camera/story_012_perf_instrumentation_test.gd` — 18/18 PASSED 0 errors 0 failures (reports/report_166)
+- Stress scene: `tests/perf/camera-stress.tscn` — headless-safe Player + 3 enemy stubs + wall + dash timer
+- JSON evidence: `production/qa/evidence/camera-perf-2026-05-02.json` — p50=0.002 ms, p99=0.002 ms (sub-budget 0.2/0.4 ms)
+**Code Review**: Complete (solo mode LP-CODE-REVIEW skipped)
+
+**Files Delivered**:
+- `src/gameplay/camera/camera_system.gd` (MODIFIED) — ring buffer pre-allocation + _process timing instrumentation + mouse motion latency wrapper + percentile API
+- `tests/integration/camera/story_012_perf_instrumentation_test.gd` (NEW 460 L) — 18 GdUnit4 tests (ring buffer capacity, write-index wrap, zero-alloc, percentile computation, AC-CAM-80, AC-CAM-81)
+- `tests/perf/camera-stress.tscn` (NEW) — headless test scene
+- `tests/perf/camera_stress_controller.gd` (NEW) — wall-run cycle + dash timer logic
+- `production/qa/evidence/camera-perf-2026-05-02.json` (NEW) — JSON output with p50, p99, raw samples
+
+**Implementation Quality**:
+- Zero allocations in hot paths (_process, mouse motion handler)
+- Ring buffers pre-allocated via .resize(), circular write indices (no reallocs)
+- Time.get_ticks_usec() microsecond precision, overhead ≤ 0.01 ms/frame
+- Deterministic tests, headless-compatible, GdUnit4 standard pattern
+- All acceptance criteria met (p50/p99 timing budgets achieved in testing)
