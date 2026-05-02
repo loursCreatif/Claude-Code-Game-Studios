@@ -25,6 +25,14 @@ signal dash_ended()
 ## Consommé par CameraSystem._on_wall_jumped (story 007).
 signal wall_jumped(wall_normal: Vector3, launch_velocity: Vector3)
 
+## Émis à l'entrée WALL_RUNNING. Signature canonique ADR-0005 D-2 : (wall_normal: Vector3).
+## Consommé par CameraSystem._on_wall_run_entered (TD-004 — substitue polling wall_normal).
+signal wall_run_entered(wall_normal: Vector3)
+
+## Émis à la sortie WALL_RUNNING. Signature canonique ADR-0005 D-2 (no payload).
+## Consommé par CameraSystem._on_wall_run_exited (TD-004).
+signal wall_run_exited()
+
 ## Émis quand le player meurt. Signature canonique ADR-0005 D-2 (no payload).
 ## Consommé par CameraSystem._on_died (story 008).
 signal died()

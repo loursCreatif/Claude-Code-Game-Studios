@@ -181,6 +181,17 @@ const REDUCE_MOTION_FOV_KICK_MULT: float = 0.5
 ## Ne jamais écrire ce flag depuis _update_fov_dash — lecture seule dans _process.
 var _is_dashing: bool = false
 
+## TD-004 — Cache signal-driven de l'état wall-run. Mis à jour exclusivement par
+## les handlers _on_wall_run_entered / _on_wall_run_exited. Source de vérité Camera-side.
+## ADR-0002 Amendment A-1 (2026-04-23) : interdit de lire player.wall_normal chaque frame
+## dans _process — substitué par cache signal-driven (parity pattern _is_dashing).
+## Ne jamais écrire ces vars depuis _update_tilt_wall_run — lecture seule dans _process.
+##
+## _wall_side_cached : -1 (mur gauche), 0 (pas en wall-run), +1 (mur droit).
+## Dérivé une fois à _on_wall_run_entered depuis sign((-wall_normal).dot(player.basis.x)).
+var _is_wall_running: bool = false
+var _wall_side_cached: int = 0
+
 ## Offset shake (rad, axes Euler YXZ Camera3D) — appliqué via assignation
 ## camera3d.rotation = _shake_offset chaque frame (pas +=, ADR-0002 Risk 3).
 ## L'assignation garantit le reset implicite quand _shake_offset → 0 et évite
@@ -293,6 +304,12 @@ func _ready() -> void:
 	# Story 011 ajoutera le _exit_tree disconnect symétrique.
 	_player.wall_jumped.connect(_on_wall_jumped)
 
+	# TD-004 — connexions wall_run_entered/exited (signal-driven cache).
+	# Mode SYNC (D-5 consumer léger : 1 dot + 1 sign + 1 assign scalaire, zéro alloc).
+	# Substitue le polling _player.wall_normal dans _update_tilt_wall_run (ADR-0002 A-1).
+	_player.wall_run_entered.connect(_on_wall_run_entered)
+	_player.wall_run_exited.connect(_on_wall_run_exited)
+
 	# Story 008 : pré-création overlay respawn (one-shot alloc au boot, hors hot-path).
 	# DOIT précéder les connexions died/respawned : si une émission synchrone arrivait
 	# avant _setup_overlay, _on_died accéderait à _overlay null. En pratique impossible
@@ -342,6 +359,10 @@ func _exit_tree() -> void:
 			player.dash_ended.disconnect(_on_dash_ended)
 		if player.wall_jumped.is_connected(_on_wall_jumped):
 			player.wall_jumped.disconnect(_on_wall_jumped)
+		if player.wall_run_entered.is_connected(_on_wall_run_entered):
+			player.wall_run_entered.disconnect(_on_wall_run_entered)
+		if player.wall_run_exited.is_connected(_on_wall_run_exited):
+			player.wall_run_exited.disconnect(_on_wall_run_exited)
 		if player.died.is_connected(_on_died):
 			player.died.disconnect(_on_died)
 		if player.respawned.is_connected(_on_respawned):
@@ -399,26 +420,19 @@ func _safeguard_rotation() -> void:
 # Private — tilt wall-run (story 005, TR-cam-004, ADR-0002 + ADR-0005)
 # ---------------------------------------------------------------------------
 
-## Dérive wall_side depuis player.wall_normal (read-only, owned by Movement — ADR-0005).
-## Interpole camera_effects.rotation.z vers la cible chaque frame.
+## TD-004 — Lecture cache signal-driven _wall_side_cached (mis à jour par
+## _on_wall_run_entered/exited). ADR-0002 Amendment A-1 (2026-04-23) interdit
+## le polling player.wall_normal chaque frame — pattern parity _is_dashing.
 ##
-## Dérivation continue (pas de signal connection) : une approche signals-only
-## raterait AC-CAM-12 (oscillation gauche↔droit sans sortie de state).
+## En production : Movement state machine garantit AIRBORNE intermédiaire entre
+## wall-runs (cf. _try_start_wall_run guard `_state != AIRBORNE`), donc chaque
+## changement de mur génère wall_run_exited puis wall_run_entered = cache toujours
+## à jour pour l'intent gameplay. Tests passent par .emit() direct sur les signaux.
 ##
-## wall_normal == Vector3.ZERO → wall_side == 0 → target == 0 (pas en wall-run).
-##
-## Lire wall_normal via get("wall_normal") : évite crash si Movement pas encore
-## implémenté (property absente du script = null, sign(0) = 0, pas de tilt).
+## _wall_side_cached == 0 → target == 0 (pas en wall-run, lerp retour à 0).
 func _update_tilt_wall_run(delta: float) -> void:
-	# Lecture défensive : get() retourne null si wall_normal absent du script Player.
-	# Cela arrive pendant le développement quand Movement stories pas encore Complete.
-	var raw_normal: Variant = _player.get("wall_normal")
-	var wall_normal: Vector3 = raw_normal as Vector3 if raw_normal != null else Vector3.ZERO
-
-	# Dérivation wall_side (Rule 4 ADR-0005) : signe du dot entre la normale inversée
-	# et l'axe X local du Player. sign(0)==0 → pas de tilt quand wall_normal==ZERO.
-	var wall_side: int = int(sign((-wall_normal).dot(_player.global_transform.basis.x)))
-	var target_roll: float = WALL_RUN_TILT_ANGLE * wall_side
+	# TD-004 : cache signal-driven (pas de polling _player.wall_normal).
+	var target_roll: float = WALL_RUN_TILT_ANGLE * float(_wall_side_cached)
 
 	# Story 010 reduce_motion gate (GDD Rule 14, AC-CAM-70) : applique multiplier
 	# AU TARGET avant lerp — pas après commit. Lecture chaque frame (hot-reload),
@@ -477,6 +491,30 @@ func _on_dash_started(_dash_dir: Vector3, _dash_speed: float) -> void:
 ## Sets _is_dashing=false. ADR-0005 D-7 (no Movement mutation) + D-8 (idempotent).
 func _on_dash_ended() -> void:
 	_is_dashing = false
+
+
+# ---------------------------------------------------------------------------
+# Signal handlers — Movement wall-run (TD-004, ADR-0002 A-1, ADR-0005 D-7/D-8)
+# ---------------------------------------------------------------------------
+
+## TD-004 — Cache wall-run state à l'entrée. Dérive _wall_side_cached depuis le
+## payload wall_normal et l'axe X local du Player (sign((-wall_normal).dot(basis.x))).
+## ADR-0002 Amendment A-1 : substitue le polling player.wall_normal chaque frame.
+## SYNC connection (D-5 : 1 dot + 1 sign + 1 assign scalar, zero-alloc).
+##
+## sign(0) == 0 → cache reste 0 si wall_normal == Vector3.ZERO (defensive).
+## En production wall_normal est garantit non-zéro à l'entrée WALL_RUNNING (Movement
+## ne pousse l'état que si _wall_normal valide).
+func _on_wall_run_entered(wall_normal: Vector3) -> void:
+	_is_wall_running = true
+	_wall_side_cached = int(sign((-wall_normal).dot(_player.global_transform.basis.x)))
+
+
+## TD-004 — Reset cache wall-run à la sortie. _wall_side_cached = 0 → lerp retour à 0.
+## SYNC connection (D-5 : 2 scalar resets, zero-alloc). Idempotent (D-8).
+func _on_wall_run_exited() -> void:
+	_is_wall_running = false
+	_wall_side_cached = 0
 
 
 # ---------------------------------------------------------------------------

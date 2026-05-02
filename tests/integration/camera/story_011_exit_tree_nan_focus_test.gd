@@ -102,6 +102,11 @@ func before_test() -> void:
 		_mock_player.died.connect(_camera_system._on_died)
 	if not _mock_player.respawned.is_connected(_camera_system._on_respawned):
 		_mock_player.respawned.connect(_camera_system._on_respawned)
+	# TD-004 : connexions wall_run_entered/exited signal-driven cache.
+	if not _mock_player.wall_run_entered.is_connected(_camera_system._on_wall_run_entered):
+		_mock_player.wall_run_entered.connect(_camera_system._on_wall_run_entered)
+	if not _mock_player.wall_run_exited.is_connected(_camera_system._on_wall_run_exited):
+		_mock_player.wall_run_exited.connect(_camera_system._on_wall_run_exited)
 
 
 func after_test() -> void:
@@ -251,8 +256,10 @@ func test_ac_cam_64_tilt_converges_while_input_disabled() -> void:
 	# Arrange — tilt à 0 (départ), player en wall-run droite (wall_normal=-1,0,0).
 	# wall_side = sign((-wall_normal).dot(player.basis.x)) = sign((1,0,0).(1,0,0)) = +1
 	# target_roll = WALL_RUN_TILT_ANGLE * 1 = 0.35
+	# TD-004 : signal-driven cache via wall_run_entered.
 	_camera_effects.rotation.z = 0.0
 	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_mock_player.wall_run_entered.emit(Vector3(-1.0, 0.0, 0.0))
 
 	# Act — simule focus-out : InputManager désactivé.
 	InputManager.request_disable(self)
@@ -293,8 +300,10 @@ func test_ac_cam_64_tilt_converges_while_input_disabled() -> void:
 
 func test_ac_cam_64_tilt_continues_convergence_after_focus_restore() -> void:
 	# Arrange — tilt à 0.1 (mi-chemin), player en wall-run, focus coupé.
+	# TD-004 : signal-driven cache via wall_run_entered.
 	_camera_effects.rotation.z = 0.1
 	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_mock_player.wall_run_entered.emit(Vector3(-1.0, 0.0, 0.0))
 	InputManager.request_disable(self)
 
 	# Act pendant focus-out — avance convergence 5 frames.
@@ -325,8 +334,10 @@ func test_ac_cam_64_tilt_continues_convergence_after_focus_restore() -> void:
 
 func test_ac_cam_64_tilt_no_glitch_on_focus_restore_with_wall_run_active() -> void:
 	# Arrange — tilt full (tilt = WALL_RUN_TILT_ANGLE), focus-out brève.
+	# TD-004 : signal-driven cache via wall_run_entered.
 	_camera_effects.rotation.z = EXPECTED_TILT_ANGLE
 	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_mock_player.wall_run_entered.emit(Vector3(-1.0, 0.0, 0.0))
 
 	InputManager.request_disable(self)
 
@@ -430,8 +441,10 @@ func test_ac_cam_nan_1_normal_rotation_not_modified() -> void:
 
 func test_ac_cam_nan_1_process_frame_with_nan_resets_before_tilt_lerp() -> void:
 	# Arrange — NaN + player en wall-run (target_roll = 0.35).
+	# TD-004 : signal-driven cache via wall_run_entered.
 	_camera_effects.rotation = Vector3(0.0, 0.0, NAN)
 	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_mock_player.wall_run_entered.emit(Vector3(-1.0, 0.0, 0.0))
 
 	# Act — simule un _process complet.
 	_camera_system._safeguard_rotation()

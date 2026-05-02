@@ -95,12 +95,21 @@ func before_test() -> void:
 	if _camera_system._overlay == null:
 		_camera_system._setup_overlay()
 
+	# TD-004 connexions wall_run_entered/exited (signal-driven cache) — _ready()
+	# early-return skip ces connexions dans test harness sans scene owner.
+	if not _mock_player.wall_run_entered.is_connected(_camera_system._on_wall_run_entered):
+		_mock_player.wall_run_entered.connect(_camera_system._on_wall_run_entered)
+	if not _mock_player.wall_run_exited.is_connected(_camera_system._on_wall_run_exited):
+		_mock_player.wall_run_exited.connect(_camera_system._on_wall_run_exited)
+
 	await get_tree().process_frame
 
 	_mock_player.rotation = Vector3.ZERO
 	_camera_arm.rotation = Vector3.ZERO
 	_camera_effects.rotation = Vector3.ZERO
 	_mock_player.wall_normal = Vector3.ZERO
+	_camera_system._wall_side_cached = 0
+	_camera_system._is_wall_running = false
 
 
 func after_test() -> void:
@@ -128,6 +137,21 @@ func after_test() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Helpers — TD-004 signal-driven cache : wall_normal n'est plus poll, le cache
+# _wall_side_cached est mis à jour exclusivement par _on_wall_run_entered/exited.
+# ---------------------------------------------------------------------------
+
+func _enter_wall_run(wall_normal: Vector3) -> void:
+	_mock_player.wall_normal = wall_normal  # legacy var, conservée pour cohérence
+	_mock_player.wall_run_entered.emit(wall_normal)
+
+
+func _exit_wall_run() -> void:
+	_mock_player.wall_normal = Vector3.ZERO
+	_mock_player.wall_run_exited.emit()
+
+
+# ---------------------------------------------------------------------------
 # Helper — simule n frames en appelant _update_tilt_wall_run avec delta fixe
 # ---------------------------------------------------------------------------
 
@@ -143,7 +167,7 @@ func _simulate_frames(n: int) -> void:
 func test_tilt_wall_run_first_frame_positive() -> void:
 	# Arrange — mur à droite : wall_normal=(-1,0,0)
 	# dot(-(-1,0,0), (1,0,0)) = 1 > 0 → wall_side=+1 → target=+0.35
-	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_enter_wall_run(Vector3(-1.0, 0.0, 0.0))
 	_camera_effects.rotation.z = 0.0
 
 	# Act
@@ -164,7 +188,7 @@ func test_tilt_wall_run_first_frame_positive() -> void:
 
 func test_tilt_wall_run_right_entry_reaches_95_percent_at_250ms() -> void:
 	# Arrange — mur à droite
-	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_enter_wall_run(Vector3(-1.0, 0.0, 0.0))
 	_camera_effects.rotation.z = 0.0
 
 	# Act — 15 frames = 250 ms à 60 fps
@@ -186,7 +210,7 @@ func test_tilt_wall_run_right_entry_reaches_95_percent_at_250ms() -> void:
 func test_tilt_wall_run_exit_converges_to_zero_in_300ms() -> void:
 	# Arrange — part d'un tilt plein, sort du wall-run
 	_camera_effects.rotation.z = CameraSystem.WALL_RUN_TILT_ANGLE
-	_mock_player.wall_normal = Vector3.ZERO
+	_exit_wall_run()
 
 	# Act — 18 frames = 300 ms
 	_simulate_frames(FRAMES_300MS)
@@ -205,10 +229,13 @@ func test_tilt_wall_run_exit_converges_to_zero_in_300ms() -> void:
 # ---------------------------------------------------------------------------
 
 func test_tilt_wall_run_left_to_right_transition_crosses_zero() -> void:
-	# Arrange — commence en wall-run gauche (z=-0.35), bascule vers droit
-	_mock_player.wall_normal = Vector3(1.0, 0.0, 0.0)
+	# Arrange — commence en wall-run gauche (z=-0.35), bascule vers droit.
+	# TD-004 : transition wall-to-wall en production passe par AIRBORNE intermédiaire,
+	# donc Movement émet wall_run_exited puis wall_run_entered (nouveau normal).
+	_enter_wall_run(Vector3(1.0, 0.0, 0.0))
 	_camera_effects.rotation.z = -CameraSystem.WALL_RUN_TILT_ANGLE
-	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)  # bascule en 1 frame
+	_exit_wall_run()
+	_enter_wall_run(Vector3(-1.0, 0.0, 0.0))
 
 	# Act — cherche le passage par zéro dans 12 frames (200 ms)
 	var zero_crossing_found: bool = false
@@ -236,7 +263,7 @@ func test_tilt_wall_run_left_to_right_transition_crosses_zero() -> void:
 
 func test_tilt_wall_run_left_to_right_no_overshoot() -> void:
 	# Arrange — part du tilt gauche, bascule vers droit
-	_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0)
+	_enter_wall_run(Vector3(-1.0, 0.0, 0.0))
 	_camera_effects.rotation.z = -CameraSystem.WALL_RUN_TILT_ANGLE
 
 	# Act — 30 frames pour laisser converger, capture le max
@@ -265,9 +292,11 @@ func test_tilt_wall_run_no_oscillation_on_alternating_wall_normal() -> void:
 	_camera_effects.rotation.z = 0.0
 
 	# Act — alterne gauche/droit 60 frames (1 s), simule un jitter réseau
+	# TD-004 : alternance via signaux wall_run_exited/entered (chaque flip = exit+entrée).
 	for frame in range(60):
-		_mock_player.wall_normal = Vector3(-1.0, 0.0, 0.0) if frame % 2 == 0 \
-			else Vector3(1.0, 0.0, 0.0)
+		var normal: Vector3 = Vector3(-1.0, 0.0, 0.0) if frame % 2 == 0 else Vector3(1.0, 0.0, 0.0)
+		_exit_wall_run()
+		_enter_wall_run(normal)
 		_camera_system._update_tilt_wall_run(FIXED_DELTA)
 
 	# Assert — pas d'amplification hors bornes
@@ -280,49 +309,22 @@ func test_tilt_wall_run_no_oscillation_on_alternating_wall_normal() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Edge case — wall_normal absent du script Player (lecture défensive via get())
+# Edge case — TD-004 : sans signal wall_run_entered émis, _wall_side_cached
+# reste à 0 → tilt à 0 (lerp vers target=0 reste à 0). Substitue l'ancien test
+# "wall_normal absent du script Player" qui validait le polling défensif via get().
 # ---------------------------------------------------------------------------
 
-func test_tilt_wall_run_no_crash_when_wall_normal_absent() -> void:
-	# Arrange — CharacterBody3D nu sans wall_normal (Movement pas encore implémenté)
-	var bare_player: CharacterBody3D = CharacterBody3D.new()
-	var bare_effects: Node3D = Node3D.new()
-	bare_effects.name = "CameraEffects"
-	bare_effects.set_unique_name_in_owner(true)
-	var bare_cam: Camera3D = Camera3D.new()
-	bare_cam.name = "Camera3D"
-	bare_cam.set_unique_name_in_owner(true)
-	var bare_arm: Node3D = Node3D.new()
-	bare_arm.set_script(preload("res://src/gameplay/camera/camera_system.gd"))
-	bare_arm.set_unique_name_in_owner(true)
-	bare_effects.add_child(bare_cam)
-	bare_arm.add_child(bare_effects)
-	bare_player.add_child(bare_arm)
-	add_child(bare_player)
+func test_tilt_wall_run_zero_when_no_signal_emitted() -> void:
+	# Arrange — pas d'émission wall_run_entered, cache reste à zéro
+	_camera_effects.rotation.z = 0.0
 
-	var bare_system: CameraSystem = bare_arm as CameraSystem
+	# Act — 1 frame de _update_tilt_wall_run sans signal préalable
+	_camera_system._update_tilt_wall_run(FIXED_DELTA)
 
-	# TD-005 manual injection AVANT process_frame (pattern parity story-008).
-	bare_system._camera_effects = bare_effects
-	bare_system._camera3d = bare_cam
-	bare_system._player = bare_player
-	if bare_system._overlay == null:
-		bare_system._setup_overlay()
-
-	await get_tree().process_frame
-
-	# Act — pas de crash attendu (get("wall_normal") retourne null → Vector3.ZERO)
-	bare_system._update_tilt_wall_run(FIXED_DELTA)
-
-	# Assert — tilt reste à zéro
-	assert_float(bare_effects.rotation.z) \
+	# Assert — tilt reste à zéro (target_roll = WALL_RUN_TILT_ANGLE * 0 = 0)
+	assert_float(_camera_effects.rotation.z) \
 		.override_failure_message(
-			"Sans wall_normal, rotation.z doit rester 0.0 — got %f" % bare_effects.rotation.z
+			"Sans wall_run_entered émis, rotation.z doit rester 0.0 — got %f"
+			% _camera_effects.rotation.z
 		) \
 		.is_equal_approx(0.0, TOLERANCE_STRICT)
-
-	# Teardown local
-	if InputManager.mouse_motion.is_connected(bare_system._on_mouse_motion):
-		InputManager.mouse_motion.disconnect(bare_system._on_mouse_motion)
-	bare_player.queue_free()
-	await get_tree().process_frame

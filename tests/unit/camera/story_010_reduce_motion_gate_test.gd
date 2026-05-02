@@ -84,9 +84,8 @@ func test_ac_cam_70_reduce_motion_attenuates_wall_run_tilt_to_quarter() -> void:
 	# Player rotation neutre → basis.x == Vector3.RIGHT. (-wall_normal).dot(basis.x)
 	# = (-1, 0, 0).dot(1, 0, 0) = -1 → wall_side = -1.
 	# target_roll = 0.35 * (-1) * 0.25 = -0.0875 rad (avec reduce_motion).
-	# `wall_normal` est une getter-only property (MovementController), backed par `_wall_normal`.
-	# Inject directement la backing variable pour le test.
-	_player.set("_wall_normal", Vector3(1.0, 0.0, 0.0))
+	# TD-004 : signal-driven cache via wall_run_entered (substitue polling _wall_normal).
+	_player.wall_run_entered.emit(Vector3(1.0, 0.0, 0.0))
 
 	# Act — 30 frames _process pour atteindre convergence lerp ≈ 95%.
 	for i in range(CONVERGENCE_FRAMES):
@@ -106,9 +105,8 @@ func test_ac_cam_70_reduce_motion_attenuates_wall_run_tilt_to_quarter() -> void:
 func test_ac_cam_70_reduce_motion_disabled_keeps_full_tilt() -> void:
 	# Arrange — baseline reduce_motion=false : tilt full magnitude (story 005).
 	_camera_system._reduce_motion = false
-	# `wall_normal` est une getter-only property (MovementController), backed par `_wall_normal`.
-	# Inject directement la backing variable pour le test.
-	_player.set("_wall_normal", Vector3(1.0, 0.0, 0.0))
+	# TD-004 : signal-driven cache via wall_run_entered.
+	_player.wall_run_entered.emit(Vector3(1.0, 0.0, 0.0))
 
 	# Act — 30 frames pour convergence.
 	for i in range(CONVERGENCE_FRAMES):

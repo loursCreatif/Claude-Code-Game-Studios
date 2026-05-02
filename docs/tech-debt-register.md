@@ -72,11 +72,11 @@ Le 3e write est une nécessité fonctionnelle non anticipée par la rédaction i
 
 ---
 
-## TD-004 — CameraSystem `_update_tilt_wall_run` : polling `_player.wall_normal` viole ADR-0002 A-1
+## TD-004 — CameraSystem `_update_tilt_wall_run` : polling `_player.wall_normal` viole ADR-0002 A-1 — RESOLVED 2026-05-02
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-05-02 |
+| **Date** | 2026-05-02 → **Resolved 2026-05-02** |
 | **Origine** | `/code-review` story-011 camera-system (godot-gdscript-specialist RC-1) |
 | **Sévérité** | ADVISORY (architectural violation, mais pré-existant story-005, fonctionnellement correct) |
 | **Coût** | M (4-6h) — refactor handlers + tests update + lint VC-7 unmute |
@@ -91,12 +91,24 @@ Le 3e write est une nécessité fonctionnelle non anticipée par la rédaction i
 - Disconnects `_exit_tree()` symétriques
 - `_update_tilt_wall_run` : remplacer lecture polling par `var wall_side: int = _wall_side_cached`
 
-**Action** :
-1. Implémenter cache signal-driven (pattern parity `_is_dashing`)
-2. Mettre à jour tests stories 005/010 pour émettre `wall_run_entered` au lieu d'assigner `_mock_player.wall_normal`
-3. Activer lint VC-7 ADR-0002 (grep `player.wall_normal` en `_process`)
+**Action appliquée 2026-05-02** :
+1. ✅ Cache signal-driven implémenté (`_is_wall_running: bool` + `_wall_side_cached: int` — pattern parity `_is_dashing`)
+2. ✅ Handlers `_on_wall_run_entered(wall_normal)` + `_on_wall_run_exited()` ajoutés — dérivent `_wall_side_cached` depuis `sign((-wall_normal).dot(player.basis.x))` une seule fois à l'entrée
+3. ✅ Connexions `wall_run_entered/exited` dans `_ready()` + disconnects dans `_exit_tree()` (symétriques)
+4. ✅ `_update_tilt_wall_run` : polling `_player.get("wall_normal")` substitué par lecture `_wall_side_cached` — zéro alloc, zéro polling chaque frame
+5. ✅ Tests stories 005/010/011 migrés : émettent `_mock_player.wall_run_entered.emit(normal)` au lieu d'assigner `_mock_player.wall_normal`
+6. ✅ MockPlayerWithDashSignals : ajout signaux `wall_run_entered(Vector3)` + `wall_run_exited()`
+7. ✅ Story-005 : remplacé MockPlayerWithWallNormal par MockPlayerWithDashSignals (helper `_enter_wall_run` / `_exit_wall_run` pour pattern wall-to-wall)
+8. ✅ Test edge case `test_tilt_wall_run_no_crash_when_wall_normal_absent` adapté : substitué par `test_tilt_wall_run_zero_when_no_signal_emitted` (sans signal, cache reste à 0 → tilt 0)
 
-**Trigger re-prio** : escalader BLOCKING si nouvelle story camera ajoute autre code dépendant du polling, ou si CI VC-7 lint est activé.
+**Résultat** : 87 tests camera, 0 errors, 3 fails uniques tous pré-existants hors scope TD-004 :
+- `story_001 test_project_godot_contains_rendering_settings` : config check Godot defaults (pas sérialisés dans project.godot)
+- `story_002 test_mouse_motion_horizontal_rotates_player_yaw` : headless mode `Input.mouse_mode = MOUSE_MODE_CAPTURED` ne fonctionne pas sans display server
+- `story_003 test_re_enable_after_disable_applies_only_next_motion` : même cause headless mouse_mode
+
+ADR-0002 Amendment A-1 (signal-driven exclusive) est maintenant respecté. Lint VC-7 ADR-0002 peut être activé en CI (grep `player.wall_normal` en `_process`).
+
+**Trigger re-prio** : aucun — résolu.
 
 ---
 

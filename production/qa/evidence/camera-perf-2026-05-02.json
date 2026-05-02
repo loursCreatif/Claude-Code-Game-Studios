@@ -10,7 +10,7 @@
   "process_cost_ms": {
     "budget_p50": 0.2,
     "budget_p99": 0.4,
-    "p50": 0.0020000000949949,
+    "p50": 0.00100000004749745,
     "p99": 0.0020000000949949,
     "ring_buffer_capacity": 240,
     "samples_count": 360
