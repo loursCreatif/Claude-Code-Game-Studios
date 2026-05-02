@@ -77,8 +77,8 @@ func before_test() -> void:
 	_player.rotation = Vector3.ZERO
 	_player.velocity = Vector3.ZERO
 	_player.air_jumps_used = 0
-	_player.can_air_jump = false
-	_player.can_dash = false
+	_player.set_capability(&"air_jump", false)
+	_player.set_capability(&"dash", false)
 
 
 func after_test() -> void:
@@ -109,7 +109,7 @@ func test_dash_distance_280cm_and_exit_speed() -> void:
 	# Arrange — GROUNDED, can_dash enabled, positioned at origin, facing -Z.
 	_player.position = Vector3.ZERO
 	_player.rotation = Vector3.ZERO
-	_player.can_dash = true
+	_player.set_capability(&"dash", true)
 	_player.velocity = Vector3.ZERO
 
 	# Act — press move_forward to set wish_dir to -Z, then press dash.
@@ -173,7 +173,7 @@ func test_dash_momentum_decel_to_move_speed_after_window() -> void:
 ## Verifies AC-MV-21: ability gate silently ignores dash input without side effects.
 func test_dash_blocked_when_can_dash_false() -> void:
 	# Arrange — default can_dash=false (set in before_test).
-	_player.can_dash = false
+	_player.set_capability(&"dash", false)
 
 	# Act — press dash and run one tick.
 	_press_dash_and_tick(_player)
@@ -196,7 +196,7 @@ func test_dash_blocked_when_can_dash_false() -> void:
 ## A richer spy pattern would require a local subclass — deferred to story-009+ signals.
 func test_dash_rejected_during_cooldown_no_reentry() -> void:
 	# Arrange — can_dash enabled but cooldown still running.
-	_player.can_dash = true
+	_player.set_capability(&"dash", true)
 	_player.set("_dash_cooldown_timer", 0.7)
 
 	# Act — press dash and run one tick.
@@ -224,7 +224,7 @@ func test_dash_direction_lock_during_dash() -> void:
 	# Arrange — GROUNDED, dash enabled, facing -Z.
 	_player.position = Vector3.ZERO
 	_player.rotation = Vector3.ZERO
-	_player.can_dash = true
+	_player.set_capability(&"dash", true)
 	_player.velocity = Vector3.ZERO
 
 	# Tick 1 — enter dash in -Z direction.
@@ -265,7 +265,7 @@ func test_dash_resets_velocity_y_on_entry() -> void:
 	# Arrange — AIRBORNE with upward velocity (simulating jump in progress).
 	_set_state(_player, MovementController.State.AIRBORNE)
 	_player.velocity = Vector3(0.0, 8.0, 0.0)
-	_player.can_dash = true
+	_player.set_capability(&"dash", true)
 	_player.set("_dash_cooldown_timer", 0.0)
 
 	# Act — press dash and run one tick.
@@ -321,7 +321,7 @@ func test_dash_default_dir_uses_body_forward_when_no_input() -> void:
 	# Arrange — GROUNDED, no input, facing default (rotation.y=0 → forward = -Z).
 	_player.rotation = Vector3.ZERO
 	_player.velocity = Vector3.ZERO
-	_player.can_dash = true
+	_player.set_capability(&"dash", true)
 	_player.set("_dash_cooldown_timer", 0.0)
 	# Ensure no movement input is active (after_test releases, but be explicit).
 

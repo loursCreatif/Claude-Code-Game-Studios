@@ -155,7 +155,7 @@ func test_no_triple_jump_when_air_jumps_exhausted() -> void:
 	# Arrange — AIRBORNE, air jump already consumed.
 	_set_state(_player, MovementController.State.AIRBORNE)
 	_player.velocity = Vector3(0.0, -5.0, 0.0)
-	_player.can_air_jump = true
+	_player.set_capability(&"air_jump", true)
 	_player.air_jumps_used = 1  # already used the one allowed air jump
 
 	# Act — press jump (should be blocked) and run one tick.
@@ -182,7 +182,7 @@ func test_air_jump_blocked_when_can_air_jump_false() -> void:
 	# Arrange — AIRBORNE, ability not unlocked.
 	_set_state(_player, MovementController.State.AIRBORNE)
 	_player.velocity = Vector3(0.0, -5.0, 0.0)
-	_player.can_air_jump = false
+	_player.set_capability(&"air_jump", false)
 	_player.air_jumps_used = 0
 
 	# Act — press jump (should be gated out) and run one tick.
@@ -212,7 +212,7 @@ func test_coyote_jump_within_window_uses_jump_velocity() -> void:
 	# Arrange — force GROUNDED while player is in the air (no floor at y=50).
 	_set_state(_player, MovementController.State.GROUNDED)
 	_player.velocity = Vector3(0.0, -1.0, 0.0)  # small downward push
-	_player.can_air_jump = true
+	_player.set_capability(&"air_jump", true)
 	_player.air_jumps_used = 0
 
 	# Tick 1 — GROUNDED: is_on_floor() = false → transition to AIRBORNE.

@@ -146,7 +146,7 @@ func test_idempotence_dash_started_one_emit_for_n_ticks_dashing() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
 	var log := SignalEventLog.new()
@@ -193,7 +193,7 @@ func test_dash_ended_emitted_exactly_once_per_dash_cycle() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
 	var log := SignalEventLog.new()

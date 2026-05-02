@@ -333,7 +333,7 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	# Ensure cooldown is zero
 	player.set("_dash_cooldown_timer", 0.0)
 
@@ -341,8 +341,8 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 	player.dash_started.connect(spy.record_v3_f)
 
 	# Simulate move forward (negative Z in local space) then dash
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 
 	# Act
 	_tick(player)
@@ -372,8 +372,7 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 		.is_equal_approx(1.0, 0.001)
 
 	# Cleanup
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -509,7 +508,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 	player.wall_run_exited.connect(spy_exited.record_0)
 
 	# Act — press jump and tick
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(player)
 
 	# Assert — wall_jumped emitted once
@@ -543,7 +542,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 		.is_equal(1)
 
 	# Cleanup
-	InputManager.simulate_action_release(&"jump")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -566,7 +565,7 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 	player.attacked.connect(spy.record_0)
 
 	# Act — press attack, tick once
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player)
 
 	# Assert — 1 emit on press tick
@@ -586,7 +585,7 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -610,7 +609,7 @@ func test_attacked_blocked_when_dead() -> void:
 	player.attacked.connect(spy.record_0)
 
 	# Act — press attack while dead, tick once (within RESPAWN_DELAY window)
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player)
 
 	# Assert — 0 emit
@@ -620,7 +619,7 @@ func test_attacked_blocked_when_dead() -> void:
 		) \
 		.is_equal(0)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -639,7 +638,7 @@ func test_attacked_emitted_at_most_once_per_tick() -> void:
 	player.attacked.connect(spy.record_0)
 
 	# Single press edge
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 
 	# Act
 	_tick(player)
@@ -652,7 +651,7 @@ func test_attacked_emitted_at_most_once_per_tick() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -721,7 +720,7 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
 	# Connect a badly-typed callable (1 arg instead of 2) — Godot will push_error
@@ -736,8 +735,8 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 	player.dash_started.connect(spy.record_v3_f)
 
 	# Act — trigger a dash
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
 
 	# Assert — player remains valid (no crash from bad callable)
@@ -753,7 +752,6 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame

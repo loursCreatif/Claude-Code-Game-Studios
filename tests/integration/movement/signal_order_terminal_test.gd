@@ -171,7 +171,7 @@ func test_attacked_emitted_after_dash_started_in_same_tick() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
 	var log := SignalEventLog.new()

@@ -414,6 +414,25 @@ func simulate_action_release(action: StringName) -> void:
 	ev.pressed = false
 	Input.parse_input_event(ev)
 
+## Test-only bypass (D-9 complémentaire) : injecte un edge press one-tick sans passer
+## par Input.parse_input_event. Nécessaire en headless CLI car Godot ne dispatche pas
+## les InputEvent sans Window — `simulate_action_press` devient no-op (warning explicite
+## de GdUnit4 : "Godot 'InputEvents' are not transported in headless mode").
+##
+## Set `_pressed_this_tick[action] = true` directement. Le prochain swap `_physics_process`
+## propage en `_consumed_this_tick` → `was_pressed_this_tick(action)` retourne true pour
+## le tick courant, puis revient false (edge consume).
+##
+## Pour les held inputs (move_forward etc.), utiliser `Input.action_press(&"move_forward")` :
+## Godot le set en state direct sans event dispatch. `get_move_input_vector()` lit ce state.
+##
+## Ne fait rien en build release (gate OS.has_feature) — zéro coût shipping.
+## Usage : InputManager.inject_pressed_for_test(&"dash")
+func inject_pressed_for_test(action: StringName) -> void:
+	if not OS.has_feature("debug"):
+		return
+	_pressed_this_tick[action] = true
+
 ## Simule un déplacement souris en debug uniquement (story-008, complémentaire D-9).
 ## Crée un InputEventMouseMotion avec [param delta] en relative et l'injecte via
 ## Input.parse_input_event, ce qui déclenche _unhandled_input sur le prochain frame.

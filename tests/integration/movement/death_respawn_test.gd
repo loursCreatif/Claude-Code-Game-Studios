@@ -135,7 +135,7 @@ func test_inputs_ignored_during_dead_state() -> void:
 	await get_tree().process_frame
 
 	# Enable ability so the jump path would fire if inputs were processed
-	player.can_air_jump = true
+	player.set_capability(&"air_jump", true)
 
 	# Put player airborne so a jump press would normally set velocity.y = JUMP_VELOCITY
 	_set_state(player, MovementController.State.AIRBORNE)
