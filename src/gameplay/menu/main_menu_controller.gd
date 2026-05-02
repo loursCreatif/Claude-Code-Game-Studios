@@ -12,9 +12,25 @@ extends Control
 
 const DEBUG_SHOW_VERSION: bool = false
 
+## Story-006 — MVP MainMenu lance toujours l'étage 1 (R-MNU-8 pas de Continue MVP).
+const MVP_START_ETAGE_ID: int = 1
+
 @onready var start_button: Button = $VBoxContainer/StartButton
 @onready var quit_button: Button = $VBoxContainer/QuitButton
 @onready var version_label: Label = $VBoxContainer/VersionLabel
+
+## Test seams — overridables pour isoler les callbacks dans les tests integration.
+## Default routent vers les autoloads / get_tree() comme prévu R-MNU-7/8.
+##   _start_handler : appelle GSM.start_etage(MVP_START_ETAGE_ID) — story-006 R-MNU-7.
+##   _quit_handler  : appelle get_tree().quit() — story-006 R-MNU-8.
+##
+## Tests les remplacent par des spies (Callable) pour observer call count + args sans
+## déclencher LevelSystem.load_etage (file inexistant Sprint A) ou get_tree().quit()
+## qui terminerait le runner.
+var _start_handler: Callable = func() -> void:
+	GameStateManager.start_etage(MVP_START_ETAGE_ID)
+var _quit_handler: Callable = func() -> void:
+	get_tree().quit()
 
 
 func _ready() -> void:
@@ -38,11 +54,16 @@ func _ready() -> void:
 	version_label.visible = DEBUG_SHOW_VERSION
 
 
+## Story-006 R-MNU-7 — Start Run lance toujours l'étage 1 (pas de Continue MVP).
+## Pas de guard côté Menu (Implementation Notes §4) — GSM ADR-0007 D-7 absorbe via
+## `if not LevelSystem.level_active.is_connected: connect` (no double-connect).
+## R-MNU-11 — zéro confirm dialog : exécute direct (anti-Pillar 1 friction).
 func _on_start_pressed() -> void:
-	# TODO story-006 : appeler GameStateManager.start_etage(1).
-	pass
+	_start_handler.call()
 
 
+## Story-006 R-MNU-8 — Quit direct via get_tree().quit().
+## Save-on-quit délégué intégralement à SaveLoad R-SAV-9 (NOTIFICATION_WM_CLOSE_REQUEST).
+## Menu ne référence JAMAIS SaveLoad APIs (AC-MNU-57 enforce).
 func _on_quit_pressed() -> void:
-	# TODO story-006 : implémentation finale (R-MNU-8 = get_tree().quit() direct, zéro confirm).
-	pass
+	_quit_handler.call()

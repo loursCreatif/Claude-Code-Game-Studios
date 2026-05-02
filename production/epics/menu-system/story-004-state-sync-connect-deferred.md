@@ -1,7 +1,7 @@
 # Story 004: State Sync via `state_changed` (CONNECT_DEFERRED + guard `is_inside_tree()`)
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -27,11 +27,11 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-MNU-12** [Integration — BLOCKING] : GSM=PLAYING ; `request_pause()` transite vers PAUSED ; `state_changed(PAUSED)` reçu ; après `await process_frame` (CONNECT_DEFERRED) `PauseLayer.visible == true`.
-- [ ] **AC-MNU-33** [Logic — BLOCKING] : Pause Overlay hidden ; `_on_gsm_state_changed(State.PAUSED)` appelé direct → `PauseLayer.visible == true` même frame (sync interne handler).
-- [ ] **AC-MNU-34** [Logic — BLOCKING] : Pause Overlay visible ; `_on_gsm_state_changed(State.RESPAWNING)` appelé → `PauseLayer.visible == false` (anti-flicker Pillar 3).
-- [ ] **AC-MNU-35** [Logic — BLOCKING] : Pause Overlay vient d'être instancié + GSM=PAUSED ; `_ready()` exécute `_apply_visibility(get_current_state())` (pull pattern) → `PauseLayer.visible == true` après 1 process_frame (ADR-0007 D-9 resync).
-- [ ] **AC-MNU-63** [Static — BLOCKING] : `grep -rE 'NOTIFICATION_WM_WINDOW_FOCUS|_notification\b.*_focus' src/gameplay/menu/` retourne 0 match (R-MNU-18 anti-dep — InputManager seul handle focus).
+- [x] **AC-MNU-12** [Integration — BLOCKING] : GSM=PLAYING ; `request_pause()` transite vers PAUSED ; `state_changed(PAUSED)` reçu ; après `await process_frame` (CONNECT_DEFERRED) `PauseLayer.visible == true`.
+- [x] **AC-MNU-33** [Logic — BLOCKING] : Pause Overlay hidden ; `_on_gsm_state_changed(State.PAUSED)` appelé direct → `PauseLayer.visible == true` même frame (sync interne handler).
+- [x] **AC-MNU-34** [Logic — BLOCKING] : Pause Overlay visible ; `_on_gsm_state_changed(State.RESPAWNING)` appelé → `PauseLayer.visible == false` (anti-flicker Pillar 3).
+- [x] **AC-MNU-35** [Logic — BLOCKING] : Pause Overlay vient d'être instancié + GSM=PAUSED ; `_ready()` exécute `_apply_visibility(get_current_state())` (pull pattern) → `PauseLayer.visible == true` après 1 process_frame (ADR-0007 D-9 resync).
+- [x] **AC-MNU-63** [Static — BLOCKING] : `grep -rE 'NOTIFICATION_WM_WINDOW_FOCUS|_notification\b.*_focus' src/gameplay/menu/` retourne 0 match (R-MNU-18 anti-dep — InputManager seul handle focus).
 
 ---
 
@@ -115,7 +115,9 @@
 - `tests/integration/menu/state_sync_connect_deferred_test.gd` (4 ACs intégrés, MockGSM)
 - `tests/static/menu_anti_focus_handler_lint_test.gd` ou CI grep pour AC-MNU-63
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — 1 fichier integration + 1 fichier static lint livrés. **Test runner executed 2026-05-01 via GdUnit4 safe headless pattern — 8/8 PASSED 220 ms total (`reports/report_109`)**.
+- `tests/integration/menu/state_sync_connect_deferred_test.gd` — 6 tests (AC-MNU-12/33/34/35 + ext MENU + r2 BLK-1 connect_deferred flag) 183 ms.
+- `tests/static/menu_anti_focus_handler_lint_test.gd` — 2 tests (AC-MNU-63 NOTIFICATION_WM_WINDOW_FOCUS + func _notification scan) 37 ms.
 
 ---
 
@@ -123,3 +125,19 @@
 
 - Depends on : Story 002 (skeleton + `_ready()` skeleton) ; Story 005 (méthode `_apply_visibility(show, recapture_mouse)` — peut courir en parallèle, signature stable r2 BLK-2).
 - Unlocks : Story 008 (refcount Input — déclenchement coordonné aux state changes), Story 011 (perf — vérifie le pipeline complet).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-01
+**Criteria** : 5/5 passing (AC-MNU-12/33/34/35/63 — 100% test coverage par 8 tests integration + static).
+**Test Evidence** : Integration + Static lint — voir Test Evidence section. **8/8 PASSED 220 ms (`reports/report_109`)**.
+**Code Review** : Skipped — Solo mode (LP-CODE-REVIEW gate not triggered per `production/review-mode.txt`).
+**Files delivered** :
+- `src/gameplay/menu/pause_menu_controller.gd` (MODIFIED, +37 L net) — `_on_gsm_state_changed(new_state)` complet match-state avec guard `is_inside_tree()` (r2 BLK-3) ; connect `state_changed` avec `CONNECT_DEFERRED` au `_ready()` (r2 BLK-1) ; `_apply_visibility(show_panel, _recapture_mouse=false)` stub minimum (story-005 livrera mouse capture) ; pull resync au `_ready()` via appel sync `_on_gsm_state_changed(get_current_state())` (D-9 + AC-MNU-35).
+- `tests/integration/menu/state_sync_connect_deferred_test.gd` (NEW, 137 L) — 6 tests : AC-MNU-12 deferred propagation + AC-MNU-33 sync direct call + AC-MNU-34 RESPAWNING hide + AC-MNU-35 PAUSED at boot + AC-MNU-35 ext MENU at boot + r2 BLK-1 CONNECT_DEFERRED flag inspection.
+- `tests/static/menu_anti_focus_handler_lint_test.gd` (NEW, 86 L) — 2 tests : AC-MNU-63 scan `NOTIFICATION_WM_WINDOW_FOCUS` + `func _notification(` dans `src/gameplay/menu/`. Recursive DirAccess + line-by-line strip commentaires.
+**Deviations** : NONE blocking. NONE advisory. Implementation suit littéralement Implementation Notes §1-5 (CONNECT_DEFERRED + guard is_inside_tree + matrice visibility R-MNU-4).
+**Note `_apply_visibility` stub** : La méthode prend la signature stable `(show_panel, recapture_mouse=false)` mais le `recapture_mouse` est ignoré — story-005 livrera l'implémentation complète avec InputManager refcount mouse capture. Choix conscient r2 BLK-2 : signature figée, comportement minimum requis pour AC-MNU-12/33/34/35.
+**Unblocks** : story-008 (refcount Input mouse capture sequencing), story-011 (perf — pipeline state sync complet).
