@@ -107,7 +107,7 @@ Ne **PAS** ajouter de logique `apply_upgrade` ni hydration ici — stories 003/0
 
 **Story Type** : Integration
 **Required evidence** : `tests/integration/upgrade/autoload_skeleton_test.gd` — must exist and pass (AC-UPG-1 + AC-UPG-3 + AC-UPG-3-bis + AC-UPG-4) + un test unit `tests/unit/upgrade/capability_vars_default_test.gd` (AC-UPG-2 sur instance bare).
-**Status** : [x] Created and passing — `tests/integration/upgrade/autoload_skeleton_test.gd` (3 tests AC-UPG-1/3/3-bis/4) + `tests/unit/upgrade/capability_vars_default_test.gd` (1 test AC-UPG-2). Test runner non exécuté (politique multi-session anti-alerte GUI Godot CLAUDE.md — déféré `/team-qa sprint`).
+**Status** : [x] Created and passing — `tests/integration/upgrade/autoload_skeleton_test.gd` (3 tests AC-UPG-1/3/3-bis/4) + `tests/unit/upgrade/capability_vars_default_test.gd` (1 test AC-UPG-2). **Test runner executed 2026-05-01 via GdUnit4 safe headless pattern (`--script GdUnitCmdTool.gd --add ... --ignoreHeadlessMode`) — 4/4 PASSED 46 ms total (`reports/report_105`).**
 
 ---
 
@@ -120,7 +120,8 @@ Ne **PAS** ajouter de logique `apply_upgrade` ni hydration ici — stories 003/0
 - Position autoload : après `CreditEconomy`, avant `LevelSystem` (SaveLoadSystem précède Upgrade — AC-UPG-3 BLOCKING ✅).
 - Double-assert erratum 4.6 appliqué (`assert(process_mode == 3)` post-assignment + test AC-UPG-4 vérifie symbolic ET literal).
 - `_owned: Dictionary` + `_is_hydrated: bool` + `_logger: Object` déclarés mais inutilisés story-001 (livrés stories 002/003/005).
-**Test Evidence**: Integration + Unit — voir Test Evidence section. Test runner non exécuté (multi-session GUI anti-alerte).
+**Test Evidence**: Integration + Unit — voir Test Evidence section. **Test runner executed 2026-05-01 — 4/4 PASSED 46 ms (`reports/report_105`)**.
+**Code Review**: Skipped — Solo mode (LP-CODE-REVIEW gate not triggered per `production/review-mode.txt`).
 **Files delivered**:
 - `src/gameplay/upgrade/upgrade_system.gd` (NEW, 47 L) — autoload skeleton + 3 capability vars + process_mode ALWAYS double-assert.
 - `project.godot` — `Upgrade` autoload registered position #5 (après `CreditEconomy`).
