@@ -37,7 +37,7 @@
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
 version: 1
-last_updated: ""
+last_updated: "2026-04-27"   # /design-system menu-system (r1 solo auto-approve) : Menu System GDD r1 written (~1133 lignes, 18 R-MNU + 4 F-MNU + 35 EC-MNU + 56 ACs + 10 OQ + 10 sous-thèmes UI K.1-K.10). 2 scènes Control distinctes : `main_menu.tscn` scène container Control fullscreen (chargée via GSM.request_scene_transition ADR-0007 D-5 §a) avec 2 boutons (Start Run → GSM.start_etage(1) + Quitter le jeu → get_tree().quit()) ; `pause_overlay.tscn` overlay node-local CanvasLayer.layer=80 PROCESS_MODE_ALWAYS instancié dans chaque scène étage gameplay avec 3 boutons (Reprendre → GSM.request_resume() + Quitter vers Menu Principal → GSM.request_scene_transition(main_menu.tscn) + Quitter le jeu → get_tree().quit()). Trigger ESC = signal `ui_cancel_pressed` Input ADR-0004 D-4 (toujours émis même enabled==false). Pause Menu pose son propre refcount InputManager.request_disable(self) à l'open + release_enable_request(self) au close. Mouse capture coordination : set_mouse_captured(false) à l'open MainMenu/Pause, true au close vers PLAYING. **Aucune nouvelle constante registry** — toutes constantes Menu (PAUSE_CANVAS_LAYER=80, MENU_BG_OVERLAY_ALPHA=0.65, PAUSE_PANEL_WIDTH_PX=360, PAUSE_PANEL_PADDING_*_PX, BUTTON_SEPARATION_PX_*, TITLE_FONT_SIZE_PX=28, BUTTON_FONT_SIZE_PX=15, BUTTON_MIN_WIDTH_PX=220, palette Chrome Zen tokens MENU_BG_BLACK=#050608/MENU_PANEL_BG=#0A0A12/MENU_TEXT_BASE=#E8E8F0/MENU_ACCENT_CYAN=#3EE4FF/etc.) sont system-internal MVP file-locked const. **Aucune referenced_by addition** — Menu ne consume aucun cross-system constant par valeur (Menu consomme APIs : 4 verbes GSM + signal state_changed + signaux InputManager + setters mouse/refcount, pas de constantes numériques partagées). Tokens Chrome Zen MENU_TEXT_BASE et MENU_ACCENT_CYAN sont identiques aux tokens Shop r1 / HUD r1 (cohérence cross-surface — 3 GDD partagent visuellement les valeurs sans registration formelle car elles ne sont pas exposées comme API contract numérique mais comme convention visuelle gérée art-bible). Solo gates : CD-GDD-ALIGN skipped Phase 5a-bis. Décisions design tranchées (7) : (1) Pause overlay = node-local pas autoload R-MNU-3 ; (2) Main Menu = scène container via change_scene_to_file R-MNU-2 ; (3) ESC trigger = signal ui_cancel_pressed event-driven (pas polling — Input GDD Rule 11 interdit mixer signal/polling) R-MNU-5 ; (4) Pas de confirm dialog "Quitter ?" anti-friction Pillar 1 R-MNU-16 ; (5) Save-on-quit délégué SaveLoadSystem via NOTIFICATION_WM_CLOSE_REQUEST cohérent GSM EC-6 R-MNU-17b ; (6) Pas de bouton "Continue" / save state run-in-progress MVP ; (7) Visibility binding snap on/off zéro tween cohérent Pillar 1 R-MNU-15. **Locked contracts respectés** : GSM 5 verbes figés ADR-0007 D-10 (Menu utilise 4 — start_etage, request_pause, request_resume, request_scene_transition) ; GSM signal state_changed SYNC consommé via CONNECT_DEFERRED côté Menu ; pattern pull get_current_state() au _ready ADR-0007 D-9 ; ADR-0007 D-4 process_mode discipline (Pause overlay = ALWAYS pour input handling sous tree paused) ; ADR-0007 D-5 §a two-path scene container ; ADR-0004 D-4 refcount request_disable/release_enable_request + tree_exiting auto-cleanup (CONNECT_ONE_SHOT) ; HUD r1 hide PAUSED peer no conflict ; Audio r2.1 ducking PAUSED owned Audio peer ; layer convention HUD=50, Shop=60, Pause=80, GSM transition fade=100. **Bidirectional check** : GSM r1 §Dependencies Downstream cite "MenuSystem (inferred, Not Started) | Hard | 5 verbes MVP" → réciprocité formelle confirmée par ce GDD r1 (GSM peut promote en amendement éditorial). InputManager r6 ne cite pas Menu (one-way consumer pattern ADR-0004 D-4 — InputManager ignore les owners by design). HUD r1 + Audio r2.1 + Shop r1 cohérents (peers no-conflict). Anti-patterns testables (8 ACs) : zero SFX MVP AC-MNU-44 ; zero confirm dialog AC-MNU-45 ; zero corner_radius AC-MNU-46 ; zero Parallax/AnimationPlayer AC-MNU-47 ; zero gradient AC-MNU-48 ; zero Engine.time_scale modification AC-MNU-49 ; zero get_tree().paused mutation hors GSM AC-MNU-50 ; zero tween/create_tween AC-MNU-36. UX flag posé : `/ux-design main-menu.md` + `/ux-design pause-menu.md` requis avant `/create-epics menu-system` (pattern reproduisant HUD r1 + Shop r1). Asset Spec : différé Tier 2+ (Menu MVP purement typographique + ColorRect/PanelContainer Godot natifs, aucun mesh/texture/sprite/icon-asset à produire MVP). **Débloque** : `/design-review menu-system` fresh session (résout 10 OQ-MNU dont OQ-MNU-1 critique save-on-quit handler), Sprint A backbone now hard-locked end-to-end (Credit r1 + Shop r1 + Save/Load r1 + Upgrade r1 + Menu r1 + Movement r3 + GSM r1 + HUD r1 = boucle Pillar 1+2+3 fermée testable), `/create-epics menu-system` post-/ux-design + post-/design-review, amendement éditorial GSM r1 cosmétique (MenuSystem Designed r1 vs inferred Not Started). Previous: /design-system upgrade-system (r1 solo auto-approve) : Upgrade System GDD r1 written (~720 lignes, 14 Core Rules + 2-state lifecycle + 7 interactions table + 4 formules dont F-UPG-3 catalog sanity invariant build-time + 35 edge cases + 4 structurels + 2 design-active + 6 Tier 2+ Tuning Knobs + 43 ACs catégories A-J + 10 OQ). Autoload data-pure quasi-stateless `src/gameplay/upgrade/upgrade_system.gd` exposant 3 booléens publics typés (`can_air_jump/can_dash/can_wall_run`) + 3 méthodes API (`apply_upgrade(id) -> void` SYNC idempotent + `is_owned(id) -> bool` + `get_owned_count() -> int`) + catalogue immuable `const _CATALOG MVP {&"double_jump" → &"can_air_jump", &"dash_horizontal" → &"can_dash"}`. **Aucune nouvelle constante registry** — toutes constantes Upgrade (`_CATALOG`, `_OWNED_UPGRADES_SAVE_KEY=&"owned_upgrades"`, `_boot_complete`) sont system-internal MVP file-locked. **Aucune referenced_by addition** — Upgrade ne consume aucune constante cross-system par valeur (R-UPG-14 ignore le coût ; les ids `&"double_jump"`/`&"dash_horizontal"` sont StringName partagés sans valeur numérique registrable). **OQ-SAV-1 RESOLVED + OQ-SHP-2 RESOLVED par ce GDD** — Sprint A backbone now hard-locked end-to-end (Credit r1 + Shop r1 + Save/Load r1 + Upgrade r1 + Movement r3 + GSM r1 + HUD r1 = boucle Pillar 2 fermée testable). Décisions tranchées : (1) autoload pas Node-local R-UPG-1 ; (2) 3 var booléens publics typés vs Dictionary R-UPG-2 ; (3) catalogue immuable owned Upgrade R-UPG-3 ; (4) `apply_upgrade` SYNC idempotent same call stack R-UPG-4 ; (5) zero outbound signal pull pattern Movement R-UPG-6 ; (6) Upgrade ne persiste jamais R-UPG-10 ; (7) ordre autoload `SaveLoad < Upgrade < GSM` amendement ADR-0007 D-1 r3 cosmétique OQ-UPG J-1 ; (8) pas de `revoke_upgrade` MVP R-UPG-12 ; (9) capability flags indépendants R-UPG-13 ; (10) single responsibility R-UPG-14. Anti-patterns testables (4 ACs) : zero signal AC-UPG-22/27, zero UI Control/Label/Canvas AC-UPG-28/34, zero AudioStreamPlayer AC-UPG-29/35, zero revoke_upgrade AC-UPG-36. Solo gates : CD-GDD-ALIGN skipped. UX flag : N/A (zero UI propre). Asset Spec : N/A MVP. **Débloque** : `/design-review upgrade-system` fresh session, amendement ADR-0007 D-1 r3 cosmétique autoload order, amendement Shop r2 cosmétique OQ-SHP-2 RESOLVED, `/design-system menu-system` sibling, Sprint 1 impl Sprint A complet end-to-end. Previous: /design-system save-load-system (r1 solo auto-approve) : Save/Load System GDD r1 written (~570 lignes, 17 Core Rules + 4-state machine + 8 interactions table + 1 formule F-SAV-1 sanity I/O + 20 edge cases + 4 MVP active Tuning Knobs + 6 Tier 2+ reserved + 33 ACs + 10 Open Questions). Foundation autoload data-layer pure : 4 verbes typed MVP (`load_int/save_int/load_string_array/save_string_array`) + 2 Tier 2+ réservés (`load_int_array/save_int_array`) + 1 getter `get_save_version()`. Backend ConfigFile section unique `[data]` sur `user://savegame.cfg`, write-through synchrone, zero outbound signals, zero orchestration cross-system, PROCESS_MODE_ALWAYS ADR-0007 D-4. **Aucune nouvelle constante registry** — toutes constantes Save/Load (`SAVE_FILE_PATH`, `_CURRENT_SAVE_VERSION=1`, `SAVE_ON_QUIT_ENABLED=true`, `LOG_LOAD_WARNINGS=true`) sont system-internal MVP file-locked const. **Aucune referenced_by addition** — Save/Load ne consume aucun cross-system constant (Foundation pure, expose verbes seul ; les consumers Credit/Shop passent leurs keys + defaults en paramètre). **Contrats OQ-CRD-2 + OQ-SHP-3 RESOLVED** : Save/Load r1 confirme `save_int/load_int` + `save_string_array/load_string_array` à l'identique des contrats provisoires Credit r1 + Shop r1. Credit GDD + Shop GDD peuvent promote OQ correspondante en amendement r2 ou laisser le statut tel quel (cosmetic — contrats verrouillés par Save/Load r1 R-SAV-4 immutable MVP). **OQ-SEC-2 PROVISIONAL Tier 2+** : Secret r1 Tier 2+ persistance permanente utilisera `save_int_array/load_int_array` verbes réservés R-SAV-4 — pas activés MVP (Secret r1 §J-2 confirme MVP session-only via Checkpoint snapshot). Bidirectional check 4/4 systèmes pré-existants (Credit/Shop/Secret/GSM) compatibles — aucun amendement requis sur GDDs amont. Décisions design tranchées : (1) ConfigFile MVP (rejet JSON verbeux + Resource schema-locked + binary FileAccess Godot 4.4 breaking change `store_*` returns bool) ; (2) Single section `[data]` flat keys MVP, sectionning par système prématuré ; (3) write-through synchrone pas batch (Shop R-SHP-8 atomicité achat) ; (4) zero orchestration — verbes purs, consumers décident *quand* sauver (single responsibility) ; (5) zero outbound signals MVP ; (6) PROCESS_MODE_ALWAYS ADR-0007 D-4 conformity ; (7) Settings split fichier `user://settings.cfg` Tier 2+ recommandation OQ-SAV-2 (corruption isolation + cross-profile + reset standalone) ; (8) atomic write temp+rename Tier 2+ déféré OQ-SAV-4 ; (9) encryption Tier 3 leaderboards anti-cheat OQ-SAV-7 ; (10) `_save_version=1` réservé MVP, framework migration Tier 2+ OQ-SAV-5. Anti-patterns testables (4 ACs) : zero Control/Sprite/Label child node, zero AudioStreamPlayer, zero outbound signal, zero cross-system import (Credit/Shop/Secret/Upgrade/HUD/Combat/Movement/Camera/VFX/Audio). Solo gates : CD-GDD-ALIGN skipped. UX flag : N/A (zero UI propre). Asset Spec : N/A MVP (zero asset visuel/sonore). **Débloque** : `/design-review save-load-system` fresh session (résout OQ-SAV-1 critique Sprint 1 — Upgrade contract verbe additionnel ?), `/design-system upgrade-system` (résout OQ-SAV-1 + Shop r1 OQ-SHP-2 + débloque story tooling Movement double_jump/dash_horizontal), `/design-system menu-system` (sibling — pas de hard dependency Save/Load), Sprint 1 impl backbone Credit + Shop + Save/Load triplet jouable end-to-end Pillar 2 testable. Previous: /design-system shop-system (r1 solo auto-approve) : Shop System GDD r1 written (1009 lignes, 16 Core Rules + 6-states machine + 10 interactions + 5 formules dont F-SHP-3 sanity Pillar 2 marge 25 cr + 35 edge cases + 52 ACs + 10 Open Questions + 10 sous-thèmes UI Requirements). MVP : 2 upgrades binaires (`double_jump` n=0 → 20 cr, `dash_horizontal` n=1 → 40 cr) ; scène transitoire `shop.tscn` Control fullscreen (pas autoload) ; pattern node-local ShopControllerScript ; idempotence triple (UI guard + Save/Load re-entry + UpgradeSystem.apply_upgrade idempotent) ; persistance immédiate post-achat ; ESC = Continuer ; pas d'état SHOPPING dans GSM (R-SHP-5 décidé). **Aucune nouvelle constante registry shop-internal** — toutes constantes Shop (N_UPGRADES_MVP=2, SHOP_FADE_*_MS, SHOP_CREDIT_TWEEN_DURATION_MS=300, SHOP_CANVAS_LAYER=60, palette Chrome Zen tokens) sont system-internal MVP. **Promotion BASE_UPGRADE_COST + TIER_COST_STEP en registry** : ces deux constantes Credit r1 system-internal traversent maintenant la frontière Credit→Shop (F-SHP-1 délégation à F-CRD-3) — registrées en cross-system constants owned par Credit, referenced_by=[credit, shop]. **1 referenced_by addition** : MAX_KILLS_PER_SWING (déjà partagé Combat/Enemy/Audio/Credit/HUD — pas de modification supplémentaire requise pour Shop). **Contrat OQ-CRD-2 RESOLVED** : Credit Economy r1 attendait `try_spend(amount: int) -> bool` SYNC atomique côté Shop — Shop r1 confirme l'API à l'identique (R-SHP-6 cycle d'achat étape 4). Credit GDD peut promote OQ-CRD-2 RESOLVED en amendement r2 ou laisser comme contrat verrouillé. **Contrats provisoires Shop** documentés mais non registrés : `UpgradeSystem.apply_upgrade(id: StringName) -> void` SYNC idempotent (OQ-SHP-2 — Upgrade Not Started), `SaveLoad.save_string_array("owned_upgrades", Array[StringName])` + `load_string_array(key, default)` (OQ-SHP-3 — Save/Load Not Started), `AudioSystem.play_sfx(id, bus="SHOP_UI" \| "UI")` Tier 2+ (OQ-SHP-4 — amendement Audio r2.2 recommandé). Solo gates : CD-GDD-ALIGN skipped. UX flag : `/ux-design shop-screen.md` requis avant `/create-epics shop-system`. Asset Spec : différé Tier 2+ (HUD MVP purement typographique + ColorRect placeholder icons). **Débloque** : `/design-review shop-system` (fresh session — résout OQ-SHP-2/3/4/5 critiques), Sprint A continuation `/design-system upgrade-system` (consume apply_upgrade contract) + `/design-system save-load-system` (provide save_string_array) + `/design-system menu-system` (sibling target main_menu.tscn). Previous: /design-system secret-system (r1 solo auto-approve) : Secret System GDD r1 written (778 lignes, 15 Core Rules + 2 formules + 14 edge cases runtime + 7 anti-patterns authoring + 52 ACs + 10 Open Questions). **Aucune nouvelle constante registry** — toutes constantes Secret (IDEMPOTENCE_KEY_STRATEGY, MIN_VOLUME_HEIGHT_ABOVE_FLOOR=2.0m, MIN/MAX_LURE_TO_VOLUME_DISTANCE=5/30m, COLLECT_VOLUME_RADIUS=1.5m, MAX_VOLUMES_PER_ROOM=3, etc.) sont system-internal MVP — Secret-internal (runtime) ou authoring guidelines pour Level Designers (à intégrer en amendement Level r5 lint pré-build). **1 referenced_by addition** : LAYER_INTERACTIVE (Secret R-SEC-04 consume via SecretCollectVolume_NN Area3D layer 5 — itération depuis `LevelSystem.get_secret_slots()` au signal `level_active`). **Contrat OQ-CRD-1 RESOLVED** : Credit Economy r1 attendait `secret_collected(secret_node: Node, tier: int)` SYNC depuis Secret System provider — Secret r1 confirme l'API à l'identique (R-SEC-07 émission SYNC depuis callback physique main thread, tier ∈ {1,2,3} via SecretLureMarker.tier @export R-SEC-05). Credit GDD peut promote OQ-CRD-1 RESOLVED en amendement r2 ou laisser comme contrat verrouillé. **Contrats provisoires Secret** documentés mais non registrés : `Checkpoint.get_collected_secrets()/restore_collected_secrets(ids)` (OQ-SEC-1 — Checkpoint Not Started), `SaveLoad.save_int_array/load_int_array` Tier 2+ (OQ-SEC-2 — Save/Load Not Started), `SECRET_COLLECT` bus audio (OQ-SEC-4 — amendement Audio r2.2 recommandé). Solo gates : CD-GDD-ALIGN skipped. **Débloque** : `/design-review secret-system` (fresh session), `/design-system shop-system` (consume try_spend), `/design-system save-load-system` (provide load_int_array), `/design-system checkpoint-respawn-system` (bidirectional snapshot Secret), amendement Audio r2.2 (bus SECRET_COLLECT), amendement Level r5 (lint authoring tuples Secret). Previous: /design-system hud-system (r1 solo auto-approve) : HUD GDD r1 written. **Aucune nouvelle constante registry** — toutes les constantes HUD (CREDIT_COUNTER_TWEEN_MS=100, PULSE_SCALE_MAGNITUDE=1.05, HUD_MARGIN_RIGHT_PX=24, HUD_MARGIN_TOP_PX=20, HUD_CANVAS_LAYER=50, HUD_VISIBILITY_DURING_PAUSED, HUD_VISIBILITY_DURING_RESPAWNING, HUD_COLOR_BASE=#E8E8F0, HUD_SECRET_FLASH_*, etc.) sont system-internal MVP — un seul GDD (HUD lui-même) les consomme. **2 referenced_by additions** : MAX_KILLS_PER_SWING (HUD EC-HUD-05 + AC-HUD-19/20 — multi-kill 3 emits séquentiels même tick → Rule 5 + F-HUD-1 tween chaining sans overshoot scale > 1.05) ; RESPAWN_DELAY (HUD Rule 9 + EC-HUD-07 — respawn 50ms ne déclenche pas de freeze HUD, tween d'increment continue, Pillar 3 cohérent). Aucune autre constante référencée — HUD consomme APIs (`CreditEconomy.get_total/credits_changed`, `GameStateManager.get_current_state/state_changed`) et signaux, pas de constantes par valeur. Solo gates : CD-GDD-ALIGN skipped. **Débloque** : `/ux-design hud.md` (UX flag posé Section J) + `/create-epics hud-system` (post-/design-review fresh) + Sprint A continuation `/design-system shop-system` (consume try_spend) ou `/design-system menu-system` (own pause overlay) ou `/design-system save-load-system` (provide load_int/save_int). Cooldown ratio Combat + room_entered Level différés Tier 2+ playtest 1. Previous: /design-system credit-economy-system (r1 solo auto-approve) : Credit Economy GDD r1 written. Aucune nouvelle entité/item/formule/constante registry — toutes les constantes Credit (BASE_SECRET_CREDIT, BASE_UPGRADE_COST, TIER_COST_STEP, kill_credit[]) sont system-internal MVP (un seul GDD les consomme directement). Credit ajouté en referenced_by sur 1 constante existante (MAX_KILLS_PER_SWING — F-CRD-1 cross-ref Combat plafond multi-kill 3 cr/tick max). Nouveaux contrats cross-system documentés mais non registrés (signaux et API attendus de systems Not Started) : `secret_collected(secret_node: Node, tier: int)` SYNC depuis Secret System (PROVISOIRE — OQ-CRD-1), `try_spend(amount: int) -> bool` exposé pour Shop (OQ-CRD-2), `credits_changed(total, delta, source: SourceKind)` SYNC pour HUD, `SaveLoad.load_int/save_int` consommés. Enum `SourceKind { KILL=0, SECRET=1, SPEND_SHOP=2, BOOT_HYDRATE=3 }` réservation MVP. 49 ACs (48 BLOCKING + 1 ADVISORY). Solo gates : CD-GDD-ALIGN skipped. **Débloque** : `/design-review credit-economy-system` (fresh session), `/design-system shop-system` (consume try_spend), `/design-system hud-system` (consume credits_changed), `/design-system secret-system` (provide secret_collected). Previous: /design-system enemy-system (r1 solo auto-approve) : Enemy MVP unique archetype "grunt" registered as 1ère entity entry. +1 nouvelle constante R_ENEMY_MIN=0.35 m (cross-system contract Combat F.gap_max anti-tunneling). 6 referenced_by additions sur constants existantes (KATANA_REACH, MAX_KILLS_PER_SWING, LAYER_PLAYER/ENEMY/ENEMY_HITBOX/ENVIRONMENT). 🚨 Cross-GDD conflict potentiel détecté (OQ-ENM-1) : Combat Rule 11 stipule "Combat émet enemy_killed" mais Enemy GDD Rule 11 dit "Enemy émet" — résolution proposée Enemy comme autorité d'émission, Combat amendable Sprint A via /design-review. Previous: /consistency-check audio-system (r1 solo auto-approve) : 2 valeurs stale + 2 referenced_by stale absorbés. SLOW_MO_SCALE 0.15 → 0.3 (safe_range [0.10,0.30] → [0.10,0.50]) et SLOW_MO_DURATION_MS 100 → 50 (safe_range [50,200] → [30,150]) — alignement sur Combat GDD r1 retune Martin D3 (jamais répercuté au registry au moment de Combat r1 — Audio GDD r1 a détecté la divergence et l'a documentée OQ ligne 384). audio-system.md ajouté en referenced_by sur les deux constantes (consommé par mix hierarchy, ducking, AC-AUD-07, Formula 4). Cross-GDD gap signal Level `etage_loaded` documenté hors scope registry (recommandation : amendement Level GDD r4 ou alternative décidée par Martin D3 avant Sprint Audio). Previous: /design-system audio-system (r1 solo auto-approve, ADR-0009 Accepted 2026-04-27 binding) : Audio System ajouté en referenced_by sur 1 constante existante (RESPAWN_DELAY — death.wav ≤ 40 ms = RESPAWN_DELAY 50 ms - 1 frame margin, Pillar 3 contract). Aucune nouvelle constante cross-system registrée — toutes constantes Audio sont system-internal MVP (swoosh_fade_duration_ms, ducking_release_ms, ducking_db_attenuation, ambient_crossfade_ms, blood_ambiance_delay_ms, death_audio_max_duration_ms, pool_2d_size, pool_3d_size — toutes Tuning Knobs Audio GDD, pas consommées par autre système au MVP). Bus names `Master / Music / SFX / swing_active / combat_kill / Ambience / UI` figés ADR-0009 D-1 (autorité canonique = Audio GDD, pas registry — figés via const StringName helper static `AudioBuses`). Previous: /design-system game-state-manager (r1 solo auto-approve + réalignement sur ADR-0007 Proposed) : GSM ajouté en referenced_by sur RESPAWN_DELAY (Formula 2 respawn window). Aucune nouvelle constante cross-system registrée — draft initial proposait RESPAWN_SAFETY_TIMEOUT_MS (500 ms) mais retiré au réalignement ADR-0007 D-7 (GSM pur state tracker MVP, pas de safety timer). State enum values (MENU/PLAYING/PAUSED/RESPAWNING/BOSS_DEFEATED) NON registrés comme entries — déjà documentés architecture.md §6.4, architecture.yaml l.125, et ADR-0007 D-2 comme autorité. API publique figée ADR-0007 D-10 (5 verbes + 1 signal state_changed(new_state) + 1 getter get_current_state). Previous: /design-system level-system r1 : Level System cité en referenced_by sur 4 constantes existantes (KATANA_REACH via Formula 1 min_opening_width = 2 × KATANA_REACH = 3.6 m ; LAYER_ENVIRONMENT layer 4 autorité géométrie statique ; LAYER_INTERACTIVE layer 5 autorité triggers ; RESPAWN_DELAY pull depuis Checkpoint sur player_out_of_world). Aucune nouvelle constante cross-system registrée (Level-internal au MVP — futurs Checkpoint/Secret/Enemy GDDs enregistreront leurs consumers). Previous: /consistency-check camera-system : RESPAWN_DELAY 0.2 → 0.05 s (aligné Movement GDD r3 Martin 2026-04-21) ; WALL_RUN_TILT_ANGLE notes nettoyées (Movement GDD patch confirmé). Previous: /design-system player-combat-system : +9 constants Combat (KATANA_REACH, KATANA_RADIUS, SWING_DURATION_MS, ATTACK_COOLDOWN_MS, TUNNELING_THRESHOLD, N_SUBSTEPS, MAX_KILLS_PER_SWING, SLOW_MO_SCALE, SLOW_MO_DURATION_MS) + 5 constants collision layers (LAYER_PLAYER, LAYER_ENEMY, LAYER_ENEMY_HITBOX, LAYER_ENVIRONMENT, LAYER_INTERACTIVE). r_enemy_min = 0.35 m cross-system contract consommé par Combat Section D.3 (non registré comme entrée — contrat Enemy System à figer au GDD futur).
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, characters, factions, bosses.
@@ -48,7 +48,36 @@ last_updated: ""
 # Attribute fields: any key stats that could appear in another GDD
 #   (health, damage, drops, faction, etc.)
 
-entities: []
+entities:
+  - name: grunt
+    status: active
+    source: design/gdd/enemy-system.md
+    referenced_by:
+      - design/gdd/enemy-system.md
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+      - design/gdd/level-system.md
+      - design/gdd/credit-economy-system.md
+    archetype: grunt
+    health: 1                     # one-shot strict (Pillar 1, anti-pillar #5 game-concept)
+    capsule_radius_m: 0.35        # = R_ENEMY_MIN constant
+    capsule_height_m: 1.8         # HEIGHT_GRUNT_M
+    body_layer: 2                 # LAYER_ENEMY
+    body_mask: 8                  # LAYER_ENVIRONMENT only (Enemy mask=8 contract ADR-0008)
+    hitbox_layer: 3               # LAYER_ENEMY_HITBOX (LaserCone Area3D)
+    hitbox_mask: 1                # LAYER_PLAYER (kills player only)
+    laser_box_size_m: [0.5, 0.3, 6.0]   # LASER_WIDTH × LASER_HEIGHT × LASER_RANGE default
+    death_tween_duration_ms: 150  # wall-clock; 400 if reduce_motion=true
+    queue_free_on_death: false    # nœud persiste à scale 0.01 jusqu'à level unload (Enemy Rule 12)
+    api:
+      die: idempotent
+      is_dead: getter
+      _restore_from_snapshot: "(was_dead: bool)"
+    signals_emitted:
+      - "enemy_killed(enemy: Node, position: Vector3)  # SYNC, depuis die()"
+    notes: "MVP unique archetype enemy. Statique (set_physics_process false), one-shot mutuel strict. Spawné depuis Marker3D `EnemySlot_*` Level System R-2.6. Combat émet enemy_killed via consumption — Enemy est l'autorité d'émission (cf OQ-ENM-1 cross-GDD conflict resolution proposée). Tier 2+ ajoutera 4 archétypes (sentinelle pivot, brute, drone, sniper) sans rompre l'invariant one-shot."
+    added: 2026-04-27
+    revised: ""
 
 # Example (remove when first real entry is added):
 #
@@ -139,7 +168,324 @@ formulas: []
 #
 # Required fields: name, status, source, referenced_by, value, unit, added
 
-constants: []
+constants:
+  - name: mouse_sensitivity
+    status: active
+    source: design/gdd/input-system.md
+    referenced_by:
+      - design/gdd/input-system.md
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+    value: 0.0022
+    unit: rad/px
+    safe_range: [0.0005, 0.012]
+    notes: "Ownership résolu par /consistency-check 2026-04-21. Anciennement listé comme MOUSE_SENS dans le Movement GDD Tuning Knobs (retiré). Input System est custodian ; Movement + Camera le consomment pour yaw et pitch. Camera GDD activé dans referenced_by le 2026-04-21 (placeholder commenté levé). Safe range élargi de [0.0010, 0.0050] à [0.0005, 0.012] post-design-review r2 (2026-04-21) pour couvrir high-sens FPS (CS:GO, Valorant) et low-sens sniper. Default 0.0022 inchangé. Slider UI exposera un mapping exponentiel non-linéaire pour garder précision dans basses valeurs."
+    added: 2026-04-21
+    revised: 2026-04-21
+
+  - name: mouse_y_inverted
+    status: active
+    source: design/gdd/input-system.md
+    referenced_by:
+      - design/gdd/input-system.md
+      - design/gdd/camera-system.md
+    value: false
+    unit: bool
+    notes: "Setting utilisateur persistant dans input_settings.tres. Camera System lit cette valeur pour inverser le pitch ; n'affecte pas le yaw. Enregistré lors du /consistency-check 2026-04-21 après écriture du Camera GDD."
+    added: 2026-04-21
+    revised: ""
+
+  - name: BASE_FOV
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 90
+    unit: degrees
+    safe_range: [80, 100]
+    notes: "FOV caméra de base. Owned par Camera System (constantes caméra). Movement GDD le référence indirectement via les peak values FOV dans Visual/Audio Requirements et Acceptance Criteria. Défaut validé prototype. Conflit antérieur (Movement utilisait 100° au lieu de 90°) résolu par /consistency-check 2026-04-21."
+    added: 2026-04-21
+    revised: ""
+
+  - name: DASH_FOV_KICK
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 10
+    unit: degrees
+    safe_range: [6, 14]
+    notes: "Variation de FOV appliquée pendant un dash (additif à BASE_FOV). Peak dash = BASE_FOV + DASH_FOV_KICK = 100° par défaut. Movement GDD référence cette valeur via les AC dash et le toggle reduce_motion (kick ≤ 4° alors)."
+    added: 2026-04-21
+    revised: ""
+
+  - name: WALL_RUN_TILT_ANGLE
+    status: active
+    source: design/gdd/camera-system.md
+    referenced_by:
+      - design/gdd/camera-system.md
+      - design/gdd/player-movement-system.md
+    value: 0.35
+    unit: rad
+    safe_range: [0.25, 0.45]
+    notes: "Angle de roll caméra pendant wall-run, appliqué à CameraEffects.rotation.z (cf. ADR-0002 + Camera GDD Rule 4). 0.35 rad ≈ 20°. Validé par playtest prototype movement-katana (2026-04-21) — le Movement GDD initial indiquait ~12° comme placeholder pré-playtest. Le présent GDD Camera est désormais source de vérité. Conflit résolu : Movement GDD patché r2 (lignes 369, 371, 386, 420) pour retirer la valeur numérique et référencer Camera GDD comme owner. Vérifié clean par /consistency-check 2026-04-23."
+    added: 2026-04-21
+    revised: 2026-04-23
+
+  - name: RESPAWN_DELAY
+    status: active
+    source: design/gdd/player-movement-system.md
+    referenced_by:
+      - design/gdd/player-movement-system.md
+      - design/gdd/camera-system.md
+      - design/gdd/input-system.md
+      - design/gdd/level-system.md
+      - design/gdd/game-state-manager.md
+      - design/gdd/audio-system.md
+      - design/gdd/hud-system.md
+    value: 0.05   # was: 0.2 before 2026-04-23 (/consistency-check camera-system) — décision Martin r3 2026-04-21 respawn quasi-instantané (Pillar 3)
+    unit: seconds
+    safe_range: [0.03, 0.2]   # was: [0.1, 0.5] before 2026-04-23 — aligné Movement GDD Tuning Knobs r3
+    notes: "Délai entre appel `die()` et le respawn actif (position remise au checkpoint, inputs ré-activés). Owned par Movement System (Tuning Knobs + Detailed Rules). Camera System fige la rotation + applique l'overlay mort pendant cette fenêtre (cf. Camera GDD Rule 9 + Visual/Audio). Input System référence la constante pour le freeze `enabled=false` en gestion Checkpoint. Level System publie le signal `player_out_of_world(last_valid_position)` qui alimente le pull Checkpoint → RESPAWN_DELAY cycle (Level GDD EC-1 + AC-LVL-25). Game State Manager System consomme dans Formula 2 (respawn_window_ms = RESPAWN_DELAY × 1000 = 50 ms MVP) pour dimensionner l'état RESPAWNING entre notify_player_died et notify_respawn_complete (AC-GSM-14). Valeur révisée r3 Martin 2026-04-21 : 0.2 → 0.05 s pour maximiser Pillar 3 'UNE SECONDE CHANCE'. Invariant impératif : RESPAWN_DELAY ≥ 1/DISPLAY_TICK_RATE (16.6 ms à 60 Hz) pour garantir les consommateurs CONNECT_DEFERRED du signal died. Feedback visuel (fondu rouge) et audio (death.wav) raccourcis à ≤ 40 ms pour ne pas être tronqués. AC garde-fou playtest attribution causale ajouté (Movement AC-MV-101). /consistency-check 2026-04-23 : registry aligné sur valeur courante."
+    added: 2026-04-21
+    revised: 2026-04-23
+
+  # ─── Combat constants (added 2026-04-22 by /design-system player-combat-system) ───
+
+  - name: KATANA_REACH
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - design/gdd/enemy-system.md
+    value: 1.8
+    unit: meters
+    safe_range: [1.4, 2.2]
+    notes: "Longueur utile de la hitbox capsule katana. Oblige proximité (vs ~2.0 m Ghostrunner). Invariant Section D.8 : doit rester > player.capsule_radius + 1.0 m. Consommé par Level System via Formula 1 (min_opening_width = 2 × KATANA_REACH = 3.6 m) — toute porte/couloir MVP respecte ce gabarit. Consommé par Enemy System (hitbox grunt — capsule r_enemy_min 0.35 m + KATANA_REACH 1.8 m garantissent kill at-distance). Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: KATANA_RADIUS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 0.45
+    unit: meters
+    safe_range: [0.30, 0.60]
+    notes: "Rayon de la CapsuleShape3D de la hitbox katana. Couvre lame + 0.10 m de marge de netteté. Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: SWING_DURATION_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 120
+    unit: milliseconds
+    safe_range: [80, 200]
+    notes: "Durée nominale du swing actif (hitbox ouverte). 8 ticks @ 60 Hz. Invariant cross-GDD Section D.8 : DASH_DURATION Movement (100 ms) < SWING_DURATION (120 ms) — conséquence documentée (swing survit au dash, rule 8 couvre). Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: ATTACK_COOLDOWN_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 400
+    unit: milliseconds
+    safe_range: [300, 600]
+    notes: "Cooldown entre deux swings consécutifs. Démarre au début du swing (pas fin). Invariants Section D.8 : > SWING_DURATION + 1 frame, > 2 × SLOW_MO_DURATION. Tuning knob combat_config.tres."
+    added: 2026-04-22
+    revised: ""
+
+  - name: TUNNELING_THRESHOLD
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 25.0
+    unit: meters_per_second
+    safe_range: [20.0, 35.0]
+    notes: "Seuil vélocité joueur au-dessus duquel le sweep hitbox est subdivisé en N_SUBSTEPS casts (anti-tunneling). V_max dash ≈ 30 m/s. Formule gap_max = V × delta / N_SUBSTEPS doit rester < 2 × r_enemy_min = 0.7 m."
+    added: 2026-04-22
+    revised: ""
+
+  - name: N_SUBSTEPS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+    value: 3
+    unit: count
+    safe_range: [2, 5]
+    notes: "Nombre de sous-casts ShapeCast quand V > TUNNELING_THRESHOLD. 3 = gap_max 0.167 m à V=30 m/s. Couvre V jusqu'à 42 m/s théorique avec marge 60%."
+    added: 2026-04-22
+    revised: ""
+
+  - name: MAX_KILLS_PER_SWING
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
+      - design/gdd/audio-system.md
+      - design/gdd/credit-economy-system.md
+      - design/gdd/hud-system.md
+    value: 3
+    unit: count
+    safe_range: [1, 10]
+    notes: "Plafond de kills multi-hit par swing. Ennemis triés par distance croissante, 3 premiers reçoivent die(). Au-delà : ignorés ce tick. Anti-dégénération 'un coup vide la salle'. NE PAS faire varier selon difficulté (règle de base, pas tuning). Enemy GDD F-ENM-3 cross-ref + Audio Formula 3 dimensionne pool combat_kill 12 voices basé sur ce plafond × cadence + Credit Economy F-CRD-1 cross-ref (multi-kill 3 → 3 emits credits_changed séquentiels SYNC le même _physics_process tick, plafond yield kill par tick = 3 × kill_credit['grunt'] = 3 cr MVP) + HUD GDD EC-HUD-05 + AC-HUD-19/20 (3 emits SYNC séquentiels même tick → Rule 5 tween chaining via tween.kill() + create_tween() à chaque emit, pulse final atteint pic ~50ms post-3e emit sans overshoot scale > 1.05, valeur Label.text n'excède jamais N+3)."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: R_ENEMY_MIN
+    status: active
+    source: design/gdd/enemy-system.md
+    referenced_by:
+      - design/gdd/enemy-system.md
+      - design/gdd/player-combat-system.md
+    value: 0.35
+    unit: meters
+    safe_range: [0.30, 0.50]
+    notes: "Rayon canonique d'un Enemy standard MVP (CapsuleShape3D radius). Cross-system contract Combat Section D.3 : invariant gap_max = V_player × delta / N_SUBSTEPS < 2 × r_enemy_min = 0.7 m garantit anti-tunneling. À V_max=30 m/s + N_SUBSTEPS=3 : gap_max = 0.167 m < 0.7 m (marge 4×). Toute baisse < 0.30 m exige amendement Combat (N_SUBSTEPS ↑ proportionnel) + PR cross-GDD. Tier 2+ archétypes (drone aérien notamment) doivent respecter r ≥ 0.35 m ou amender ce contrat."
+    added: 2026-04-27
+    revised: ""
+
+  - name: SLOW_MO_SCALE
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+    value: 0.3   # was: 0.15 before 2026-04-27 (/consistency-check audio-system absorbing Combat r1 D3 Martin retune 0.15 → 0.3 ; perception 50 ms wall-clock × 1/0.3 ≈ 167 ms percus = micro-pause rythmique servant Fantasy "silence entre deux notes", anti-climax)
+    unit: ratio
+    safe_range: [0.10, 0.50]   # was: [0.10, 0.30] before 2026-04-27 — aligné Combat GDD Tuning Knobs r1 (range élargi à 0.50 pour permettre retune fluide en playtest sans atteindre l'imperceptible)
+    notes: "Engine.time_scale appliqué pendant la fenêtre slow-mo kill. Default 0.3 (r1 Martin D3 — micro-pause rythmique, pas climax cinématique). Via `reduce_motion_slow_mo_scale_mult >= 1.0` quand accessibility active : mult=2.0 → effectif 0.6 (ralenti moins prononcé), mult=3.33 → ≈1.0 (aucune slow-mo). Audio System consomme la valeur via : (a) mix hierarchy ducking sur `swing_active` bus -6 dB release 30 ms wall-clock ; (b) Rule 11 invariant `AudioStreamPlayer.pitch_scale = 1.0` indépendant de `Engine.time_scale = SLOW_MO_SCALE` (Decision Martin D3 — slow-mo visuelle, pas sonore — Godot 4.6 default behavior confirmé) ; (c) AC-AUD-* mix verification au time_scale 0.3. Previous registry value (0.15) était la draft initiale Combat pré-r1 (climax 6× slower, anti-Fantasy) — retunée Martin D3 lors de Combat r1, registry sync au consistency-check 2026-04-27."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: SLOW_MO_DURATION_MS
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/audio-system.md
+    value: 50   # was: 100 before 2026-04-27 (/consistency-check audio-system absorbing Combat r1 D3 Martin retune 100 → 50 ms ; @ time_scale 0.3 → ~167 ms percus = ~10 frames rendering @ 60 fps = micro-pause rythmique, pas climax)
+    unit: milliseconds
+    safe_range: [30, 150]   # was: [50, 200] before 2026-04-27 — aligné Combat GDD Tuning Knobs r1 (range serré 30-150 pour préserver Fantasy staccato : > 150 ms = perçu 500 ms = redevient climax)
+    notes: "Durée wall-clock (Time.get_ticks_msec()) de la fenêtre slow-mo — indépendant de delta scalé. Default 50 ms (r1 Martin D3). Invariants critiques Combat Section D.8 : (1) `< ATTACK_COOLDOWN_MS / 2` (#6 inégalité stricte) ; (2) `SWING_DURATION_MS + SLOW_MO_DURATION_MS < ATTACK_COOLDOWN_MS` (#4 — empêche re-swing pendant slow-mo). Une seule slow-mo par swing (idempotence via _slow_mo_active). Audio System consomme la valeur via : (a) Formula 4 perception = SLOW_MO_DURATION_MS × (1/SLOW_MO_SCALE) = 167 ms percus ; (b) AC-AUD-* fade-out swoosh 30 ms wall-clock indépendant time_scale ; (c) blood ambiance delay 50 ms wall-clock = 170 ms percus à 0.3× ; (d) fenêtre kill totale 200 ms wall-clock pour mix hierarchy. Previous registry value (100) était la draft initiale Combat pré-r1 (333 ms percus à 0.3× = climax, anti-Fantasy) — retunée Martin D3 lors de Combat r1, registry sync au consistency-check 2026-04-27."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  # ─── Collision layers taxonomy (cross-system, owned by Combat GDD Rule 12) ───
+
+  - name: LAYER_PLAYER
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 1
+    unit: bit_position
+    notes: "Layer 1 (bit 0b00001). Joueur CharacterBody3D + Katana ShapeCast3D. Canonisée ADR-0008 2026-04-23 (résout G-5). Archetype mask contract : Player body layer=1 mask=30 (Enemy+Hitbox+Env+Interactive) ; Katana ShapeCast layer=1 mask=2 (Enemy only). API write obligatoire 1-indexée `set_collision_layer_value(1, true)`. Enemy GDD : LaserCone Area3D mask=1 (kills player only). Consommateurs futurs : Hazard/Boss/Secret GDDs."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: LAYER_ENEMY
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 2
+    unit: bit_position
+    notes: "Layer 2 (bit 0b00010). Enemy CharacterBody3D body. Katana ShapeCast mask = 2 uniquement. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy body : layer=2 mask=8 (Environment seulement — réciprocité unilatérale, pas de mask LAYER_PLAYER car collision Player↔Enemy résolue côté Player.mask ⊃ 2). Enemy GDD MVP implémente : Grunt body layer=2 mask=8 + R_ENEMY_MIN=0.35m contract figé."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: LAYER_ENEMY_HITBOX
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/enemy-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 3
+    unit: bit_position
+    notes: "Layer 3 (bit 0b00100). Hitboxes létales vers joueur (laser grunt, projectiles, spike, AoE boss). Player mask inclut bit 3 pour subir les hits. Séparé de LAYER_ENEMY pour éviter double-résolution katana ↔ laser. Canonisée ADR-0008 2026-04-23. Archetype mask contract Enemy lethal hitbox Area3D : layer=3 mask=1 (Player only) ; monitoring=true. Enemy GDD MVP : LaserCone Area3D BoxShape3D 0.5×0.3×6.0 m. Hazard System (futur) réutilisera cette layer (amendement ADR-0008 si split requis)."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: LAYER_ENVIRONMENT
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - design/gdd/enemy-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 4
+    unit: bit_position
+    notes: "Layer 4 (bit 0b01000). Sols, murs, plafonds. Player mask inclut. Enemy mask=8 (= bit position 4 = LAYER_ENVIRONMENT only — Enemy détecte sol pour navigation passive). Katana mask EXCLUT (ne coupe pas les murs). Level System est l'**autorité de placement** : tous les StaticBody3D sous `StaticEnvironment/` sont sur ce layer (cf. Level GDD R-3 + AC-LVL-12). Aucun autre système n'instancie de géométrie sur ce layer. Canonisée ADR-0008 2026-04-23. Archetype mask contract Static environment : layer=4 mask=0 (statique détecte rien, détecté par tous)."
+    added: 2026-04-22
+    revised: 2026-04-27
+
+  - name: LAYER_INTERACTIVE
+    status: active
+    source: design/gdd/player-combat-system.md
+    referenced_by:
+      - design/gdd/player-combat-system.md
+      - design/gdd/level-system.md
+      - design/gdd/secret-system.md
+      - docs/architecture/adr-0008-collision-layer-taxonomy.md
+    value: 5
+    unit: bit_position
+    notes: "Layer 5 (bit 0b10000). Triggers shop, checkpoints, secrets. Player mask inclut. Level System est l'**autorité de placement** pour les Area3D (RoomTrigger, CheckpointVolume, SecretCollectVolume, EtageExitTrigger, WorldBoundsVolume) — cf. Level GDD R-3 + AC-LVL-13 (monitorable=false, monitoring=true). Canonisée ADR-0008 2026-04-23. Archetype mask contract Interactive trigger Area3D : layer=5 mask ⊃ 1 (Player obligatoire sinon body_entered silencieux — gate AC-LVL-13 r2). Secret GDD r1 consomme via R-SEC-04 : itère `LevelSystem.get_secret_slots()` au signal `level_active` et connecte `SecretCollectVolume_NN.body_entered → Secret._on_body_entered.bind(slot)` SYNC, garde GSM PLAYING (R-SEC-08), idempotence Dictionary[int, bool] keyed par instance_id (R-SEC-06), tier read depuis SecretLureMarker.tier @export (R-SEC-05). Émission `secret_collected(volume, tier)` SYNC consommée par Credit F-CRD-2."
+    added: 2026-04-22
+    revised: 2026-04-23
+
+  # ─── Shop / Credit Economy cross-system constants (added 2026-04-27 by /design-system shop-system r1) ───
+  # Promotion : ces deux constantes étaient marquées system-internal en Credit r1 (consommé par Credit seul).
+  # Avec Shop r1, elles traversent la frontière Credit→Shop (F-SHP-1 délégation à F-CRD-3 cost curve).
+
+  - name: BASE_UPGRADE_COST
+    status: active
+    source: design/gdd/credit-economy-system.md
+    referenced_by:
+      - design/gdd/credit-economy-system.md
+      - design/gdd/shop-system.md
+    value: 20
+    unit: credits
+    safe_range: [10, 40]
+    notes: "Coût de l'upgrade à n=0 (Credit F-CRD-3 cost curve linéaire `cost_n = BASE_UPGRADE_COST + n × TIER_COST_STEP`). Owned par Credit Economy ; consommé par Shop System F-SHP-1 (lookup délégué via `cost_at_index(n)`). Shop ne redéfinit JAMAIS cette constante — la lit depuis Credit ou via tuning knob `assets/data/shop_config.tres` synchronisé avec Credit. F-SHP-3 sanity Pillar 2 : `total_cost_MVP = 60 cr` (n=0 → 20 + n=1 → 40) avec `session_yield_max_MVP = 85 cr` → marge 25 cr cohérente Pillar 2 + anti-grinding. Variation < 10 = trivialité économique (joueur achète tout sans effort). Variation > 40 = wall MVP impossible (n=0 inaccessible étage 1)."
+    added: 2026-04-27
+    revised: ""
+
+  - name: TIER_COST_STEP
+    status: active
+    source: design/gdd/credit-economy-system.md
+    referenced_by:
+      - design/gdd/credit-economy-system.md
+      - design/gdd/shop-system.md
+    value: 20
+    unit: credits
+    safe_range: [10, 40]
+    notes: "Incrément linéaire par rang dans Credit F-CRD-3 cost curve. cost_n = BASE_UPGRADE_COST + n × TIER_COST_STEP. Pour MVP : 20, 40 cr. Tier 2+ Full Vision (8 upgrades) : 20, 40, 60, 80, 100, 120, 140, 160 cr. Owned par Credit Economy ; consommé par Shop F-SHP-1. La courbe linéaire (vs exponentielle) borne croissance prédictiblement et empêche tout wall final exponentiel. F-SHP-4 ordering rationale : upgrade n=0 cheapest = double_jump (impact perceptuel immédiat Pillar 2), n=1 = dash_horizontal (tactique). Shop NE redéfinit JAMAIS cette valeur."
+    added: 2026-04-27
+    revised: ""
+
+  # Note (2026-04-23) : `RESPAWN_SAFETY_TIMEOUT_MS` considéré initialement comme constante cross-system
+  # mais RETIRÉ au réalignement GSM GDD ↔ ADR-0007 D-7 (ADR-0007 figé GSM pur state tracker, pas de
+  # safety timer interne MVP). Conservé en OQ-5 du GSM GDD comme extension post-MVP (amendement
+  # ADR-0007 D-7 requis). Pas d'entrée registry tant que pas implémenté.
 
 # Example:
 #

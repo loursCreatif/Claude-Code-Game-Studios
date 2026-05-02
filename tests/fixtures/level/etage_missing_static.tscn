@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://etage_missing_static_fixture"]
+
+[node name="EtageMissingStatic" type="Node3D"]
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+[node name="SpawnMarkers" type="Node3D" parent="."]
+
+[node name="EtageExitTrigger" type="Area3D" parent="."]

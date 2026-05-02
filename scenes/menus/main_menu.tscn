@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3 uid="uid://b1mnu001main56"]
+
+[ext_resource type="Script" uid="uid://b1mnu001ctrl78" path="res://src/gameplay/menu/main_menu_controller.gd" id="1_ctrl"]
+[ext_resource type="Theme" path="res://assets/themes/menu_chrome_zen.tres" id="2_theme"]
+
+[node name="MainMenuController" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_ctrl")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0196, 0.0235, 0.0314, 1)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -120.0
+offset_right = 160.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "CHROME://ASCENT"
+horizontal_alignment = 1
+
+[node name="StartButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Start Run"
+
+[node name="QuitButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Quitter le jeu"
+
+[node name="VersionLabel" type="Label" parent="VBoxContainer"]
+layout_mode = 2
+visible = false
+theme_override_colors/font_color = Color(0.235, 0.235, 0.314, 1)
+theme_override_font_sizes/font_size = 11
+text = "v0.1.0-mvp"
+horizontal_alignment = 1

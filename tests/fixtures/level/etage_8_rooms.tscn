@@ -1,0 +1,38 @@
+; Fixture draw-call budget — étage 8 salles (N=8).
+; Utilisée par story-015 AC-LVL-31 : gate p99 draw_calls_level ≤ 290.
+;
+; Budget N=8 : formule F2 linéaire (290 + 60 = 350 at N=10, 290 at N=8).
+; 8 instances Atrium espacées de 10 m sur l'axe X.
+;
+; NOTE technique (story-015) : voir etage_10_rooms.tscn — même remarque
+; sur les stubs sans mesh. Premier run CI = informationnel.
+; Source : ADR-0003 (Rendering Latency), TR-lvl-004.
+[gd_scene load_steps=2 format=3 uid="uid://etage_8_rooms_fixture"]
+
+[ext_resource type="PackedScene" uid="uid://primitive_atrium" path="res://scenes/levels/primitives/atrium.tscn" id="1_atrium"]
+
+[node name="Etage8Rooms" type="Node3D"]
+
+[node name="Room_00" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+
+[node name="Room_01" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10, 0, 0)
+
+[node name="Room_02" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 20, 0, 0)
+
+[node name="Room_03" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 0, 0)
+
+[node name="Room_04" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40, 0, 0)
+
+[node name="Room_05" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 0, 0)
+
+[node name="Room_06" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 0, 0)
+
+[node name="Room_07" parent="." instance=ExtResource("1_atrium")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 70, 0, 0)

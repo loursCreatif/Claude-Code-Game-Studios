@@ -1,0 +1,60 @@
+[gd_scene load_steps=3 format=3 uid="uid://b1mnu002pause56"]
+
+[ext_resource type="Script" path="res://src/gameplay/menu/pause_menu_controller.gd" id="1_pause_ctrl"]
+[ext_resource type="Theme" path="res://assets/themes/menu_chrome_zen.tres" id="2_theme"]
+
+[node name="PauseLayer" type="CanvasLayer"]
+layer = 80
+process_mode = 3
+script = ExtResource("1_pause_ctrl")
+
+[node name="DimRect" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0, 0, 0, 0.65)
+
+[node name="PausePanel" type="PanelContainer" parent="."]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -140.0
+offset_right = 180.0
+offset_bottom = 140.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PausePanel"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="PausePanel/VBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.431, 0.541, 1)
+theme_override_font_sizes/font_size = 13
+text = "PAUSE"
+horizontal_alignment = 1
+
+[node name="ResumeButton" type="Button" parent="PausePanel/VBoxContainer"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Reprendre"
+
+[node name="MainMenuButton" type="Button" parent="PausePanel/VBoxContainer"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Quitter vers Menu Principal"
+
+[node name="QuitButton" type="Button" parent="PausePanel/VBoxContainer"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+text = "Quitter le jeu"

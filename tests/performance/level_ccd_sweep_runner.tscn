@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://level_ccd_sweep_runner"]
+
+[ext_resource type="Script" path="res://tests/performance/level_ccd_sweep_runner.gd" id="1_ccdrunner"]
+
+[node name="LevelCCDSweepRunner" type="Node3D"]
+script = ExtResource("1_ccdrunner")

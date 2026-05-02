@@ -1,0 +1,23 @@
+[gd_scene load_steps=3 format=3 uid="uid://combat_system_001"]
+
+[ext_resource type="Script" path="res://src/gameplay/combat/combat_system.gd" id="1_combatscript"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_katana"]
+; Story 006 : forme du sweep katana — KATANA_RADIUS=0.45 m, KATANA_REACH=1.8 m.
+; Synced avec les constantes combat_system.gd (KATANA_RADIUS, KATANA_REACH).
+radius = 0.45
+height = 1.8
+
+[node name="CombatSystem" type="Node3D"]
+; CombatSystem root — direct child du Player CharacterBody3D.
+; ADR-0006 D-1 : DFS preorder garantit Player._physics_process avant CombatSystem._physics_process.
+; ADR-0006 D-2 : process_physics_priority reste à 0 (défaut).
+script = ExtResource("1_combatscript")
+
+[node name="ShapeCast3D" type="ShapeCast3D" parent="."]
+; Story 006 ADR-0008 D-3 : collision_layer/mask configurés via API 1-indexée dans _ready()
+; (force-clear bits 1-32 puis set LAYER_PLAYER + LAYER_ENEMY) — pas de bitmask littéral ici.
+; ADR-0006 Gap 8 : margin forcé à 0.0 dans _ready() car Jolt ignore la propriété.
+shape = SubResource("CapsuleShape3D_katana")
+enabled = false
+max_results = 8

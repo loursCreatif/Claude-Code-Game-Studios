@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://gap2_shapecast_origin_runner"]
+
+[ext_resource type="Script" path="res://tests/performance/gap2_shapecast_origin_runner.gd" id="1_gap2runner"]
+
+[node name="Gap2ShapecastOriginRunner" type="Node3D"]
+script = ExtResource("1_gap2runner")

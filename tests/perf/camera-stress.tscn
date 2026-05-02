@@ -1,0 +1,24 @@
+[gd_scene load_steps=2 format=3 uid="uid://camera_stress_scene"]
+
+[ext_resource type="Script" path="res://tests/perf/camera_stress_controller.gd" id="1_controller"]
+
+[node name="CameraStressScene" type="Node3D"]
+script = ExtResource("1_controller")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D"]
+
+[node name="WallRight" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WallRight"]
+
+[node name="EnemyStub1" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0, 5)
+
+[node name="EnemyStub2" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 0, 5)
+
+[node name="EnemyStub3" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 10)

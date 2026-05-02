@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://level_memory_runner"]
+
+[ext_resource type="Script" path="res://tests/performance/level_memory_runner.gd" id="1_memrunner"]
+
+[node name="LevelMemoryRunner" type="Node3D"]
+script = ExtResource("1_memrunner")

@@ -24,33 +24,861 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 1
-last_updated: ""
+version: 2
+last_updated: "2026-04-27 r5 (ADR-0009 Audio System Architecture Accepted — Gap G-7 RÉSOLU au niveau architecture. Aucune nouvelle TR-aud-* (Audio GDD not started — TR-aud-* à créer post `/design-system audio-system`). 1 TR partial coverage : TR-lvl-042 material_tagging surface_material → ADR-0009 fournit infrastructure bus + spatialisation, mapping material→stream reste Audio GDD scope. Architecture globale reste PASS — 3 gaps non-blockers MVP restants : G-2a/G-2b Save/Load Settings, G-4 Accessibility Interface Layer. Précédent r4 : ADR-0008 Collision Layer Taxonomy Accepted, G-5 résolu.)"
 
-requirements: []
+requirements:
 
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
-#
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: superseded-by: TR-combat-001
+  # --- Input System (TR-inp-*) ---
+
+  - id: TR-inp-001
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Polling gameplay tick-based : consumer appelant dans _physics_process du tick N reçoit true pour une press qui a eu lieu entre tick N-1 et tick N (API was_pressed_this_tick(action))"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004, ADR-0001]
+
+  - id: TR-inp-002
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Mouse motion capturé via _unhandled_input et republié en signal mouse_motion(delta: Vector2) — pas d'action lue"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-003
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "InputManager = singleton autoload, unique point d'accès à l'input. Interdiction de lire Input.* ailleurs dans le code"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-004
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "StringName discipline : toutes actions référencées par StringName pré-alloué (const ACTION_JUMP := &\"jump\") pour éviter allocs GC dans hot paths"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-005
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Pattern reference-counted request_disable(owner) / request_enable(owner) — 3 owners légitimes (Menu, Checkpoint, Cutscene) sans race"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-006
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Signal application_focus_lost pour découplage Input ↔ GameStateManager (Input = Foundation sans dépendance amont)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-007
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Zero-alloc hot path : ring buffer PackedFloat32Array pré-alloué pour métriques latence (pas de Dictionary literal, pas de push_back Array)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0004]
+
+  - id: TR-inp-008
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Cible latence p99 ≤ 16 ms intra-engine (input event → physics state change)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0003]
+
+  # --- Player Movement (TR-mov-*) ---
+
+  - id: TR-mov-001
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Physics tick rate 60 Hz — toutes les formules vélocité/saut/dash/wall-run calibrées sur dt=1/60. PHYSICS_TICK_RATE paramétré (pas hardcodé)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-mov-002
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "CharacterBody3D + Jolt physics (4.6 default) + ShapeCast3D pour wall detection + raycasts gauche/droite (%WallRayLeft / %WallRayRight unique-name)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-mov-003
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Autorité gameplay _physics_process unique — mouvement, collision, respawn state, wall-run state mutés uniquement en physics frame"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-mov-004
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Hiérarchie camera trois étages : CharacterBody3D → CameraArm → CameraEffects → Camera3D → AudioListener3D (évite conflit Tween head-bob ↔ wall-run tilt)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0002]
+
+  - id: TR-mov-005
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Jump buffer post-MVP (retiré r3) — aucune implémentation MVP, jump = immediate response only"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: []
+
+  # --- Camera System (TR-cam-*) ---
+
+  - id: TR-cam-001
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "Yaw sur player.rotation.y ; pitch sur camera_arm.rotation.x ; tilt sur camera_effects.rotation.z ; fov+shake sur camera3d (ownership séparé par étage scene tree)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0002]
+
+  - id: TR-cam-002
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "aim_forward calculé en forme close trigonométrique à partir de yaw+pitch, ignore tilt par construction (hitbox katana stable horizontalement en wall-run)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0002]
+
+  - id: TR-cam-003
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "Logique caméra en _process (frame rate affichage 60+ fps) — pas de _physics_process. Mouse motion consommée event-driven via signal connection."
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0003]
+
+  - id: TR-cam-004
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "Tilt wall-run visible à 95% de sa cible WALL_RUN_TILT_ANGLE=0.35 rad dans ≤ 200 ms (lerp camera_effects.rotation.z)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: []
+
+  # --- Game Concept / Pillars (TR-gc-*) ---
+
+  - id: TR-gc-001
+    system: game-concept
+    gdd: design/gdd/game-concept.md
+    requirement: "Pillar 1 FLOW AVANT TOUT : latence input → réponse ≤ 1 frame perçue (atteint via opt-in VSync off + cap 144 Hz + G-Sync, default 60 fps VSync = compromis assumé)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0003, ADR-0001, ADR-0004]
+
+  - id: TR-gc-002
+    system: game-concept
+    gdd: design/gdd/game-concept.md
+    requirement: "Pillar 4 PERFORMANCE CONSTANTE : 60+ fps vsync locked baseline sur entry-level gaming laptop. Rendering ≤ 8 ms / Physics ≤ 4 ms / Total frame ≤ 16.6 ms"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0003]
+
+  - id: TR-gc-003
+    system: game-concept
+    gdd: design/gdd/game-concept.md
+    requirement: "Forward+ renderer (default Godot 4.6), Jolt physics (default 4.6), D3D12 Windows (default 4.6) — stack moderne cohérent"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0003]
+
+  # --- Gaps identifiés par /architecture-review 2026-04-21 (append) ---
+
+  - id: TR-mov-006
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Architecture signaux Movement : 8 signaux typés MVP (dash_started, dash_ended, wall_run_entered, wall_run_exited, wall_jumped, died, respawned, attacked) + 1 nom réservé post-MVP (falling) — pattern direct typed signals sur MovementController, emit depuis _physics_process uniquement, connection mode CONNECT_DEFERRED/sync selon critères (a-d), ordre intra-tick déterministe sortie-avant-entrée, idempotence par transition, zero-alloc payloads, MovementController outbound-only (zéro référence consumers)"
+    created: 2026-04-21
+    revised: 2026-04-21
+    status: active
+    covered_by: [ADR-0005]
+    # GAP G-1 RÉSOLU — ADR-0005 Movement Signals Architecture écrit 2026-04-21 (Proposed, en attente validation /architecture-review fresh session avant Accepted).
+
+  - id: TR-mov-007
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Project Setting `physics/3d/default_gravity=0.0` — custom gravity Movement (GRAVITY=24) nécessite désactivation gravity globale Jolt pour éviter double-cumul."
+    created: 2026-04-21
+    revised: 2026-04-21
+    status: active
+    covered_by: [ADR-0001]
+    # GAP G-3 RÉSOLU — ADR-0001 amendé 2026-04-21 (Project Settings + Migration Plan), Status reste Accepted (amendement paramétrique).
+
+  - id: TR-cam-005
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "Performance budget caméra ≤ 0.5 ms/frame p99 — logique camera en _process (yaw+pitch apply, tilt lerp, shake decay, FOV interp). Entrée registry `performance_budgets.camera` manquante."
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: [ADR-0002]
+    # ADR-0002 claim 0.5 ms non enregistré au registry — append mineur.
+
+  - id: TR-cam-006
+    system: camera
+    gdd: design/gdd/camera-system.md
+    requirement: "Lifecycle save/load `camera_settings.tres` (mouse_sensitivity, mouse_y_inverted, fov_user_offset) — persist timing, migration versions, fallback sur corruption"
+    created: 2026-04-21
+    revised: 2026-05-02
+    status: active
+    covered_by: [ADR-0014]
+    # ADR-0014 Save/Load Settings Infrastructure Accepted 2026-05-02 — débloque story camera-013 (Polish P3).
+
+  - id: TR-inp-009
+    system: input
+    gdd: design/gdd/input-system.md
+    requirement: "Lifecycle save/load `input_settings.tres` (remap bindings Tier 2+, sensitivity, invert_y, focus burst window tunable 20-150 ms) — persist + migration + fallback"
+    created: 2026-04-21
+    revised: 2026-05-02
+    status: active
+    covered_by: [ADR-0014]
+    # ADR-0014 Save/Load Settings Infrastructure Accepted 2026-05-02 — débloque story input-010 (Polish P3, pair avec TR-cam-006).
+
+  - id: TR-mov-008
+    system: movement
+    gdd: design/gdd/player-movement-system.md
+    requirement: "Accessibility toggles `reduce_flash` et `reduce_motion` (WCAG 2.3.1/2.3.3) MVP-required — interface ownership, default values, propagation cross-system (Camera shake bypass, Movement tilt bypass, VFX flash bypass)"
+    created: 2026-04-21
+    revised: ""
+    status: active
+    covered_by: []
+    # GAP G-4 — accessibility interface à spécifier (inline spec ou ADR dédié).
+
+  # --- Player Combat System (TR-cmb-*) — ajouté 2026-04-23 /architecture-review ---
+  # Source: design/gdd/player-combat-system.md (r6 APPROVED)
+  # ADR principal: ADR-0006 Combat Tick Model (Proposed — doit passer Accepted via résolution Gaps 2/7/8 pré-Sprint 1)
+
+  - id: TR-cmb-001
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "CombatSystem doit être direct child du Player CharacterBody3D (DFS preorder garantit Player._physics_process avant CombatSystem._physics_process ; invariant structurel préserve Rule 17 mutual kill)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-002
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "CombatSystem.physics_process_priority == 0 (default) — invariant structurel ; any non-zero value casse le DFS parent-before-child ordering (assert au _ready())"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-003
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "CombatSystem owne exclusivement `_prev_position: Vector3` ; initialisé _ready() ; mis à jour à la FIN de _physics_process (capture position tick N pour sweep delta tick N+1)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-004
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "ShapeCast3D sweep anti-tunneling avec N_SUBSTEPS=3 constant par tick actif ; interpolation linéaire entre `_prev_position` et `player.global_position` ; Jolt CCD complément ; Gap 8 empirique ShapeCast3D.margin behavior Jolt vs GodotPhysics3D"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0006]
+
+  - id: TR-cmb-005
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Helper `_build_capsule_basis(forward: Vector3) -> Basis` privé au CombatSystem, construction via cross product direct (NON `Basis.looking_at * from_euler(+PI/2)` qui inverse Y 180°) ; guards colinéarité UP/DOWN + détermimant quasi-singulier ; contract (basis * Vector3.UP).angle_to(forward) < 0.001 rad"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-006
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Géométrie hitbox : KATANA_REACH=1.8m fixe (pas de velocity lookahead), KATANA_RADIUS=0.45m, CapsuleShape3D centrée player.global_position + aim_forward × (reach/2) ; safe ranges [1.4-2.2m] / [0.30-0.60m] ; invariant #1 : reach > player_capsule_radius + 1.0m"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: []
+    # N/A intentional : tuning Combat-local sans ADR (GDD-owned Rule 4/11)
+
+  - id: TR-cmb-007
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Sweep orientation read-only CameraSystem.aim_forward (close-form trigo yaw+pitch, roll-corrected) ; interdit de lire `camera.basis.z` ou `player.transform.basis.z` directement (forbidden pattern)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0002, ADR-0006]
+
+  - id: TR-cmb-008
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Trigger swing via signal Player.attacked() émis par Movement (ADR-0005 D-2) ; jamais Combat polls InputManager.was_pressed_this_tick() directement ; Movement owne edge-detection action attack"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0004, ADR-0005, ADR-0006]
+
+  - id: TR-cmb-009
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Attack buffer unconditional single-slot ATTACK_BUFFER_MS=80ms (safe range [0, COOLDOWN/5] dynamique) ; signal reçu hors fenêtre silencieusement ignoré ; à expiration cooldown, si _buffered_attack && _state==Idle → swing ; buffer cleared sur died()/respawned()"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005, ADR-0006]
+
+  - id: TR-cmb-010
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Timing constants : SWING_DURATION_MS=120, ATTACK_COOLDOWN_MS=400, SLOW_MO_DURATION_MS=50, SLOW_MO_SCALE=0.3 ; invariants #4 (COOLDOWN > SWING+SLOW_MO) #6 (SLOW_MO < COOLDOWN/2) #7 (BUFFER ≤ COOLDOWN/5) asserts _ready()"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0006]
+
+  - id: TR-cmb-011
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Multi-hit resolution : force_shapecast_update() colliders dedupliqués via _hit_this_swing: Array[int] (instance_ids, survivent queue_free) ; filtrage has_method('die') + !is_dead() ; tri ascending par distance ; MAX_KILLS_PER_SWING=3 ; signals enemy_killed(enemy,pos) + multi_kill(count) si ≥2"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-012
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Collision layer taxonomy (5 layers gelés inline Combat Rule 12) : Layer 1=Player, Layer 2=Enemy, Layer 3=EnemyHitbox (lethal TO player), Layer 4=Environment, Layer 5=Interactive. Katana ShapeCast layer=1/mask=2 ; enemy lethal layer=3/mask=1 ; player body layer=1/mask=3+4+5 ; enemy nav layer=2/mask=4"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0008]
+    # G-5 CLOSED 2026-04-23 r4 — ADR-0008 ratifie la taxonomie 5-layer + publie Decision Matrix 7 archetypes (D-2). Player body mask=30=0b11110, Katana ShapeCast layer=1 mask=2, Enemy nav layer=2 mask=8 (pas de reciprocity vers Player — unilatéral), Enemy lethal hitbox layer=3 mask=1. API 1-indexée `set_collision_layer_value(N)` obligatoire (D-3), `CollisionLayers.build_mask(Array[int])` helper pour PhysicsQueryParameters. `project.godot [layer_names]/3d_physics/layer_1..5` mandatory (D-4). Lint CI pre-build `lint-collision-layers` (D-6) gate FAIL sur bitmask direct dans `src/**/*.gd`.
+
+  - id: TR-cmb-013
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Slow-mo timing wall-clock via `_get_time_msec` Callable injecté ; Engine.time_scale=SLOW_MO_SCALE sur 1er enemy_killed ; restore via comparaison wall-clock dans _physics_process (ADR-0001 authority — pas _process) ; multi-kill n'étend pas la fenêtre (idempotence _slow_mo_active flag) ; AudioStreamPlayer pitch NON affecté par time_scale Godot 4.6 (désiré)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0006]
+
+  - id: TR-cmb-014
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Mutual kill Hybrid M1 Option C : Player.died signal SYNC (ADR-0005 D-5 amendment r2 exemption) ; handler `_on_player_died()` sets _death_pending=true uniquement ; au END de _physics_process : check _death_pending → transition Dead, clear ShapeCast3D.enabled, restore time_scale=1.0 si _slow_mo_active ; même tick : symmetric one-shot"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005, ADR-0006]
+
+  - id: TR-cmb-015
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Idempotence hit tracking : _hit_this_swing: Array[int] stocke instance_ids (pas Node refs) ; re-init [] sur entrée Swinging ; filter is_instance_valid(collider) + !in _hit_this_swing ; clear sur exit Swinging (transition Idle) ; garantit aucun enemy hit 2× par swing sur fenêtre 8 ticks ; forbidden pattern : lecture _hit_this_swing depuis thread"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  - id: TR-cmb-016
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Accessibility toggles `reduce_motion` impact Combat : reduce_motion_slow_mo_scale_mult ≥1.0 (bornes [1.0, 3.33]) attenue slow-mo ; reduce_motion_disable_slow_mo toggle ; reduce_motion_flash_mult ∈[0.0,1.0] sur VFX flash alpha (owned VFX) ; sémantique r1 = 'attenuate' (mult ≥ 1.0)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: []
+    # GAP G-4 extension — interface accessibility cross-system Movement/Camera/Combat/VFX. Suggested ADR : ADR Accessibility Interface Layer (mutualisé TR-mov-008).
+
+  - id: TR-cmb-017
+    system: combat
+    gdd: design/gdd/player-combat-system.md
+    requirement: "Injection `_get_time_msec: Callable = Time.get_ticks_msec` substitutable en test (combat_system._get_time_msec = func(): return _mocked_ms) ; single injection point couvre slow-mo (Rule 13) + audio swoosh fade-out (AC-CMB-51) ; prévient mocking ad-hoc per consumer ; teardown obligatoire Engine.time_scale=1.0"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0006]
+
+  # --- Level System (TR-lvl-*) — ajouté 2026-04-23 /architecture-review ---
+  # Source: design/gdd/level-system.md (r1 Draft Complete, pending /design-review approval)
+  # Note: TRs extraits en state 'active' sous réserve ajustements post /design-review r1
+
+  - id: TR-lvl-001
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Scene loading via single .tscn per etage (no room streaming MVP) ; GSM appelle load_etage() / unload_current() atomiquement ; interface provisoire définie §Dependencies en attendant ADR-0007 GSM"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0005, ADR-0007]
+    # Gap G-6 RÉSOLU 2026-04-23 — ADR-0007 Game State Manager formalise l'API GSM → Level (load_etage/unload_current). Interface contract gsm_level_orchestration enregistré registry.
+
+  - id: TR-lvl-002
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Scene state machine : Unloaded → Loading → Active → Unloading → Unloaded ; level_active émis via call_deferred pour garantir peer _ready() avant connection"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-003
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Load time budget ≤ 1000 ms (Formula 4) ; aligné sur fade-in duration ; exceeder casse Pillar 1 FLOW"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0003]
+
+  - id: TR-lvl-004
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Draw call budget per etage ≤ 350 (Formula 2) ; compris dans 500 dc/frame Foundation budget (technical-preferences.md) ; headroom 150 dc pour enemies/VFX"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #10 + D-13 (AC-LVL-31, AC-LVL-55).
+
+  - id: TR-lvl-005
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "VRAM per etage ≤ 50 MB baseline static geometry ; AC-LVL-37 combined ≤ 70 MB (20 RAM + 50 VRAM)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0003]
+
+  - id: TR-lvl-006
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Scene hierarchy mandatoire : StaticEnvironment (Node3D), InteractiveVolumes (Node3D), SpawnMarkers (Node3D), EtageExitTrigger (Area3D) ; lint pre-build vérifie présence ; absence = authoring failure"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-2 hiérarchie canonique 5 groupes + `_validate_scene_hierarchy()` runtime (AC-LVL-11).
+
+  - id: TR-lvl-007
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Static geometry exclusivement Layer 4 (LAYER_ENVIRONMENT) ; Movement System lit ce layer via collision_mask ; changer layer = casse silencieusement wall-run"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001, ADR-0008]
+    # G-5 CLOSED 2026-04-23 r4 — ADR-0008 D-1 ratifie Layer 4=LAYER_ENVIRONMENT + D-2 archetype Static environment (layer=4, mask=0) et Movement wall-ray (mask=8=Layer 4 uniquement). Second coverage ADR-0008 en plus d'ADR-0001 upstream.
+
+  - id: TR-lvl-008
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Interactive triggers (Area3D) exclusivement Layer 5 (LAYER_INTERACTIVE) ; signal-only semantics ; n'interfèrent pas avec physics player"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0008]
+    # G-5 CLOSED 2026-04-23 r4 — ADR-0008 D-1 ratifie Layer 5=LAYER_INTERACTIVE + D-2 archetype Interactive trigger (layer=5, mask ⊃ Layer 1=Player, monitoring=true, monitorable=false). AC-LVL-13 r2 gate `get_collision_mask_value(1) == true` devient enforcement D-3 (API 1-indexée obligatoire).
+
+  - id: TR-lvl-009
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "PlayerStart Marker3D unique mandatoire per etage ; missing = assert fail debug + fallback Vector3.ZERO release + push_error ; lint pre-build doit catch"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-2 SpawnMarkers + D-7 invariant #4 + `_validate_scene_hierarchy` runtime (AC-LVL-18, AC-LVL-8).
+
+  - id: TR-lvl-010
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Minimum door/corridor width = 3.6m (Formula 1 : 2 × KATANA_REACH=1.8m) ; inclut bias oblique dash ~25° ; violation = frustration flow"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #1 (AC-LVL-14), lint `level_lint.gd` CI-gated.
+
+  - id: TR-lvl-011
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Minimum wall-run surface : height ≥ 4m, length ≥ 3m, vertical ±5° (Formula 8) ; dérivé jump_apex 1.68m + reach_margin 2.3m ; authoring lint flag wall candidates"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+    # Sous réserve lint pre-build ADR-0011 (G-8).
+
+  - id: TR-lvl-012
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Room count per etage 8-10 ; <8 = session <20min (too short) ; >10 = dépasse draw_call budget"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #6 (AC-LVL-20).
+
+  - id: TR-lvl-013
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "StaticBody3D count per room ≤ 25 ; Jolt scale linéaire ; lint pre-build enforce ; violation = no-load"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-lvl-014
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Checkpoint spacing 2-3 rooms, nominal MVP=3 (Formula 3) ; ~4 checkpoints pour 10 rooms ; knob CHECKPOINT_SPACING"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #11 (AC-LVL-51), lint `floor(N_rooms/K) ∈ [2,3]`.
+
+  - id: TR-lvl-015
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Secret density : minimum ≥ 3 per etage (game-concept mandate), density divisor ∈ [2,3] (Formula 7) ; floor 3 forcé même si formula produit moins"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #8 tuple Lure/Volume/Anchor + D-2 SpawnMarkers SecretLureMarker/SecretAnchor (AC-LVL-46, AC-LVL-53).
+
+  - id: TR-lvl-016
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Room-to-room altitude change +1 à +4m average 2.5m (Formula 5) ; etage height ~25m (10×2.5m) ; renforce verticality fantasy"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0002]
+
+  - id: TR-lvl-017
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Etage bounding volume ≈ 5000 m³ (10 rooms × 100m² × 5m ceiling, Formula 6) ; WorldBoundsVolume 5800m³ (3m padding) ; outside = player_out_of_world signal"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-9 WorldBoundsVolume BoxShape3D obligatoire + `validate_level_shapes()` runtime lint (AC-LVL-49).
+
+  - id: TR-lvl-018
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "All static geometry Y ≥ -2.0m (R-2.4) ; WorldBoundsVolume trigger below ; respawn gate"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 invariant #3 (AC-LVL-16), lint `level_lint.gd` authoring-time.
+
+  - id: TR-lvl-019
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Wall thickness (collision box min axis) ≥ 0.3m (EC-8) ; <0.3m risque clip-through at velocity >20m/s (dash+combo)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-lvl-020
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "CheckpointVolume_NN ↔ CheckpointAnchor_NN pair consistency (AC-LVL-19) ; distance ≤ 10m ; lint zero-pad naming ; mismatch = authoring error"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-2 conventions nommage zero-padded + D-7 invariant #5 (AC-LVL-19).
+
+  - id: TR-lvl-021
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal level_active(etage_id, player_start: Vector3) émis via call_deferred ; garantit peer _ready() avant signal ; missing = peer misses initialization"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-022
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal room_entered(room_index, total_rooms) fire-once per entry ; re-entry = new signal ; HUD dedupliques si besoin ; pas de dedup côté Level"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-5 signal contract typé + émission sync `RoomTrigger.body_entered` (AC-LVL-22).
+
+  - id: TR-lvl-023
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal etage_completed(etage_id) fire-once semantics ; state transitions Unloading immédiat ; re-entry = no-op"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-024
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal player_out_of_world(last_valid_position: Vector3) fires on WorldBounds exit ; Checkpoint consomme ; Level NE respawn PAS directement (encapsulation R-3)"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0003]
+
+  - id: TR-lvl-025
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal level_unloading(etage_id) émis avant queue_free() ; peers unsubscribe proactivement ; convention enforced ; pas double-cleanup"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-4 T-3 + D-5 ordre émission pre-queue_free (AC-LVL-25).
+
+  - id: TR-lvl-026
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Signal level_load_failed(etage_id, reason: String) on load failure ; state Unloaded ; pas crash ; GSM route error screen"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-027
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Advisory signal level_load_slow(elapsed_ms) when load >600ms ; non-blocking ; load continue ; gate = 1000ms (Formula 4)"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-5 + D-8 polling `_process` advisory non-blocking (AC-LVL-27).
+
+  - id: TR-lvl-028
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Reject concurrent load_etage(id2) when state==Active (EC-2) ; debug : assert 'concurrent load rejected — unload first' ; release : silent push_error"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0005, ADR-0007]
+    # Gap G-6 RÉSOLU 2026-04-23 — ADR-0007 D-5 : GSM permet start_etage() uniquement en MENU, transition PLAYING sur signal level_active → pas de concurrent load possible depuis GSM.
+
+  - id: TR-lvl-029
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Reject load_etage() if scene file missing/corrupted (EC-3) ; debug : push_error details ; release : no-op + signal level_load_failed"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0007]
+    # Gap G-6 RÉSOLU 2026-04-23 — ADR-0007 D-7 + contract gsm_level_orchestration : GSM consomme signal level_load_failed, transitionne MENU + error screen. Impl détaillée via ADR-0011 Level à venir.
+
+  - id: TR-lvl-030
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Assert if PlayerStart missing (EC-4) ; debug : assert fail 'missing PlayerStart' ; release : fallback Vector3.ZERO + push_error"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-2 + D-7 invariant #4 + `_validate_scene_hierarchy` runtime (AC-LVL-8, AC-LVL-18).
+
+  - id: TR-lvl-031
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Deterministic room trigger ordering on simultaneous overlap (EC-5) ; order = tree traversal des InteractiveVolumes ; pas d'inversion"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-032
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Ignore NaN/Inf in body position during room_entered (EC-9) ; pas de signal propagation ; debug push_warning ; source = upstream bug (Movement/Combat)"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-5 filter avant emit (push_warning debug).
+
+  - id: TR-lvl-033
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Safe idempotence unload_current() when already unloaded ; no-op silently ; pas de signal ; pas de crash"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0007]
+    # Gap G-6 RÉSOLU 2026-04-23 — ADR-0007 D-5 : GSM appelle unload_current() uniquement en transition * → MENU. Idempotence owned par Level System (contrat GDD).
+
+  - id: TR-lvl-034
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Complete reset on reload (EC-12) : current_room_index=0, rooms_visited=[] ; quit-to-menu puis reload = fresh state ; peer state reset indépendant"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0007]
+    # Gap G-6 RÉSOLU 2026-04-23 — ADR-0007 D-8 : transition BOSS_DEFEATED → MENU via request_new_run() réinitialise état GSM ; chaque start_etage() repart d'un Level Unloaded frais.
+
+  - id: TR-lvl-035
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Frame time stability p99 ≤ 16.6 ms (60 fps) intra-room ; no stutter during gameplay ; 60 fps frame budget"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+
+  - id: TR-lvl-036
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "No perceptible stutter on room transitions ; playtest validation ; corroboré par p99 ≤ 20 ms durant 200 ms autour trigger"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0003]
+
+  - id: TR-lvl-037
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "No major allocation post-level_active ; stability gate : delta ≤ 2 MB over 60s exploration (static memory)"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-6 arrays pré-construites + make_read_only() + D-13 budget allocation 512 KB + 5 objects (AC-LVL-36).
+
+  - id: TR-lvl-038
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Validate CheckpointAnchor_NN not inside static geometry (EC-7) ; helper validate_checkpoint_anchors() returns {anchor_name, reason} for violations"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0001]
+    # Sous réserve lint pre-build G-8.
+
+  - id: TR-lvl-039
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "No collision clip-through at high velocity (EC-8) ; velocity >20 m/s (dash+combo) must not clip walls ; wall_thickness ≥0.3m"
+    created: 2026-04-23
+    revised: 2026-04-27
+    status: verified
+    covered_by: [ADR-0001]
+    verified_by: [story-014, story-023]
+    verified_at: 2026-04-27
+    # EC-8 CLAIM-UNVERIFIED → VERIFIED via story-023 (cf. ADR-0001 addendum + tests/baselines/level-ccd-baseline.json).
+    # Sub-gates : sweep microbench (story-014, perf-level-ccd) + gameplay scenarios 4× (story-023, perf-level-ccd-gameplay) + regression gate compare_ccd_baseline.gd ±1% tolerance.
+    # AC-LVL-41 PLAYTEST gate final reste à valider en build jouable Sprint 2+ (Movement state machine requis).
+
+  - id: TR-lvl-040
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Render all room geometry as Chrome Zen primitives + flat shader (V-1) ; no imported meshes (OBJ/GLTF) MVP ; 1 shared shader_chrome_zen_flat.gdshader ; palette enforced"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-10 Shader Baker + précompilation boot globale (VR-LVL-1, éliminer freeze 50-150ms D3D12 first-frame).
+
+  - id: TR-lvl-041
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Texture atlas single 1024×1024, no texture >512×512 (V-5, R-4) ; enforces VRAM ≤50 MB ; single shader path"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-13 budget VRAM ≤ 50 MB verrouillé.
+
+  - id: TR-lvl-042
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Material tagging surface_material (concrete/metal/glass/none) on each StaticBody3D (A-2) ; Audio System consomme pour footstep SFX routing ; default='concrete' si absent"
+    created: 2026-04-23
+    revised: 2026-04-27
+    status: active
+    covered_by: [ADR-0009]
+    # G-7 PARTIAL CLOSED 2026-04-27 r5 — ADR-0009 Audio Accepted fournit infrastructure (D-1 buses Ambience/SFX, D-2 pool 8× AudioStreamPlayer3D scene-root owned, D-5 spatialisation 3D positional). Mapping material → stream (concrete/metal/glass) reste **Audio GDD scope** — TR-aud-* à créer post `/design-system audio-system`.
+
+  - id: TR-lvl-043
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Tuning knobs authoring + runtime : level.yaml (authoring) + Project Settings (runtime) ; lint pre-build valide ranges"
+    created: 2026-04-23
+    revised: 2026-04-23
+    status: active
+    covered_by: [ADR-0011]
+    # Gap G-8 RÉSOLU 2026-04-23 r3 — ADR-0011 D-7 lint pré-build 11 invariants + D-13 budgets runtime verrouillés.
+
+  - id: TR-lvl-044
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "All signals emit from main thread only ; verified via OS.get_thread_caller_id() ; no threaded load-requests"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: [ADR-0005]
+
+  - id: TR-lvl-045
+    system: level
+    gdd: design/gdd/level-system.md
+    requirement: "Reciprocity forward : downstream GDDs (Checkpoint, Enemy, Secret, HUD, Tutorial, Audio, VFX) doivent citer Level dans leurs Dependencies (AC-LVL-45) ; /design-review doit flag missing reciprocity"
+    created: 2026-04-23
+    revised: ""
+    status: active
+    covered_by: []
+    # N/A intentional forward-looking — peers GDDs Not Started.

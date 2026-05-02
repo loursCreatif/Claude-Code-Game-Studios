@@ -15,7 +15,8 @@
       "Bash(dir *)",
       "Bash(python -m json.tool*)",
       "Bash(python -m pytest*)",
-      "Bash(py -m pytest*)"
+      "Bash(py -m pytest*)",
+      "Bash(godot --headless --script res://addons/gdUnit4/bin/GdUnitCmdTool.gd*)"
     ],
     "deny": [
       "Bash(rm -rf *)",

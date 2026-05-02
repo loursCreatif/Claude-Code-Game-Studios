@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://gap8_shapecast_margin_runner"]
+
+[ext_resource type="Script" path="res://tests/performance/gap8_shapecast_margin_runner.gd" id="1_gap8runner"]
+
+[node name="Gap8ShapecastMarginRunner" type="Node3D"]
+script = ExtResource("1_gap8runner")

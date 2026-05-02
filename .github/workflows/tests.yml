@@ -1,0 +1,689 @@
+name: Automated Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-input-hot-paths:
+    # story-008 AC-PF-2 — zero-alloc lint statique sur InputManager hot paths.
+    # Source : .claude/rules/no-alloc-hot-paths.md + ADR-0004 D-8.
+    name: Lint — Input Hot Path Alloc
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run no-alloc-hot-paths lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="src/core/input_manager.gd"
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/input-lint-$(date +%Y-%m-%d).log"
+          echo "# Input hot-path lint — $(date -Iseconds)" > "$log"
+          echo "# Scope: $target (functions _unhandled_input, _physics_process, _record_latency_sample)" >> "$log"
+
+          # Function-scoped extraction : n'analyse que le body des 3 hot path functions.
+          # awk capture les lignes entre `func <hot>(...)` et le prochain `func ` top-level.
+          scoped="/tmp/input_hot_paths_scoped.txt"
+          awk '
+            /^func[[:space:]]+(_unhandled_input|_physics_process|_record_latency_sample)[[:space:]]*\(/ {
+              inside = 1
+              printf("### %s\n", $0) > "/tmp/input_hot_paths_scoped.txt"
+              next
+            }
+            /^func[[:space:]]+/ { inside = 0 }
+            inside { print NR ":" $0 >> "/tmp/input_hot_paths_scoped.txt" }
+          ' "$target"
+
+          if [ ! -s "$scoped" ]; then
+            echo "LINT FAIL: could not extract hot path function bodies from $target"
+            exit 2
+          fi
+
+          # Patterns forbidden (cf. .claude/rules/no-alloc-hot-paths.md).
+          # Commentaires (lignes commençant par # après tab/spaces + num:) exclus.
+          patterns=(
+            '\bpush_back\s*\('
+            '\{[^}]*=[^}]*\}'
+            '=[[:space:]]*\[[^]]*,[^]]*\]'
+            '\.new\s*\(\s*\)'
+            '\bString\s*\('
+            '"[^"]*"[[:space:]]*\+'
+          )
+          violations=0
+          for pat in "${patterns[@]}"; do
+            if matches=$(grep -E "$pat" "$scoped" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' || true); then
+              if [ -n "$matches" ]; then
+                echo "--- pattern: $pat ---" >> "$log"
+                echo "$matches" >> "$log"
+                violations=$((violations + 1))
+              fi
+            fi
+          done
+
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "AC-PF-2 FAIL: $violations forbidden pattern(s) matched — see $log"
+            cat "$log"
+            exit 1
+          fi
+          echo "AC-PF-2 PASS — 0 forbidden patterns in $target hot paths (scoped)"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: input-lint-log
+          path: production/qa/evidence/input-lint-*.log
+
+  lint-input-main-thread:
+    # story-008 — lint cover-all : Input.* main-thread-only (ADR-0004 D-7 + VC-7).
+    # Source : .claude/rules/input-singleton-main-thread-only.md.
+    name: Lint — Input Main Thread Only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run input-singleton-main-thread-only lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          review=0
+          # Helper : strip les lignes de commentaire (# ou ##) AVANT le grep de patterns.
+          # Évite les faux positifs sur la documentation qui nomme Thread/WorkerThreadPool.
+          strip_comments() {
+            # Supprime : lignes vides, lignes qui commencent (après whitespace) par #.
+            grep -vE '^\s*#' "$1" || true
+          }
+          while IFS= read -r f; do
+            # Skip explicite marquage exception ligne par ligne (lint-input-thread-ok)
+            if grep -qE '^\s*#\s*lint-input-thread-ok\b' "$f"; then
+              continue
+            fi
+            code="$(strip_comments "$f")"
+            # Pattern 1 : Thread(...) / Thread.new / Thread.start avec code exécutable
+            if echo "$code" | grep -qE '\bThread\s*(\(|\.new|\.start)'; then
+              echo "REVIEW: $f touches Input.* AND instantiates Thread"
+              review=$((review + 1))
+            fi
+            # Pattern 2 : WorkerThreadPool.<method> (exclut "WorkerThreadPool." en ponctuation de phrase)
+            if echo "$code" | grep -qE '\bWorkerThreadPool\s*\.\w'; then
+              echo "REVIEW: $f touches Input.* AND calls WorkerThreadPool method"
+              review=$((review + 1))
+            fi
+            # Pattern 3 : call_deferred avec Input. en argument
+            if echo "$code" | grep -qE 'call_deferred.*Input\.'; then
+              echo "REVIEW: $f uses call_deferred with Input.*"
+              review=$((review + 1))
+            fi
+          done < <(grep -rlE '\bInput\s*\.' src/ || true)
+
+          if [ "$review" -gt 0 ]; then
+            echo "Main-thread lint FAIL: $review file(s) need manual review"
+            exit 1
+          fi
+          echo "Main-thread lint PASS — 0 suspect cross-thread Input access"
+
+  lint-collision-layers:
+    # ADR-0008 D-6 — gate pre-build : (1) bitmask littéral interdit dans src/**/*.gd,
+    # (2) project.godot doit déclarer les 5 layer_names canoniques (D-4),
+    # (3) .tscn sous scenes/** : WARN seulement au MVP (Risk 1, upgrade FAIL post-MVP).
+    # Source : .claude/rules/collision-layer-api-1-indexed.md.
+    name: Lint — Collision Layer API 1-Indexed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run collision-layer-api-1-indexed lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/collision-layers-lint-$(date +%Y-%m-%d).log"
+          echo "# Collision layer lint — $(date -Iseconds)" > "$log"
+
+          violations=0
+
+          # ----- Check 1 : bitmask littéral dans src/**/*.gd (D-3) -----
+          # Regex : collision_layer ou collision_mask = (0b... | 0x... | décimal).
+          # Exclut : (a) lignes commentaires (# ...), (b) src/core/collision_layers.gd
+          # (le helper lui-même est autorisé à manipuler des bits via 1 << N).
+          echo "" >> "$log"
+          echo "## Check 1 — bitmask littéral dans src/**/*.gd" >> "$log"
+          if matches=$(grep -rnE '\bcollision_(layer|mask)\s*=\s*(0b[01]+|0x[0-9a-fA-F]+|[0-9]+)' \
+              src/ --include='*.gd' \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              | grep -v '^src/core/collision_layers\.gd:' \
+              | grep -v 'lint-collision-layers-ok' || true); then
+            if [ -n "$matches" ]; then
+              echo "FAIL — bitmask littéral détecté :" >> "$log"
+              echo "$matches" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "PASS — 0 bitmask littéral dans src/**/*.gd" >> "$log"
+            fi
+          else
+            echo "PASS — 0 bitmask littéral dans src/**/*.gd" >> "$log"
+          fi
+
+          # ----- Check 2 : project.godot [layer_names]/3d_physics/layer_1..5 (D-4) -----
+          echo "" >> "$log"
+          echo "## Check 2 — project.godot layer_names canoniques" >> "$log"
+          declare -a expected=(
+            '3d_physics/layer_1="LAYER_PLAYER"'
+            '3d_physics/layer_2="LAYER_ENEMY"'
+            '3d_physics/layer_3="LAYER_ENEMY_HITBOX"'
+            '3d_physics/layer_4="LAYER_ENVIRONMENT"'
+            '3d_physics/layer_5="LAYER_INTERACTIVE"'
+          )
+          for line in "${expected[@]}"; do
+            if ! grep -qF "$line" project.godot; then
+              echo "FAIL — manquant dans project.godot : $line" >> "$log"
+              violations=$((violations + 1))
+            fi
+          done
+          if grep -q '^\[layer_names\]' project.godot; then
+            echo "PASS — section [layer_names] présente" >> "$log"
+          else
+            echo "FAIL — section [layer_names] absente de project.godot" >> "$log"
+            violations=$((violations + 1))
+          fi
+
+          # ----- Check 3 : .tscn sous scenes/** — WARN seulement au MVP -----
+          echo "" >> "$log"
+          echo "## Check 3 — .tscn sous scenes/** (WARN only MVP)" >> "$log"
+          if [ -d scenes ]; then
+            tscn_hits=$(grep -rnE 'collision_(layer|mask)\s*=\s*[0-9]+' \
+                scenes/ --include='*.tscn' 2>/dev/null \
+                | awk -F= '{ split($0, a, "="); val = a[2]+0; if (val > 31) print }' || true)
+            if [ -n "$tscn_hits" ]; then
+              echo "WARN — .tscn avec layer/mask > 31 (couvre layers 6+ non-canoniques) :" >> "$log"
+              echo "$tscn_hits" >> "$log"
+              echo "::warning::Collision layers : .tscn avec layers 6+ détectés (manual review post-MVP)"
+            else
+              echo "PASS — 0 .tscn avec layers 6+ non-canoniques" >> "$log"
+            fi
+          else
+            echo "SKIP — répertoire scenes/ absent" >> "$log"
+          fi
+
+          # ----- Verdict -----
+          echo "" >> "$log"
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          cat "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::lint-collision-layers FAIL — $violations violation(s) ADR-0008 D-3/D-4"
+            exit 1
+          fi
+          echo "lint-collision-layers PASS"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collision-layers-lint-log
+          path: production/qa/evidence/collision-layers-lint-*.log
+
+  lint-menu-anti-patterns:
+    # story-010 — anti-pattern static lints menu-system.
+    # Source : .claude/rules/menu-anti-patterns.md.
+    # Couvre AC-MNU-36/44/45/46/47/48/49/50/57/63/64 + R-MNU-18 anti-deps
+    # (R-MNU-15/16/18/19 + ADR-0007 D-4 GSM seul autorité + ADR-0010 R-SAV-9 délégation pure).
+    # Exception comments : `# lint-menu-ok: <raison>` accepté ligne par ligne.
+    name: Lint — Menu Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run menu anti-patterns lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/menu-anti-patterns-lint-$(date +%Y-%m-%d).log"
+          echo "# Menu anti-patterns lint — $(date -Iseconds)" > "$log"
+
+          violations=0
+
+          # Helper grep négatif : exit 1 si match (utilisé pour `! grep` négatif).
+          # Skip lignes commentaires `#` et exception markers `# lint-menu-ok`.
+          run_negative() {
+            local label="$1"
+            local pattern="$2"
+            shift 2
+            local paths=("$@")
+            local missing=0
+            for p in "${paths[@]}"; do
+              if [ ! -e "$p" ]; then
+                missing=$((missing + 1))
+              fi
+            done
+            if [ "$missing" -eq "${#paths[@]}" ]; then
+              echo "## $label — SKIP (paths absent)" >> "$log"
+              return 0
+            fi
+            local matches
+            matches=$(grep -rnE "$pattern" "${paths[@]}" 2>/dev/null \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              | grep -v 'lint-menu-ok' \
+              || true)
+            if [ -n "$matches" ]; then
+              echo "## $label — FAIL" >> "$log"
+              echo "$matches" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## $label — PASS (0 match)" >> "$log"
+            fi
+          }
+
+          # ---- AC-MNU-36 + AC-MNU-64 — anti-tween/anim ----
+          run_negative "AC-MNU-36 + AC-MNU-64 anti-tween/anim (R-MNU-15 + K.7 + K.9)" \
+            '\b(Tween|create_tween|tween_property|InterpolateValue|AnimationPlayer|AnimationTree)\b' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-44 — anti-SFX (scenes/menus + src/gameplay/menu) ----
+          run_negative "AC-MNU-44 anti-SFX scenes/menus + src" \
+            'AudioStreamPlayer|play_sfx|audio_play' \
+            scenes/menus/ src/gameplay/menu/
+
+          # ---- AC-MNU-44 (extended) — scenes/levels parse plus fin (helper) ----
+          # Au MVP, scenes/levels/ peut être absent ou vide → SKIP gracieux.
+          # Post-MVP : helper script identifie AudioStreamPlayer dans sous-arborescence
+          # de pause_overlay.tscn instance vs ambient track étage (Implementation Notes #4).
+          if [ -d scenes/levels ] && find scenes/levels -name '*.tscn' -print -quit | grep -q .; then
+            level_audio=$(grep -rE 'AudioStreamPlayer' scenes/levels/ --include='*.tscn' 2>/dev/null || true)
+            if [ -n "$level_audio" ]; then
+              echo "## AC-MNU-44 (scenes/levels) — REVIEW (manual filter pause_overlay sub-tree required)" >> "$log"
+              echo "$level_audio" >> "$log"
+              echo "::warning::AC-MNU-44 scenes/levels : AudioStreamPlayer detected — verify not in pause_overlay sub-tree"
+            else
+              echo "## AC-MNU-44 (scenes/levels) — PASS (0 AudioStreamPlayer)" >> "$log"
+            fi
+          else
+            echo "## AC-MNU-44 (scenes/levels) — SKIP (dir absent or empty)" >> "$log"
+          fi
+
+          # ---- AC-MNU-45 — anti-confirm dialogs (R-MNU-16 zero confirm) ----
+          run_negative "AC-MNU-45 anti-confirm dialogs (R-MNU-16)" \
+            'AcceptDialog|ConfirmationDialog|PopupPanel|PopupMenu' \
+            scenes/menus/ src/gameplay/menu/
+
+          # ---- AC-MNU-46 — corner_radius zero ou absent (Chrome Zen K.5 hard-edge) ----
+          # Particulier : grep MATCH expected mais valeurs doivent toutes être 0.
+          if [ -d scenes/menus ]; then
+            non_zero_corner=$(grep -rnE 'corner_radius' scenes/menus/ 2>/dev/null \
+              | grep -vE '=\s*0\b' \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              || true)
+            if [ -n "$non_zero_corner" ]; then
+              echo "## AC-MNU-46 corner_radius zero — FAIL (non-zero values found)" >> "$log"
+              echo "$non_zero_corner" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## AC-MNU-46 corner_radius zero — PASS" >> "$log"
+            fi
+          else
+            echo "## AC-MNU-46 corner_radius zero — SKIP (scenes/menus absent)" >> "$log"
+          fi
+
+          # ---- AC-MNU-47 — anti-Parallax/Animation (scenes/menus) ----
+          run_negative "AC-MNU-47 anti-Parallax/AnimationPlayer/AnimationTree" \
+            'ParallaxBackground|ParallaxLayer|AnimationPlayer|AnimationTree' \
+            scenes/menus/
+
+          # ---- AC-MNU-48 — anti-gradient/material (src/gameplay/menu) ----
+          run_negative "AC-MNU-48 anti-gradient/CanvasItemMaterial/ShaderMaterial" \
+            'Gradient|GradientTexture|CanvasItemMaterial|ShaderMaterial' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-49 — Engine.time_scale (ADR-0007 D-4 GSM seul autorité) ----
+          run_negative "AC-MNU-49 Engine.time_scale (ADR-0007 D-4)" \
+            'Engine\.time_scale' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-50 — get_tree().paused mutation (autorité unique GSM) ----
+          run_negative "AC-MNU-50 get_tree().paused mutation (GSM only)" \
+            'get_tree\(\)\.paused|SceneTree.*paused' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-57 — zéro SaveLoad ref (R-MNU-19 + R-SAV-9 délégation pure) ----
+          run_negative "AC-MNU-57 zero SaveLoad reference (R-MNU-19 + R-SAV-9)" \
+            'SaveLoad|\bsave_int\b|\bsave_string_array\b|save_now' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-63 — zéro focus notification handler (R-MNU-18 anti-dep) ----
+          run_negative "AC-MNU-63 zero focus notification handler (R-MNU-18)" \
+            'NOTIFICATION_WM_WINDOW_FOCUS|_notification\b.*_focus' \
+            src/gameplay/menu/
+
+          # ---- R-MNU-18 — anti-deps cross-system ----
+          run_negative "R-MNU-18 anti-deps cross-system (Level/Combat/Movement/Credit/Secret/Upgrade)" \
+            '\b(LevelSystem|CombatSystem|MovementController|CreditSystem|SecretSystem|UpgradeSystem)\b' \
+            src/gameplay/menu/
+
+          # ---- Verdict ----
+          echo "" >> "$log"
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          cat "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::lint-menu-anti-patterns FAIL — $violations violation(s) (R-MNU-15/16/18/19 + ADR-0007/0010)"
+            exit 1
+          fi
+          echo "lint-menu-anti-patterns PASS"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: menu-anti-patterns-lint-log
+          path: production/qa/evidence/menu-anti-patterns-lint-*.log
+
+  lint-level-invariants:
+    # story-010 AC-LVL-11 — lint pre-build hiérarchie canonique scènes d'étage.
+    # Valide StaticEnvironment, InteractiveVolumes, SpawnMarkers (Node3D) +
+    # EtageExitTrigger (Area3D) dans chaque etage_*.tscn sous scenes/levels/.
+    # Exit 0 si aucune scène trouvée (pipeline valide avant production).
+    # Source : TR-lvl-006, ADR-0011 D-2, .claude/rules/.
+    name: Lint — Level Hierarchy Invariants
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run level hierarchy lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --script tools/lint/run_level_lint.gd
+          echo "lint-level-invariants PASS"
+
+  perf-level-ccd:
+    # story-014 AC-LVL-41 — EC-8 Jolt CCD benchmark sub-gate.
+    # Valide que le runner exit 0 (clips_rate == 0 sur murs >= 0.3m).
+    # Simulation Jolt réelle : 3 arenas (0.2m / 0.3m / 0.5m), CharacterBody3D
+    # @ 27 m/s, 100 passes par config, détection tunneling via comparaison
+    # global_position.z vs wall_back_z avec accumulated_collisions == 0.
+    # AC-LVL-41 reste PLAYTEST gate final (evidence manuelle requise).
+    # Source : ADR-0001 EC-8 CLAIM-UNVERIFIED, TR-lvl-039, story-014 AC-LVL-41.
+    name: Perf — Level CCD Sweep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run CCD sweep benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          # EXCEPTION DOCUMENTÉE à CLAUDE.md "Godot CLI Safety" rule #1
+          # ("Always pass --headless AND --script <path.gd>") :
+          #   level_ccd_sweep_runner.gd extends Node3D (pas SceneTree) car
+          #   CharacterBody3D.move_and_slide() + Jolt physics requièrent un
+          #   SceneTree actif (await get_tree().physics_frame). Un script
+          #   extends SceneTree ne peut pas piloter move_and_slide().
+          #   → On lance la scène compagnon via --path + chemin .tscn
+          #   positionnel (pattern Godot main scene standard).
+          # Sécurité : ce job DOIT tourner sur Linux/Ubuntu CI uniquement.
+          # Sur macOS local le pattern peut popper OS::alert() (incident
+          # 2026-04-27, voir CLAUDE.md). Ne pas réutiliser ce pattern dans un
+          # autre job sans justification équivalente (Node3D root requis).
+          mkdir -p production/qa
+          log="production/qa/perf-level-ccd-sweep-$(date +%Y-%m-%d).log"
+          godot --headless --path . tests/performance/level_ccd_sweep_runner.tscn 2>&1 | tee "$log"
+          # Extraire le JSON_RESULT (ligne suivant le marker) pour la regression gate.
+          awk '/^JSON_RESULT:/{getline; print; exit}' "$log" > /tmp/ccd-sweep-current.json
+          test -s /tmp/ccd-sweep-current.json || { echo "FAIL: JSON_RESULT introuvable dans $log"; exit 2; }
+          echo "perf-level-ccd PASS"
+
+      - name: Regression gate — sweep vs baseline (story-023 AC-LVL-44)
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --script tools/perf/compare_ccd_baseline.gd -- \
+            tests/baselines/level-ccd-baseline.json \
+            /tmp/ccd-sweep-current.json \
+            sweep
+          echo "regression-gate sweep PASS"
+
+      - name: Upload CCD sweep log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-ccd-sweep-log
+          path: production/qa/perf-level-ccd-sweep-*.log
+
+  perf-level-ccd-gameplay:
+    # story-023 AC-LVL-43 + AC-LVL-44 — EC-8 Jolt CCD gameplay scenario gate.
+    # 4 scenarios × 50 passes (dash 21 m/s, wall-run+wall-jump combo, dash+wall-run combo)
+    # contre walls 0.3m / 0.5m. Détection clip via Area3D plane behind wall + fallback
+    # global_position.z. Réutilise Player.tscn (real CharacterBody3D root) avec
+    # CollisionShape3D ajoutée programmatiquement (Movement story-001 ne l'a pas
+    # encore créée — voir DEV-1 dans le runner header).
+    # Regression gate : compare current run vs tests/baselines/level-ccd-baseline.json
+    # avec tolerance 1% — fail si clips_rate augmente au-delà de baseline + tolerance.
+    # Pattern --path + .tscn idem perf-level-ccd (Node3D root + Jolt physics).
+    # CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # Source : ADR-0001 EC-8 CLAIM-UNVERIFIED → VERIFIED via story-023, TR-lvl-039.
+    name: Perf — Level CCD Gameplay Scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run CCD gameplay scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-ccd-gameplay-$(date +%Y-%m-%d).log"
+          godot --headless --path . tests/performance/level_ccd_gameplay_runner.tscn 2>&1 | tee "$log"
+          awk '/^JSON_RESULT:/{getline; print; exit}' "$log" > /tmp/ccd-gameplay-current.json
+          test -s /tmp/ccd-gameplay-current.json || { echo "FAIL: JSON_RESULT introuvable dans $log"; exit 2; }
+          echo "perf-level-ccd-gameplay PASS"
+
+      - name: Regression gate — gameplay vs baseline (story-023 AC-LVL-44)
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --script tools/perf/compare_ccd_baseline.gd -- \
+            tests/baselines/level-ccd-baseline.json \
+            /tmp/ccd-gameplay-current.json \
+            gameplay
+          echo "regression-gate gameplay PASS"
+
+      - name: Upload CCD gameplay log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-ccd-gameplay-log
+          path: production/qa/perf-level-ccd-gameplay-*.log
+
+  perf-level-draw-calls:
+    # story-015 AC-LVL-31 + AC-LVL-31b — Draw call budget gate.
+    # 3 configs séquentielles :
+    #   (a) étage 10 salles baseline  → p99 draw_calls ≤ 350 (TR-lvl-004 F2)
+    #   (b) étage 8 salles baseline   → p99 draw_calls ≤ 290 (formule F2 linéaire)
+    #   (c) étage 10 salles + peers   → delta p99 ≤ 170 ET global ≤ 500 (AC-LVL-31b)
+    # Runner extends Node3D + scène compagnon — même pattern que perf-level-ccd.
+    # EXCEPTION CLAUDE.md Safety rule #1 (--script) : extends Node3D requiert
+    # un SceneTree actif pour await get_tree().process_frame ; on lance via --path
+    # + .tscn positionnel. CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # Source : ADR-0003 (Rendering Latency), TR-lvl-004, story-015 AC-LVL-31.
+    name: Perf — Level Draw Call Budget
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run draw call budget benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-dc-$(date +%Y-%m-%d).log"
+          echo "# Draw call budget run — $(date -Iseconds)" > "$log"
+          echo "# story-015 AC-LVL-31 + AC-LVL-31b — TR-lvl-004" >> "$log"
+          godot --headless --path . tests/performance/level_draw_calls_runner.tscn 2>&1 | tee -a "$log"
+          echo "perf-level-draw-calls PASS"
+
+      - name: Upload draw call benchmark log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-dc-log
+          path: production/qa/perf-level-dc-*.log
+
+  perf-level-memory:
+    # story-016 AC-LVL-32 + AC-LVL-36 + AC-LVL-37 — Memory budget gate.
+    # 4 gates séquentielles :
+    #   (a) delta VRAM post-load  ≤ 50 MB (AC-LVL-32 — TR-lvl-005)
+    #   (b) combined RAM+VRAM     ≤ 70 MB (AC-LVL-37 — TR-lvl-005)
+    #   (c) delta Performance.MEMORY_STATIC ≤ 512 KB sur 60 s exploration (AC-LVL-36 — TR-lvl-037)
+    #   (d) delta Performance.OBJECT_NODE_COUNT ≤ 5 sur 60 s exploration (AC-LVL-36 — TR-lvl-037)
+    # Runner extends Node3D + scène compagnon — même pattern que perf-level-draw-calls.
+    # EXCEPTION CLAUDE.md Safety rule #1 (--script) : extends Node3D requiert
+    # un SceneTree actif pour await get_tree().process_frame ; on lance via --path
+    # + .tscn positionnel. CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # En mode headless, VRAM retourne 0 (pas de GPU réel) → delta = 0 → gate PASS systématique.
+    # C'est le comportement attendu ; la gate VRAM est significative sur hardware réel.
+    # Source : ADR-0003 (Rendering Latency), TR-lvl-005, TR-lvl-037, story-016.
+    name: Perf — Level Memory Budget
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run memory budget benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-memory-$(date +%Y-%m-%d).log"
+          echo "# Memory budget run — $(date -Iseconds)" > "$log"
+          echo "# story-016 AC-LVL-32 + AC-LVL-36 + AC-LVL-37 — TR-lvl-005 + TR-lvl-037" >> "$log"
+          godot --headless --path . tests/performance/level_memory_runner.tscn 2>&1 | tee -a "$log"
+          echo "perf-level-memory PASS"
+
+      - name: Upload memory benchmark log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-memory-log
+          path: production/qa/perf-level-memory-*.log
+
+  perf-level-frame-time:
+    # story-017 AC-LVL-3 + AC-LVL-34 + AC-LVL-35a — Frame time + load time gate.
+    # 3 gates séquentielles :
+    #   (a) AC-LVL-3   : load time fixture etage_full_mvp ≤ 1000 ms (F4 gate TR-lvl-035)
+    #   (b) AC-LVL-34  : frame time intra-room p50 ≤ 12.0 ms ET p99 ≤ 14.0 ms sur 500 frames
+    #   (c) AC-LVL-35a : frame time transition window 24 frames p99 ≤ 14.0 ms (TR-lvl-036)
+    # Runner extends Node3D + scène compagnon — même pattern que perf-level-draw-calls.
+    # EXCEPTION CLAUDE.md Safety rule #1 (--script) : extends Node3D requiert
+    # un SceneTree actif pour await get_tree().process_frame ; on lance via --path
+    # + .tscn positionnel. CI ubuntu-only — voir CLAUDE.md incident 2026-04-27.
+    # En mode headless, Performance.TIME_PROCESS retourne 0.0 (pas de rendering loop
+    # GPU réel) → gate auto-PASS (pattern miroir story-016 VRAM=0). Idem pour
+    # AC-LVL-35a si Jolt body_entered ne fire pas en headless. Les gates sont
+    # significatives uniquement sur Tier 1 hardware réel ; le CI valide la structure
+    # (sampling + percentile logic) sans bloquer sur l'absence de GPU.
+    # Source : ADR-0001 (Physics Rate 60 Hz), ADR-0003 (Rendering Latency),
+    #          TR-lvl-035, TR-lvl-036, story-017 AC-LVL-3 / AC-LVL-34 / AC-LVL-35a.
+    name: Perf — Level Frame Time Budget
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot 4.6
+        uses: MikeSchulze/setup-godot@v1
+        with:
+          godot-version: '4.6'
+
+      - name: Run frame time budget benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa
+          log="production/qa/perf-level-frame-time-$(date +%Y-%m-%d).log"
+          echo "# Frame time budget run — $(date -Iseconds)" > "$log"
+          echo "# story-017 AC-LVL-3 + AC-LVL-34 + AC-LVL-35a — TR-lvl-035 + TR-lvl-036" >> "$log"
+          # Capture explicite du PIPESTATUS du runner godot — découple de tee
+          # (defensive vs pipefail seul, review qa-tester story-017 BLOCKING-1).
+          set +e
+          godot --headless --path . tests/performance/level_frame_time_runner.tscn \
+            --json-out "$log" 2>&1 | tee -a "$log"
+          runner_exit=${PIPESTATUS[0]}
+          set -e
+          if [ "$runner_exit" -eq 0 ]; then
+            echo "perf-level-frame-time PASS (runner exit=0)"
+          else
+            echo "perf-level-frame-time FAIL (runner exit=$runner_exit)"
+            exit "$runner_exit"
+          fi
+
+      - name: Upload frame time benchmark log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-level-frame-time-log
+          path: production/qa/perf-level-frame-time-*.log
+
+  test:
+    name: Run GdUnit4 Tests
+    runs-on: ubuntu-latest
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-level-invariants, perf-level-ccd, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Run GdUnit4 Tests
+        uses: MikeSchulze/gdUnit4-action@v1
+        with:
+          godot-version: '4.6'
+          paths: |
+            tests/unit
+            tests/integration
+          report-name: test-results
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: reports/

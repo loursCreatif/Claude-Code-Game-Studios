@@ -11,8 +11,12 @@ Desktop.ini
 
 # === Claude Code Local ===
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/agent-memory/
+.claire/
 CLAUDE.local.md
 production/session-logs/
+production/session-state/active.md
 
 # === Internal Planning (not for public) ===
 
@@ -41,6 +45,15 @@ dist/
 export_presets.cfg
 # Uncomment if using Godot:
 # *.import
+
+# Third-party addons (install via AssetLib or vendor script — not committed)
+addons/
+
+# Godot 4.4+ generated UID metadata (auto-regenerated on import)
+*.uid
+
+# GdUnit4 test reports (regenerated on each run)
+reports/
 
 # === Engine: Unity ===
 [Ll]ibrary/
