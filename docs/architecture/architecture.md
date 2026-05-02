@@ -124,7 +124,8 @@ Les 22 systèmes de `systems-index.md` mappés en 5 couches. Dépendances strict
 |--------|------|---------|----------|-------------|
 | **InputManager** (autoload singleton) | `_pressed`/`_consumed` dicts, 3-owner refcount Set, ring buffer latence (`PackedFloat32Array`+`PackedInt64Array`), 6 StringName constants | `was_pressed_this_tick(action)`, `request_disable(owner)`, `release_enable_request(owner)`, signals `mouse_motion(delta)`, `application_focus_lost()`, `application_focus_gained()` | `Input.*` singleton (main thread only), `NOTIFICATION_APPLICATION_FOCUS_OUT/IN` | `Input`, `Node._unhandled_input`, `Input.parse_input_event`, `Time.get_ticks_usec` |
 | **GameStateManager** (autoload singleton) | Run lifecycle state (`MENU`/`PLAYING`/`PAUSED`/`RESPAWNING`/`BOSS_DEFEATED`), pause toggle, scene transition queue | `state_changed(new_state)` signal, `request_pause()`, `request_resume()` | `InputManager.application_focus_lost` | `SceneTree`, `get_tree().paused` |
-| **SaveLoadSystem** (autoload singleton, post-MVP polish) | Serialization settings, checkpoint state persist | `save_settings()`, `load_settings()`, `save_run()`, `load_run()` | — | `FileAccess`, `ConfigFile`, `Resource` |
+| **SaveLoadSystem** (autoload singleton, ADR-0010 Accepted) | Run/checkpoint state ConfigFile (`user://savegame.cfg`), API verbs typés scalaires/arrays/Tier2 | `save_int/get_int/save_string_array/get_string_array/save_now`, `NOTIFICATION_WM_CLOSE_REQUEST` flush | — | `FileAccess`, `ConfigFile` |
+| **AccessibilityService** (autoload singleton, ADR-0015 Accepted) | Cache `_settings: AccessibilitySettings` (9 flags), OR-merge OS bridge (`OS.is_reduce_motion_enabled()`) | Pull-pattern getters typés (`get_disable_slow_mo`, `get_camera_*_mult`, `get_enemy_death_tween_ms`…), signal `settings_changed` | Persistance déléguée `SettingsResource` (ADR-0014) | `OS.call("is_reduce_motion_enabled")` (Godot 4.5+ AccessKit) |
 
 ### 4.2 Core Layer
 
@@ -133,6 +134,7 @@ Les 22 systèmes de `systems-index.md` mappés en 5 couches. Dépendances strict
 | **MovementController** (CharacterBody3D script) | `velocity`, `state` (8 states + die/respawn), `air_jumps_used`, `dash_cooldown_timer`, `wall_run_timer`, `%WallRayLeft`/`%WallRayRight` ShapeCast3D | 8 signals typés (dash_started, dash_ended, wall_run_entered, wall_run_exited, wall_jumped, died, respawned, attacked), read-only `get_velocity()`, `get_state()`, `get_capabilities()` | `InputManager.was_pressed_this_tick`, `InputManager.application_focus_lost` (via GameStateManager) | `CharacterBody3D.move_and_slide`, `ShapeCast3D`, `Jolt`, `_physics_process` |
 | **CameraSystem** (scene: `CharacterBody3D → CameraArm → CameraEffects → Camera3D → AudioListener3D`) | `camera_arm.rotation.x` (pitch), `camera_effects.rotation.z` (tilt), `camera3d.fov`, shake state (`add_shake()`/`add_shake_roll()`) | `aim_forward: Vector3` (roll-corrected), `get_camera3d() -> Camera3D` | `InputManager.mouse_motion`, `MovementController.wall_run_entered/exited`, `MovementController.dash_started/ended`, `MovementController.died/respawned`, `MovementController.wall_jumped` | `Node3D.rotation`, `Camera3D.fov`, `Tween`, `_process` |
 | **AudioSystem** (autoload singleton) | `AudioStreamPlayer` pool, music stream, mix bus assignments | `play_sfx(stream, position)`, `play_music(stream)`, `fade_music()` | All Movement signals (SFX binding) | `AudioStreamPlayer3D`, `AudioServer` |
+| **SettingsResource** (RefCounted helper static, **zero autoload**, ADR-0014 Accepted) | Pas d'état runtime — fonctions pures `load_or_default<T>(name, factory) -> T`, `save<T>(name, resource) -> Error` | API statique consommée par chaque owner system (CameraSystem, InputManager, AccessibilityService…) | `FileAccess`, `ResourceLoader/Saver`, `DirAccess` (`user://settings/`) | `Resource` (.tres typé par owner), `_settings_version` migration forward-only |
 
 ### 4.3 Feature Layer (MVP)
 
@@ -229,35 +231,111 @@ Pattern canonique figé par **ADR-0004** (InputManager direct signals) + **ADR-0
 - **Interdit** : EventBus autoload pour events intra-gameplay (`forbidden_pattern: event_bus_autoload_for_movement_intra_gameplay_events`).
 - **Interdit** : consumer mute l'état du producteur depuis handler (`forbidden_pattern: mutate_movement_state_from_signal_handler`).
 
-### 5.3 Save/load path (post-MVP polish, ADR to create)
+### 5.3 Persistence patterns (3 paths distincts)
+
+Le projet ratifie **3 patterns persistence orthogonaux** — chacun couvre un domaine
+disjoint avec un owner distinct. Toute confusion entre les 3 = anti-pattern (bug).
+
+| Pattern | ADR | Domaine | Stockage | Owner runtime |
+|---------|-----|---------|----------|---------------|
+| **Run/checkpoint** | ADR-0010 | État de partie (credits, capabilities, checkpoint) | `user://savegame.cfg` (ConfigFile, scalar verbs) | Autoload `SaveLoadSystem` (Foundation #3) |
+| **Settings per-system** | ADR-0014 | Préférences user (mouse sens, FOV offset, key bindings) | `user://settings/<system>.tres` (Resource typé) | Helper static `SettingsResource` (zero autoload) |
+| **Accessibility** | ADR-0015 | Flags cross-system (reduce_motion, slow_mo overrides) | `user://settings/accessibility.tres` *via ADR-0014* | Autoload `AccessibilityService` (#4) — délègue persist à ADR-0014 |
+
+#### 5.3.1 Run/checkpoint path (ADR-0010 — autoload, ConfigFile)
 
 ```
-[Menu: "Save & Quit"] or [Checkpoint trigger]
+[Checkpoint trigger / GameStateManager BOSS_DEFEATED]
      ▼
-SaveLoadSystem.save_run()
-  → gather state from: GameStateManager, CreditEconomy, UpgradeSystem, LevelSystem (current checkpoint)
-  → serialize via Resource / ConfigFile to user://save_slot_N.tres
-  → atomic write (temp file + rename) to survive crash mid-write
+Owner system → SaveLoadSystem.save_int(section, key, value)
+                                     .save_string_array(section, key, list)
+                                     ... [verbs typés ADR-0010 D-2]
      ▼
-SaveLoadSystem.save_settings()  [called on settings change from MenuSystem]
-  → gather state from: InputManager (input_settings), CameraSystem (camera_settings), AudioSystem (audio_settings)
-  → serialize to user://settings.tres
+SaveLoadSystem.save_now()          [explicit flush — pas d'auto-save MVP]
+  → ConfigFile.save("user://savegame.cfg")
      ▼
-On game start:
-SaveLoadSystem.load_settings() → push to InputManager, CameraSystem, AudioSystem
-SaveLoadSystem.load_run() [if slot exists] → push to GameStateManager/CreditEconomy/UpgradeSystem/LevelSystem
+NOTIFICATION_WM_CLOSE_REQUEST [autoload handler ADR-0010 D-8]
+  → save_now() best-effort flush
+     ▼
+On game start: GameStateManager._ready() → SaveLoadSystem.load_or_init()
+                                          → owner systems pull via get_int/...
 ```
+
+**Anti-pattern** : un owner qui sérialise des préférences user (Settings Menu)
+via SaveLoadSystem au lieu de ADR-0014. Le `savegame.cfg` est purgé entre runs ;
+les settings doivent survivre.
+
+#### 5.3.2 Settings per-system path (ADR-0014 — zero autoload, Resource typé)
+
+```
+[CameraSystem._ready / InputManager._ready / future Settings Menu apply]
+     ▼
+SettingsResource.load_or_default<T>("camera", CameraSettings.create_defaults)
+  → FileAccess existence check user://settings/camera.tres
+  → ResourceLoader.load() ; on parse error : defaults + warning + fichier inchangé (D-4)
+  → Migration forward-only via T.migrate_from(version, raw) (D-3)
+     ▼
+Owner pousse les valeurs dans son propre runtime (mouse_sensitivity, fov_user_offset...)
+     ▼
+[Settings Menu apply / debug command / quit handler]
+     ▼
+SettingsResource.save<T>("camera", current_settings)
+  → DirAccess.make_dir_recursive_absolute("user://settings/")
+  → ResourceSaver.save() à user://settings/camera.tres (atomic via Godot)
+```
+
+**Pattern critique** : zero autoload (D-5) — pas de gather centralisé. Chaque owner
+load/save SA Resource indépendamment. Last-write-wins inter-systèmes documenté
+(ex : Camera est autorité sur `mouse_sensitivity` GDD Tuning Knobs souris ; load
+Camera après InputManager le réécrit dans `InputManager.mouse_sensitivity`).
+
+**Anti-pattern** : un système qui pousse des state run (credits, checkpoint)
+dans `user://settings/` au lieu de ADR-0010.
+
+#### 5.3.3 Accessibility path (ADR-0015 — autoload, délégué à ADR-0014)
+
+```
+[AccessibilityService._ready, autoload position #4]
+     ▼
+SettingsResource.load_or_default("accessibility", AccessibilitySettings.create_defaults)
+  → ADR-0014 path (cf. 5.3.2)
+     ▼
+OR-merge OS bridge (D-6) :
+  if OS.has_method("is_reduce_motion_enabled") and OS.call("is_reduce_motion_enabled"):
+      _settings.reduce_motion = true   # OS prend autorité si user toggle off
+     ▼
+[6 consumers : Movement, Camera, Combat, Enemy, VFX, HUD]
+each: AccessibilityService.settings_changed.connect(_on_accessibility_changed)
+      → cache local lu via getters typés (pull-pattern D-3)
+     ▼
+[Settings Menu apply / QA debug]
+AccessibilityService.apply_settings(new_settings)
+  → mute _settings + emit settings_changed (consumers reload cache mid-game)
+AccessibilityService.save_settings() [explicit, parité ADR-0014 D-6]
+  → SettingsResource.save("accessibility", _settings)
+```
+
+**Justification autoload** vs ADR-0014 zero-autoload (ADR-0015 D-1) : 6 consumers
++ live update mid-game requis (story-022 AC-4) + bridge OS centralisé + OR-merge
+source-of-truth. Helper static ne supporte pas ces 4 contraintes simultanément.
+
+**Anti-pattern** : un consumer qui lit `OS.is_reduce_motion_enabled()` directement
+au lieu de passer par `AccessibilityService.get_*()`. Cassé l'OR-merge user toggle.
 
 ### 5.4 Initialisation order
 
-1. Autoload singletons (order figé par Project Settings) :
-   1. `InputManager` (Foundation — no deps)
+1. Autoload singletons (order figé par `project.godot`, vérifié 2026-05-02) :
+   1. `InputManager` (Foundation — no deps) — load `user://settings/input.tres` via ADR-0014
    2. `GameStateManager` (Foundation — no deps)
-   3. `SaveLoadSystem` (Foundation — no deps)
-   4. `AudioSystem` (Core — no deps on other autoloads at `_ready`)
-2. `SaveLoadSystem.load_settings()` dispatché par `GameStateManager._ready()`.
-3. Scene initiale (`res://scenes/main_menu.tscn`) chargée.
-4. Scenes gameplay chargées on demand par `GameStateManager.request_scene_transition()`.
+   3. `SaveLoadSystem` (Foundation — no deps) — ConfigFile run/checkpoint (ADR-0010)
+   4. `AccessibilityService` (Foundation — depends on FileAccess pour délégation ADR-0014) — load + OR-merge OS bridge
+   5. `CreditEconomy` (Core — depends on SaveLoadSystem hydration au boot)
+   6. `Upgrade` (Feature — depends on SaveLoadSystem hydration au boot)
+   7. `LevelSystem` (Feature — no deps autoloads, scene root)
+2. Scene initiale (`res://scenes/main_menu.tscn`) chargée.
+3. Scenes gameplay chargées on demand par `GameStateManager.request_*()`.
+4. Per-system settings load (ADR-0014) : déclenché par chaque owner dans son propre `_ready()`
+   (CameraSystem au spawn Player, etc.) — pas de dispatch centralisé.
 
 ---
 
