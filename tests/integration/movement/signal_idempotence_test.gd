@@ -153,10 +153,10 @@ func test_idempotence_dash_started_one_emit_for_n_ticks_dashing() -> void:
 	_connect_log(player, log)
 
 	# Tick d'entrée
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
-	InputManager.simulate_action_release(&"dash")
+	# (edge auto-consumed — &"dash" no release needed)
 
 	assert_int(log.count("dash_started")) \
 		.override_failure_message(
@@ -179,7 +179,7 @@ func test_idempotence_dash_started_one_emit_for_n_ticks_dashing() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"move_forward")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -200,10 +200,10 @@ func test_dash_ended_emitted_exactly_once_per_dash_cycle() -> void:
 	_connect_log(player, log)
 
 	# Entrée dash
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
-	InputManager.simulate_action_release(&"dash")
+	# (edge auto-consumed — &"dash" no release needed)
 
 	assert_int(log.count("dash_started")) \
 		.override_failure_message(
@@ -240,7 +240,7 @@ func test_dash_ended_emitted_exactly_once_per_dash_cycle() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"move_forward")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame
 

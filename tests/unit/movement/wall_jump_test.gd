@@ -85,7 +85,7 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	InputManager.simulate_action_release(&"jump")
+	# (edge auto-consumed — &"jump" no release needed)
 	# Consume any residual press flag via one swap so next test starts clean.
 	InputManager._physics_process(PHYSICS_DT)
 	if is_instance_valid(_player):
@@ -117,7 +117,7 @@ func test_wall_jump_full_launch_left_wall() -> void:
 	_player.set_capability(&"air_jump", true)
 
 	# Act.
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Assert — lateral component: wall_normal.x * WALL_JUMP_SIDE = 7.0.
@@ -162,7 +162,7 @@ func test_wall_jump_right_wall_negative_x() -> void:
 	_player.air_jumps_used = 0
 
 	# Act.
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Assert — lateral component points in -X (right wall pushes player left).
@@ -196,7 +196,7 @@ func test_double_jump_blocked_post_wall_jump() -> void:
 	_player.set_capability(&"air_jump", true)
 
 	# Act.
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Assert — velocity.y must NOT have been boosted to AIR_JUMP_VELOCITY.
@@ -229,7 +229,7 @@ func test_wall_jump_priority_over_air_jump_when_simultaneous() -> void:
 	_player.set_capability(&"air_jump", true)
 
 	# Act.
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Assert — wall-jump lateral direction taken (air-jump has no lateral component).

@@ -95,9 +95,9 @@ func test_died_is_terminal_no_other_signals_until_respawn() -> void:
 	player.die()
 
 	# dt très court (0.005 s) pour rester dans la fenêtre DEAD (RESPAWN_DELAY_S = 0.05 s)
-	InputManager.simulate_action_press(&"jump")
-	InputManager.simulate_action_press(&"dash")
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"jump")
+	InputManager.inject_pressed_for_test(&"dash")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player, 0.005)
 	_tick(player, 0.005)
 	_tick(player, 0.005)
@@ -111,9 +111,9 @@ func test_died_is_terminal_no_other_signals_until_respawn() -> void:
 		) \
 		.is_equal(0)
 
-	InputManager.simulate_action_release(&"jump")
-	InputManager.simulate_action_release(&"dash")
-	InputManager.simulate_action_release(&"attack")
+	# (edge auto-consumed — &"jump" no release needed)
+	# (edge auto-consumed — &"dash" no release needed)
+	# (edge auto-consumed — &"attack" no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -178,9 +178,9 @@ func test_attacked_emitted_after_dash_started_in_same_tick() -> void:
 	_connect_log(player, log)
 
 	# dash (phase 8 dans _physics_process) + attack (phase 11b) même tick
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
-	InputManager.simulate_action_press(&"attack")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player)
 
 	assert_int(log.count("dash_started")) \
@@ -203,8 +203,8 @@ func test_attacked_emitted_after_dash_started_in_same_tick() -> void:
 		) \
 		.is_less(log.first_index("attacked"))
 
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
-	InputManager.simulate_action_release(&"attack")
+	Input.action_release(&"move_forward")
+	# (edge auto-consumed — &"dash" no release needed)
+	# (edge auto-consumed — &"attack" no release needed)
 	player.queue_free()
 	await get_tree().process_frame

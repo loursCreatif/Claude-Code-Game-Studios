@@ -155,7 +155,7 @@ func test_dash_during_wall_run_emits_wall_run_exited_before_dash_started() -> vo
 	_connect_log(player, log)
 
 	# Trigger le dash via was_pressed_this_tick edge.
-	InputManager.simulate_action_press(&"dash")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
 
 	assert_int(log.count("wall_run_exited")) \
@@ -186,7 +186,7 @@ func test_dash_during_wall_run_emits_wall_run_exited_before_dash_started() -> vo
 		) \
 		.is_equal_approx(Vector3.ZERO, 0.001)
 
-	InputManager.simulate_action_release(&"dash")
+	# (edge auto-consumed — &"dash" no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -247,7 +247,7 @@ func test_wall_jump_emits_wall_run_exited_before_wall_jumped() -> void:
 	var log := SignalEventLog.new()
 	_connect_log(player, log)
 
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(player)
 
 	assert_int(log.count("wall_run_exited")) \
@@ -280,6 +280,6 @@ func test_wall_jump_emits_wall_run_exited_before_wall_jumped() -> void:
 		) \
 		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
 
-	InputManager.simulate_action_release(&"jump")
+	# (edge auto-consumed — &"jump" no release needed)
 	player.queue_free()
 	await get_tree().process_frame
