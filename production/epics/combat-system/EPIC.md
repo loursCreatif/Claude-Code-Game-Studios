@@ -90,10 +90,10 @@ L'epic est complet quand :
 |---|-------|------|--------|---------------|
 | 001 | Scene skeleton & structural invariants | Logic | Ready | ADR-0006 D-1/D-2 |
 | 002 | State machine + cooldown + active_tick lifecycle | Logic | Ready | ADR-0001 + ADR-0006 |
-| 003 | Death/respawn lifecycle full reset | Logic | Ready | ADR-0005 + ADR-0006 |
-| 004 | `attacked()` handler + buffer single-slot 80ms | Logic | Ready | ADR-0004 + ADR-0005 + ADR-0006 |
+| 003 | Death/respawn lifecycle full reset | Logic | ✅ Complete 2026-05-02 | ADR-0005 + ADR-0006 (test 6/6 PASS, doc sync) |
+| 004 | `attacked()` handler + buffer single-slot 80ms | Logic | ✅ Complete 2026-05-02 | ADR-0004 + ADR-0005 + ADR-0006 (test 9/9 PASS, doc sync) |
 | 005 | `_build_capsule_basis()` helper + 100-sample sphere test | Logic | Ready | ADR-0006 D-7 (Gap 7 doc prereq lead-programmer) |
-| 006 | ShapeCast3D node config + collision layers | Logic | Ready | ADR-0008 |
+| 006 | ShapeCast3D node config + collision layers | Logic | ✅ Complete 2026-05-02 | ADR-0008 (test 4/4 PASS, doc sync) |
 | 007 | Sweep position + aim_forward consumption + invalid/NaN guards | Logic | Ready | ADR-0002 + ADR-0006 |
 | 008 | `_prev_position` per-tick update + reach constant | Logic | Ready | ADR-0006 D-3 |
 | 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | Ready | ADR-0001 + ADR-0006 (Gap 8 prereq lead-programmer) |
@@ -111,8 +111,8 @@ L'epic est complet quand :
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 6 Complete (story-011/012/013/014/015/016) + 10 Ready (7 Logic + 3 Integration) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
-Stories 017/018 corrigées 2026-05-02 : Done → Ready partiel. AC-CMB-37 covered story-018 GdUnit4 ; AC-CMB-35a/35b Tier 1 hardware bench pending Martin.
+**Totaux** : 22 stories — 12 Complete (001/002/003/004/006/011/012/013/014/015/016/022) + 4 Done legacy à auditer (005/007/008/009 — 1-3 failures pré-existants chacune `reports/report_263`) + 2 Ready partiel (017 microbench Tier 1 + 018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
+Doc sync 2026-05-02 : 7 stories ont vu leur Status recadré (Done sans evidence → Complete avec evidence réelle, ou Ready partiel quand evidence partielle).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :

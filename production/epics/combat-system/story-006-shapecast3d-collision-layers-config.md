@@ -1,7 +1,8 @@
 # Story 006: ShapeCast3D node config + collision layers
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, doc sync — implémentation déjà livrée + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,17 +29,17 @@
 
 *From GDD AC-CMB-09 + ADR-0008 D-2/D-3/D-6 :*
 
-- [ ] **AC-CMB-09** : `ShapeCast3D.collision_mask` configuré via API 1-indexée → bit 2 only (Enemy layer) ; `ShapeCast3D.collision_layer` → bit 1 only (Player layer)
-- [ ] Configuration au `_ready()` :
+- [x] **AC-CMB-09** : `ShapeCast3D.collision_mask` configuré via API 1-indexée → bit 2 only (Enemy layer) ; `ShapeCast3D.collision_layer` → bit 1 only (Player layer)
+- [x] Configuration au `_ready()` :
   ```gdscript
   $ShapeCast3D.set_collision_layer_value(1, true)   # Player layer
   $ShapeCast3D.set_collision_mask_value(2, true)    # Enemy layer
   ```
-- [ ] Aucune autre layer/mask bit set (vérification statique post-config)
-- [ ] **Lint CI** : `lint-collision-layers` passe sur `src/gameplay/combat/combat_system.gd` (zéro bitmask direct)
-- [ ] `project.godot` contient `[layer_names]/3d_physics/layer_1..5` (Player, Enemy, EnemyHitbox, Environment, Interactive)
-- [ ] ShapeCast3D properties initialisées : `enabled = false` (default tant qu'on n'est pas en Swinging), `shape = CapsuleShape3D` (radius=0.45, height=1.8)
-- [ ] `max_results` configuré pour permettre multi-hit (au moins `MAX_KILLS_PER_SWING + 2` pour buffer dedup)
+- [x] Aucune autre layer/mask bit set (vérification statique post-config)
+- [x] **Lint CI** : `lint-collision-layers` passe sur `src/gameplay/combat/combat_system.gd` (zéro bitmask direct)
+- [x] `project.godot` contient `[layer_names]/3d_physics/layer_1..5` (Player, Enemy, EnemyHitbox, Environment, Interactive)
+- [x] ShapeCast3D properties initialisées : `enabled = false` (default tant qu'on n'est pas en Swinging), `shape = CapsuleShape3D` (radius=0.45, height=1.8)
+- [x] `max_results` configuré pour permettre multi-hit (au moins `MAX_KILLS_PER_SWING + 2` pour buffer dedup)
 
 ---
 
@@ -109,9 +110,9 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/combat/shapecast_collision_layers_test.gd` — must exist and pass
+**Required evidence**: `tests/unit/combat/shapecast_collision_layers_test.gd` — must exist and pass.
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 4/4 PASS (`reports/report_263` 2026-05-02).
 
 ---
 

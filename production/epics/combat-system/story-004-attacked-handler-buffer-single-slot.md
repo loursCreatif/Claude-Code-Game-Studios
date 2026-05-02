@@ -1,7 +1,8 @@
 # Story 004: `attacked()` handler + buffer single-slot 80ms
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, doc sync — implémentation déjà livrée + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,14 +29,14 @@
 
 *From GDD, AC-CMB-22/23/30/38/39/40/52 :*
 
-- [ ] **AC-CMB-22** : 2× `Player.attacked()` même tick (Idle, cooldown=0) → 1 seul swing déclenché (`_state == SWINGING`, `_active_tick == 0`)
-- [ ] **AC-CMB-23** : `_cooldown_timer == 0.0` exact + `Player.attacked()` → swing accepté immédiatement (garde inclusive)
-- [ ] **AC-CMB-30** : `Player.attacked()` reçu en `Swinging` à `_active_tick = 4` → ignoré silencieusement (pas de re-démarrage, pas de reset window)
-- [ ] **AC-CMB-38** : `Swinging` + `_cooldown_timer = 0.05` (dans buffer 80 ms) + `Player.attacked()` → `_buffered_attack == true`, `_state` reste Swinging ; à `_cooldown_timer == 0.0`, tick suivant `_state == SWINGING` (nouveau swing), `_buffered_attack == false`, `_active_tick == 0`
-- [ ] **AC-CMB-39** : signaux hors fenêtre buffer (cooldown > 80 ms) ignorés ; signaux multiples dans fenêtre → single-slot (1er retenu, suivants ignorés)
-- [ ] **AC-CMB-40** : `Player.died()` reçu avec `_buffered_attack == true` → `_buffered_attack == false` (clear à died ET respawned, cf. story-003)
-- [ ] **AC-CMB-52 (ADVISORY)** : handler contient `assert(Engine.is_in_physics_frame(), ...)` en tête, debug build only ; grep `assert\(Engine\.is_in_physics_frame` dans `combat_system.gd` retourne ≥1 match
-- [ ] **Forbidden grep** : aucune lecture `InputManager.` dans `src/gameplay/combat/`
+- [x] **AC-CMB-22** : 2× `Player.attacked()` même tick (Idle, cooldown=0) → 1 seul swing déclenché (`_state == SWINGING`, `_active_tick == 0`)
+- [x] **AC-CMB-23** : `_cooldown_timer == 0.0` exact + `Player.attacked()` → swing accepté immédiatement (garde inclusive)
+- [x] **AC-CMB-30** : `Player.attacked()` reçu en `Swinging` à `_active_tick = 4` → ignoré silencieusement (pas de re-démarrage, pas de reset window)
+- [x] **AC-CMB-38** : `Swinging` + `_cooldown_timer = 0.05` (dans buffer 80 ms) + `Player.attacked()` → `_buffered_attack == true`, `_state` reste Swinging ; à `_cooldown_timer == 0.0`, tick suivant `_state == SWINGING` (nouveau swing), `_buffered_attack == false`, `_active_tick == 0`
+- [x] **AC-CMB-39** : signaux hors fenêtre buffer (cooldown > 80 ms) ignorés ; signaux multiples dans fenêtre → single-slot (1er retenu, suivants ignorés)
+- [x] **AC-CMB-40** : `Player.died()` reçu avec `_buffered_attack == true` → `_buffered_attack == false` (clear à died ET respawned, cf. story-003)
+- [x] **AC-CMB-52 (ADVISORY)** : handler contient `assert(Engine.is_in_physics_frame(), ...)` en tête, debug build only ; grep `assert\(Engine\.is_in_physics_frame` dans `combat_system.gd` retourne ≥1 match
+- [x] **Forbidden grep** : aucune lecture `InputManager.` dans `src/gameplay/combat/`
 
 ---
 
@@ -127,9 +128,9 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/combat/attacked_handler_buffer_test.gd` — must exist and pass
+**Required evidence**: `tests/unit/combat/attacked_handler_buffer_test.gd` — must exist and pass.
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 9/9 PASS (`reports/report_263` 2026-05-02).
 
 ---
 

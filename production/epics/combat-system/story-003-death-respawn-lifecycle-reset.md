@@ -1,7 +1,8 @@
 # Story 003: Death/respawn lifecycle full reset
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, doc sync — implémentation déjà livrée + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -31,8 +32,8 @@
 
 *From GDD, AC-CMB-11 + AC-CMB-21 :*
 
-- [ ] **AC-CMB-11 (a)** : `Player.died()` reçu en `Idle` → `_state == DEAD`, `ShapeCast3D.enabled == false`
-- [ ] **AC-CMB-11 (b) — full respawn reset** : `Player.respawned(Vector3.ZERO)` reçu sur état Combat `Dead` arbitraire (8 vars muées) → 8 assertions :
+- [x] **AC-CMB-11 (a)** : `Player.died()` reçu en `Idle` → `_state == DEAD`, `ShapeCast3D.enabled == false`
+- [x] **AC-CMB-11 (b) — full respawn reset** : `Player.respawned(Vector3.ZERO)` reçu sur état Combat `Dead` arbitraire (8 vars muées) → 8 assertions :
   - (1) `_state == IDLE`
   - (2) `_active_tick == 0`
   - (3) `_hit_this_swing.is_empty()`
@@ -42,7 +43,7 @@
   - (7) `_death_pending == false`
   - (8) `_buffered_attack == false`
   - **AND** : `Engine.time_scale == 1.0 ± 0.0001`, `ShapeCast3D.enabled == false`
-- [ ] **AC-CMB-21** : si `_slow_mo_active == true` au moment de `Player.died()` → `Engine.time_scale == 1.0 ± 0.0001` restauré AVANT toute autre transition Dead, `_slow_mo_active = false`
+- [x] **AC-CMB-21** : si `_slow_mo_active == true` au moment de `Player.died()` → `Engine.time_scale == 1.0 ± 0.0001` restauré AVANT toute autre transition Dead, `_slow_mo_active = false`
 
 ---
 
@@ -108,7 +109,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/death_respawn_lifecycle_test.gd` — doit exister et couvrir AC-1/AC-2/AC-3/AC-4 (4 cas) ; tous tests `PASS` requis avant `/story-done`.
 
-**Status**: [ ] Test file à créer pendant `/dev-story` (handoff godot-gdscript-specialist)
+**Status**: ✅ Created — 6/6 PASS (`reports/report_263` 2026-05-02).
 
 ---
 
