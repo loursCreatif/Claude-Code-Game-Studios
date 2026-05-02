@@ -284,12 +284,10 @@ func _physics_process(delta: float) -> void:
 
 		# Story 009 AC-CMB-14 : N=3 substeps anti-tunneling balayent la trajectoire
 		# entre `_prev_position` (tick N-1) et `player.global_position` (tick N).
-		# Les colliders détectés sont accumulés dans `_hit_this_swing` (dedup via instance_id).
-		# Story 011/012 consommera cette liste pour la résolution de kills.
+		# Story 011 AC-CMB-05/06/45 : résolution kill SYNC — appel `enemy.die()` sur
+		# colliders uniques, dédup via `_hit_this_swing` instance_id, MAX_KILLS cap.
 		var swing_hits: Array[int] = _collect_swing_hits()
-		for instance_id: int in swing_hits:
-			if not (instance_id in _hit_this_swing):
-				_hit_this_swing.append(instance_id)
+		_resolve_kills(swing_hits)
 
 		# Story 008 AC-CMB-44 : laisser le ShapeCast à la position canonique tick courant
 		# pour observabilité externe (le dernier substep a laissé le ShapeCast à un état
@@ -462,6 +460,41 @@ func _dedupe_collider_ids(colliders: Array[Object]) -> Array[int]:
 			seen[id] = true
 			result.append(id)
 	return result
+
+
+## Story 011 — Résolution kill SYNC sur les hits du tick courant.
+##
+## Pour chaque instance_id collecté par `_collect_swing_hits()` :
+##   - Skip si déjà dans `_hit_this_swing` (dedup intra-swing AC-CMB-06).
+##   - Skip si `instance_from_id` invalide (collider freed entre substeps).
+##   - Skip + push_warning(debug build) si pas de méthode `die()` (AC-CMB-45).
+##   - Skip si `is_dead()` retourne true (collider déjà mort tick précédent, AC-5).
+##   - Sinon : append id à `_hit_this_swing`, `c.die()` (Grunt emit `enemy_killed`
+##     SYNC OQ-ENM-1 amendment), puis `_trigger_slow_mo_if_first_kill()` (Combat
+##     consumer Rule 13).
+##   - Break dès que `_hit_this_swing.size() >= MAX_KILLS_PER_SWING`.
+##
+## Pure function : pas de physics query, testable en isolation via injection
+## de hit_ids (single_hit_kill_dedup_test.gd). Le `_collect_swing_hits` et son
+## ShapeCast restent testés en intégration story-018 soak.
+func _resolve_kills(hit_ids: Array[int]) -> void:
+	for id: int in hit_ids:
+		if id in _hit_this_swing:
+			continue
+		var c: Object = instance_from_id(id)
+		if not is_instance_valid(c):
+			continue
+		if not c.has_method("die"):
+			if OS.is_debug_build():
+				push_warning("Combat: collider layer=2 sans 'die()' — skipped, id=%d" % id)
+			continue
+		if c.has_method("is_dead") and c.is_dead():
+			continue
+		_hit_this_swing.append(id)
+		c.die()
+		_trigger_slow_mo_if_first_kill()
+		if _hit_this_swing.size() >= MAX_KILLS_PER_SWING:
+			break
 
 
 ## Exécute N_SUBSTEPS sweeps anti-tunneling et retourne les instance_ids dédupliqués

@@ -98,8 +98,8 @@ L'epic est complet quand :
 | 008 | `_prev_position` per-tick update + reach constant | Logic | Ready | ADR-0006 D-3 |
 | 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | Ready | ADR-0001 + ADR-0006 (Gap 8 prereq lead-programmer) |
 | 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | **Blocked** | Gap 2 — AC-CMB-47-Prelim lead-programmer pré-Sprint 1 |
-| 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | **Blocked** | Gap 1 — MockEnemy non créé (qa-tester) |
-| 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | **Blocked** | Gap 1 — MockEnemy |
+| 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 + Gap 1 résolu (MockEnemy créé) |
+| 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | Ready | Gap 1 résolu (MockEnemy disponible) — MAX_KILLS cap déjà appliqué story-011 |
 | 013 | Slow-mo wall-clock + Callable injection + restore + edge cases | Logic | Ready | ADR-0001 + ADR-0006 D-5 |
 | 014 | Mutual kill Hybrid M1 Option C `_death_pending` | Integration | Ready | ADR-0005 D-5 amendment r2 + ADR-0006 D-2 |
 | 015 | Mid-swing transitions + race Idle mitigation + pause spam | Integration | Ready | ADR-0006 + ADR-0004 |
@@ -111,13 +111,13 @@ L'epic est complet quand :
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 14 Ready (9 Logic + 5 Integration) + 8 Blocked (3 Logic + 4 Integration + 1 Visual/Feel).
+**Totaux** : 22 stories — 1 Complete (story-011) + 15 Ready (9 Logic + 5 Integration + 1 Logic ex-blocked-Gap1) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :
 - Story 005 + 010 sont conditionnés par travail empirique pré-Sprint 1 du lead-programmer (Gap 2 + Gap 7 + Gap 8 docs `engine-reference/godot/modules/physics.md`).
 - Story 006 dépend du Sprint 0 Technical Setup (`src/core/collision_layers.gd` + `project.godot [layer_names]` + lint CI `lint-collision-layers`, ADR-0008 Migration Plan).
-- Stories 011-012 attendent `tests/unit/combat/mock_enemy.gd` (Gap 1, qa-tester).
+- ~~Stories 011-012 attendent `tests/unit/combat/mock_enemy.gd` (Gap 1, qa-tester).~~ **Gap 1 RÉSOLU 2026-05-02** : MockEnemy créé (`tests/unit/combat/mock_enemy.gd`, StaticBody3D minimal, contract parité Grunt). Story-011 Complete, story-012 Ready.
 - Stories 019-022 sont des Blocked tracking — débloqués par travaux d'autres systèmes (Audio, VFX, ADR Accessibility).
 
 ## Next Step

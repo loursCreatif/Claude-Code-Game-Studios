@@ -1,12 +1,13 @@
 # Story 011: Single-hit kill + dedup `_hit_this_swing`
 
 > **Epic**: Player Combat System
-> **Status**: Blocked
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, solo)
 
-> **BLOCKED**: Gap 1 — `tests/unit/combat/mock_enemy.gd` non créé. ACs CMB-05/06 requirent `MockEnemy` GDScript avec `die()` idempotent + `is_dead() -> bool` + `CollisionShape3D` layer=2. Owner : `qa-tester`. Échéance : avant story-011 dev-story.
+> **GAP 1 RÉSOLU 2026-05-02** : `tests/unit/combat/mock_enemy.gd` créé (StaticBody3D minimal avec `die()` idempotent + `is_dead() -> bool` + CollisionShape3D layer=2). Pas de `class_name` (cache headless friendly — preload direct). Contract parité avec Grunt réel (`src/gameplay/enemy/grunt.gd`) livré Enemy story-001/002 — pourrait aussi servir comme fixture mais MockEnemy reste plus léger pour unit tests isolés.
 
 ## Context
 
@@ -30,12 +31,17 @@
 
 *From GDD AC-CMB-05/06/45 + Rule 6/9/10 :*
 
-- [ ] **AC-CMB-05** : Combat `Swinging` + MockEnemy à 0.9 m (< KATANA_REACH=1.8) → `MockEnemy.die()` appelé exactement 1 fois, signal `enemy_killed(enemy, position)` émis avec `position == MockEnemy.global_position`, ennemi ajouté à `_hit_this_swing`
-- [ ] **AC-CMB-06** : MockEnemy déjà dans `_hit_this_swing` (même swing tick suivant) → `MockEnemy.die()` PAS appelé une 2e fois (guard `collider.get_instance_id() in _hit_this_swing`)
-- [ ] **AC-CMB-45** : collider layer=2 sans méthode `die()` (mock erroné) → aucun crash, skip silencieux, `push_warning` debug build, `enemy_killed` non émis, `_hit_this_swing` non muté
-- [ ] `_hit_this_swing` cleared en début de Swinging (entrée state) ET en sortie (transition Idle) — story-002 augmenté
-- [ ] Filtrage : `is_instance_valid(c) and c.has_method('die') and not c.is_dead() and not c.get_instance_id() in _hit_this_swing`
-- [ ] **MockEnemy contract** (créé par qa-tester pré-Sprint 1) : `die()` idempotent, `is_dead() -> bool` retourne true post-die, CollisionShape3D layer=2
+- [x] **AC-CMB-05** : Combat `Swinging` + MockEnemy à 0.9 m (< KATANA_REACH=1.8) → `MockEnemy.die()` appelé exactement 1 fois, signal `enemy_killed(enemy, position)` émis avec `position == MockEnemy.global_position`, ennemi ajouté à `_hit_this_swing`
+- [x] **AC-CMB-06** : MockEnemy déjà dans `_hit_this_swing` (même swing tick suivant) → `MockEnemy.die()` PAS appelé une 2e fois (guard `collider.get_instance_id() in _hit_this_swing`)
+- [x] **AC-CMB-45** : collider layer=2 sans méthode `die()` (mock erroné) → aucun crash, skip silencieux, `push_warning` debug build, `enemy_killed` non émis, `_hit_this_swing` non muté
+- [x] `_hit_this_swing` cleared en début de Swinging (entrée state) ET en sortie (transition Idle) — story-002 augmenté
+- [x] Filtrage : `is_instance_valid(c) and c.has_method('die') and not c.is_dead() and not c.get_instance_id() in _hit_this_swing`
+- [x] **MockEnemy contract** : `tests/unit/combat/mock_enemy.gd` créé 2026-05-02 — `die()` idempotent, `is_dead() -> bool` retourne true post-die, CollisionShape3D layer=2.
+
+**Bonus ACs covered** :
+- **MAX_KILLS_PER_SWING cap** : `_resolve_kills` break early dès `_hit_this_swing.size() >= 6` (anticipe story-012 plein scope, mais cap appliqué dès story-011).
+- **Slow-mo trigger cross-link story-013** : `_trigger_slow_mo_if_first_kill` appelé après chaque die() (idempotent via `_slow_mo_active` flag).
+- **Stale instance_id robustness** : `instance_from_id(stale)` retourne null/invalide → `is_instance_valid` filter skip silencieux, no-crash.
 
 ---
 
@@ -122,9 +128,32 @@ func _physics_process(delta: float) -> void:
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/combat/single_hit_kill_dedup_test.gd` — must exist and pass (BLOCKED Gap 1 MockEnemy)
+**Required evidence**: `tests/unit/combat/single_hit_kill_dedup_test.gd` — must exist and pass.
 
-**Status**: [ ] Not yet created (BLOCKED)
+**Status**: ✅ Created 2026-05-02 — 8/8 PASS (`reports/report_252` puis `reports/report_255` post stash-restore).
+
+**Test plan** :
+| AC | Test function | Status |
+|----|---------------|--------|
+| AC-CMB-05 / AC-1 | `test_combat_single_hit_calls_die_once_and_appends_instance_id` | ✅ PASS |
+| AC-CMB-06 / AC-2 | `test_combat_dedup_intra_swing_skips_already_hit_enemy` | ✅ PASS |
+| AC-CMB-45 / AC-3 | `test_combat_collider_without_die_method_skipped_no_crash` | ✅ PASS |
+| AC-4 | `test_combat_start_swing_clears_hit_this_swing` | ✅ PASS |
+| AC-5 | `test_combat_already_dead_enemy_skipped` | ✅ PASS |
+| Robustness | `test_combat_invalid_instance_id_skipped_no_crash` | ✅ PASS |
+| Bonus MAX cap | `test_combat_max_kills_per_swing_cap_breaks_loop` | ✅ PASS |
+| Bonus slow-mo | `test_combat_first_kill_triggers_slow_mo` | ✅ PASS |
+
+**Régression vérifiée** : Combat + Enemy suite full run avant/après story-011 via `git stash` — **20 errors/failures pré-existants identiques** (anti_tunneling_substeps + state_machine_lifecycle + sweep_position_aim_guards + scene_skeleton_invariants + duplicates " 2" multi-session). Aucune régression introduite.
+
+---
+
+## Completion Notes
+
+- **Implementation pattern** : `_resolve_kills(hit_ids: Array[int]) -> void` privée, appelée depuis `_physics_process` SWINGING branch. Remplace l'accumulation simple story-009 (`for instance_id: ...`) qui n'invoquait pas `die()`. Pas de signal `enemy_killed` Combat-side : OQ-ENM-1 amendment 2026-04-27 a transféré l'autorité d'émission à Enemy (Grunt emit SYNC quand `die()` est appelé). Combat → `_trigger_slow_mo_if_first_kill()` directement post-die, redondance évitée.
+- **MockEnemy fixture light** : volontairement plus léger que Grunt complet (pas de LaserCone, pas de Tween scale, pas de signal `enemy_killed` interne). Suffit pour unit tests `_resolve_kills` isolés. Grunt reste testé en suite Enemy (50/50 PASS) + intégration cross-system future story-018 soak.
+- **`class_name` omis** sur MockEnemy : le cache `.godot/global_script_class_cache.cfg` n'est rebuildé qu'à l'ouverture éditeur, ce qui casse le CI headless. Pattern `preload("res://tests/unit/combat/mock_enemy.gd").new()` utilisé à la place.
+- **Stories débloquées** : story-012 (Multi-hit + tri distance + MAX_KILLS — cap déjà appliqué story-011, reste tri par distance et signal `multi_kill`), Enemy story-004 (Combat sweep + Player laser cross-system tests cf AC-ENM-13/14/15 — Combat appelle maintenant `enemy.die()` correctement, integration testable).
 
 ---
 
