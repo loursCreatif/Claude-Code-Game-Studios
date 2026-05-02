@@ -175,6 +175,12 @@ func test_wall_rays_unique_name_resolve() -> void:
 func test_state_enum_initial_grounded_and_readonly() -> void:
 	# Arrange
 	var player: MovementController = PlayerScene.instantiate() as MovementController
+	# Désactive physics_process AVANT add_child : empêche l'engine de ticker
+	# pendant le process_frame, sinon Jolt is_on_floor() retourne false (pas
+	# de floor physique en headless) → transition GROUNDED → AIRBORNE qui invalide
+	# l'assertion d'état initial. Le _ready s'exécute toujours (invariants ADR
+	# story-005 vérifiés).
+	player.set_physics_process(false)
 	add_child(player)
 	await get_tree().process_frame
 
