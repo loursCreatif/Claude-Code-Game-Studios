@@ -1,12 +1,14 @@
 # Story 022: Accessibility `reduce_motion` Combat impact
 
 > **Epic**: Player Combat System
-> **Status**: Ready (Polish P3)
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
 
 > **UNBLOCKED 2026-05-02** : ADR-0015 Accessibility Interface Layer Accepted (autoload `AccessibilityService` + persistance déléguée ADR-0014 via `accessibility_settings.tres`). API consommée : `AccessibilityService.get_disable_slow_mo()`, `get_slow_mo_scale_mult()` (clampé service-level [1.0, 3.33]), `get_flash_mult()` (clampé [0.0, 1.0]), signal `settings_changed` pour live update mid-game. Story-013 a déjà implémenté la branche de code locale (`_reduce_motion_disable_slow_mo` flag) — l'implémentation cette story remplace le flag local par l'appel `AccessibilityService.get_*` au `_ready()` + reconnect signal. Polish P3, hors Sprint 1 critical path.
+
+> **IMPLEMENTED 2026-05-02 (auto-mode, post AccessibilityService story-001 Foundation Complete)** : `combat_system.gd` câblé en consumer `AccessibilityService` (pull-pattern ADR-0015 D-3) + 8 tests unitaires AC-1→AC-5 verts (`tests/unit/combat/accessibility_reduce_motion_test.gd`). Ferme TR-cmb-016 (trace-to-implementation). Régression check : 7/7 tests `slow_mo_wall_clock_test` toujours verts (compatibilité branch C story-013 préservée).
 
 ## Context
 
@@ -35,11 +37,11 @@ Sémantique r1 = "atténuer" (mult ≥ 1.0).
 
 *From GDD AC-CMB-19 r6 branche C + AC-CMB-16 r1 + Section G accessibility :*
 
-- [ ] **AC-CMB-19 r6 branch C (déjà couvert story-013)** : `_reduce_motion_disable_slow_mo == true` → 1er kill ne mute PAS `Engine.time_scale` (5 kills consécutifs vérifiés `time_scale == 1.0`, `_slow_mo_active == false`)
-- [ ] `reduce_motion_slow_mo_scale_mult ∈ [1.0, 3.33]` (bornes safe range) → `effective_slow_mo_scale = clampf(SLOW_MO_SCALE * mult, 0.0, 1.0)` ; mult=1.0 → 0.3 (default), mult=2.0 → 0.6 (atténuation 50%), mult=3.33 → 1.0 (équivalent disable)
-- [ ] `reduce_motion_flash_mult ∈ [0.0, 1.0]` → contract Combat→VFX : `enemy_killed` émis avec metadata `flash_intensity = mult` (ou flag séparé) — VFX System scale alpha en conséquence
-- [ ] **Interface Accessibility centralisée** : Combat lit ces 3 valeurs via `AccessibilityService.get_reduce_motion_settings()` (pas variables exportées per-system)
-- [ ] **Defaults** : mult_scale=1.0, disable=false, flash_mult=1.0 → comportement Combat identique au MVP non-accessibility (invariant test)
+- [x] **AC-CMB-19 r6 branch C (déjà couvert story-013, ré-couvert via service)** : `disable_slow_mo == true` → 1er kill ne mute PAS `Engine.time_scale` (5 kills consécutifs vérifiés `time_scale == 1.0`, `_slow_mo_active == false`) → AC-1 test `test_combat_accessibility_disable_slow_mo_blocks_all_kills`
+- [x] `reduce_motion_slow_mo_scale_mult ∈ [1.0, 3.33]` → `effective_slow_mo_scale = clampf(SLOW_MO_SCALE * mult, 0.0, 1.0)` ; mult=1.0 → 0.3 (default), mult=2.0 → 0.6 (atténuation 50%), mult=3.33 → ~1.0 (équivalent disable) → AC-2 tests `..._mult_2_attenuates_to_half` + `..._mult_max_equivalent_to_disable`
+- [x] `reduce_motion_flash_mult ∈ [0.0, 1.0]` → cache combat (`_reduce_motion_flash_mult`) clampé service-level. Contract Combat→VFX `enemy_killed` metadata DIFFÉRÉ ADR-0016 VFX (out-of-scope confirmé) — VFX System lira AccessibilityService directement.
+- [x] **Interface Accessibility centralisée** : Combat lit via `AccessibilityService.get_disable_slow_mo()` + `get_slow_mo_scale_mult()` + `get_flash_mult()` au `_ready()` + reconnect `settings_changed` (ADR-0015 D-3 pull-pattern)
+- [x] **Defaults** : mult_scale=1.0, disable=false, flash_mult=1.0 → comportement Combat identique au MVP non-accessibility (invariant test) → AC-3 test `..._defaults_preserve_mvp_behavior`
 
 ---
 
@@ -132,7 +134,20 @@ func _trigger_slow_mo_if_first_kill() -> void:
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/accessibility_reduce_motion_test.gd`
 
-**Status**: [ ] Not yet created — implémentation Polish P3 attendue.
+**Status**: [x] **COMPLETE 2026-05-02** — 8 tests unitaires verts (`reports/report_229`, 73 ms total).
+
+| AC  | Test name                                                                  | Verdict |
+|-----|----------------------------------------------------------------------------|---------|
+| AC-1 | `test_combat_accessibility_disable_slow_mo_blocks_all_kills`              | PASS    |
+| AC-2 | `test_combat_accessibility_slow_mo_mult_2_attenuates_to_half`             | PASS    |
+| AC-2 | `test_combat_accessibility_slow_mo_mult_max_equivalent_to_disable`        | PASS    |
+| AC-3 | `test_combat_accessibility_defaults_preserve_mvp_behavior`                | PASS    |
+| AC-4 | `test_combat_accessibility_settings_changed_signal_reloads_cache_mid_game`| PASS    |
+| AC-5 | `test_combat_accessibility_slow_mo_mult_above_max_clamped_to_3_33`        | PASS    |
+| AC-5 | `test_combat_accessibility_slow_mo_mult_below_min_clamped_to_1_0`         | PASS    |
+| AC-5 | `test_combat_accessibility_flash_mult_above_max_clamped_to_1_0`           | PASS    |
+
+**Régression check** : 7/7 tests `slow_mo_wall_clock_test` (story-013 baseline) toujours verts → branch C compatibility préservée.
 
 ---
 

@@ -144,8 +144,17 @@ var _prev_position: Vector3 = Vector3.ZERO
 var _get_time_msec: Callable = Time.get_ticks_msec
 
 ## Story 013 / accessibility (story 022 — branch C) : si `true`, désactive la slow-mo
-## sur 1er enemy_killed (cf. AC-CMB-19 r6). Toggleable runtime via settings handler.
-@export var _reduce_motion_disable_slow_mo: bool = false
+## sur 1er enemy_killed (cf. AC-CMB-19 r6). Lu depuis AccessibilityService au `_ready()`
+## + reconnect signal `settings_changed` pour live update mid-game (ADR-0015 D-3).
+var _reduce_motion_disable_slow_mo: bool = false
+
+## Story 022 — multiplier slow-mo, atténue (≥ 1.0). effective_scale = SLOW_MO_SCALE × mult,
+## clampé [0.0, 1.0]. Bornes [1.0, 3.33] clampées service-level (ADR-0015 D-7).
+var _reduce_motion_slow_mo_scale_mult: float = 1.0
+
+## Story 022 — multiplier flash VFX [0.0, 1.0]. Stocké pour future contract Combat→VFX
+## (différé ADR-0016 VFX — VFX System lira AccessibilityService directement).
+var _reduce_motion_flash_mult: float = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +236,13 @@ func _ready() -> void:
 	var parent_3d: Node3D = parent as Node3D
 	if parent_3d != null:
 		_prev_position = parent_3d.global_position
+
+	# Story 022 : connect AccessibilityService pour reduce_motion settings (ADR-0015 D-3).
+	# Lecture initiale + reconnect signal pour live update mid-game (Settings Menu Tier 2+).
+	# Pull-pattern : Combat lit l'autoload, jamais l'inverse (D-8 outbound-zero côté service).
+	if not AccessibilityService.settings_changed.is_connected(_on_accessibility_changed):
+		AccessibilityService.settings_changed.connect(_on_accessibility_changed)
+	_apply_accessibility()
 
 
 func _physics_process(delta: float) -> void:
@@ -625,8 +641,10 @@ func _drain_death_pending() -> void:
 ## Story 013 : déclenche slow-mo sur 1er enemy_killed du swing.
 ##
 ## Idempotent (multi-kill n'étend pas la fenêtre — `_slow_mo_active` flag).
-## Branch accessibility (story 022) : si `_reduce_motion_disable_slow_mo == true`,
-## ne mute PAS Engine.time_scale (5 kills consécutifs restent à 1.0).
+## Branch accessibility (story 022) :
+##   - `_reduce_motion_disable_slow_mo == true` → ne mute PAS Engine.time_scale.
+##   - `_reduce_motion_slow_mo_scale_mult > 1.0` → atténue effective_scale
+##     (mult=2.0 → 0.6, mult=3.33 → ~1.0). Clampé [0.0, 1.0] côté Combat.
 ##
 ## Appelé depuis le hit resolution loop (story 011/012) — exposé public-private pour
 ## permettre tests directs (story 013 AC-CMB-19/24/25).
@@ -637,7 +655,10 @@ func _trigger_slow_mo_if_first_kill() -> void:
 		return  # accessibility branch C (AC-CMB-19 r6)
 	_slow_mo_active = true
 	_slow_mo_start_msec = _get_time_msec.call() as int
-	Engine.time_scale = SLOW_MO_SCALE
+	var effective_scale: float = clampf(
+		SLOW_MO_SCALE * _reduce_motion_slow_mo_scale_mult, 0.0, 1.0
+	)
+	Engine.time_scale = effective_scale
 
 
 ## Story 016 : valide les 8 invariants Combat sur valeurs courantes (live-tuning safe).
@@ -704,6 +725,30 @@ func _validate_invariants() -> void:
 ##   - Au tick où cooldown atteint 0 : ratio = 0.0.
 func get_cooldown_ratio() -> float:
 	return clampf(_cooldown_timer / (ATTACK_COOLDOWN_MS / 1000.0), 0.0, 1.0)
+
+
+## Story 022 : applique les settings reduce_motion lus depuis AccessibilityService.
+##
+## Pull-pattern (ADR-0015 D-3) : Combat lit 3 typed getters. Bornes clampées
+## service-level (D-7) — Combat ne re-clampe pas (idempotent côté Combat).
+##
+## Appelé au `_ready()` (lecture initiale) et depuis `_on_accessibility_changed`
+## (live update Settings Menu mid-game).
+func _apply_accessibility() -> void:
+	_reduce_motion_disable_slow_mo = AccessibilityService.get_disable_slow_mo()
+	_reduce_motion_slow_mo_scale_mult = AccessibilityService.get_slow_mo_scale_mult()
+	_reduce_motion_flash_mult = AccessibilityService.get_flash_mult()
+
+
+## Story 022 : handler signal `AccessibilityService.settings_changed` — re-lit cache.
+##
+## Idempotence (D-5 default invariant) : si tous flags retombent à default,
+## le comportement Combat est bit-identique au MVP non-accessibility (no side-effect).
+##
+## Note : un swing en cours n'est PAS affecté ; seul le prochain `_trigger_slow_mo_*`
+## consulte le cache (cf. AC-4 du story-022).
+func _on_accessibility_changed() -> void:
+	_apply_accessibility()
 
 
 ## Story 013 : restore Engine.time_scale à 1.0 quand SLOW_MO_DURATION_MS écoulé.
