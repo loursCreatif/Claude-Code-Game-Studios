@@ -254,20 +254,20 @@ requirements:
     gdd: design/gdd/camera-system.md
     requirement: "Lifecycle save/load `camera_settings.tres` (mouse_sensitivity, mouse_y_inverted, fov_user_offset) — persist timing, migration versions, fallback sur corruption"
     created: 2026-04-21
-    revised: ""
+    revised: 2026-05-02
     status: active
-    covered_by: []
-    # GAP G-2 — Feature tier, ADR save/load settings à créer (non MVP-blocker).
+    covered_by: [ADR-0014]
+    # ADR-0014 Save/Load Settings Infrastructure Accepted 2026-05-02 — débloque story camera-013 (Polish P3).
 
   - id: TR-inp-009
     system: input
     gdd: design/gdd/input-system.md
     requirement: "Lifecycle save/load `input_settings.tres` (remap bindings Tier 2+, sensitivity, invert_y, focus burst window tunable 20-150 ms) — persist + migration + fallback"
     created: 2026-04-21
-    revised: ""
+    revised: 2026-05-02
     status: active
-    covered_by: []
-    # GAP G-2 (Input side) — même ADR save/load que TR-cam-006.
+    covered_by: [ADR-0014]
+    # ADR-0014 Save/Load Settings Infrastructure Accepted 2026-05-02 — débloque story input-010 (Polish P3, pair avec TR-cam-006).
 
   - id: TR-mov-008
     system: movement

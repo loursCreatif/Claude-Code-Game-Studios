@@ -1,10 +1,12 @@
-# Story 010: Settings persistence `input_settings.tres` (BLOCKED)
+# Story 010: Settings persistence `input_settings.tres`
 
 > **Epic**: input-system
-> **Status**: **Blocked** — attend ADR-0014 Save/Load Settings Infrastructure
+> **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Config/Data
-> **Manifest Version**: 2026-04-21
+> **Manifest Version**: 2026-04-23
+> **Estimate**: M (4-6 h, Resource class + InputManager._ready load + save explicit + 6 properties + 3 ACs tests)
+> **Performance**: settings load < 1 ms boot one-shot ; save < 5 ms rare event off-hot-path (ADR-0014 Performance Implications).
 
 ## Context
 
@@ -12,11 +14,11 @@
 **Requirement**: `TR-inp-009`
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
-**ADR Governing Implementation**: **❌ No ADR** — GAP G-2b (Input side)
-**ADR Decision Summary**: Aucune ADR n'a encore figé le pattern Save/Load Settings pour le projet. `TR-cam-006` partage la même dépendance (G-2, Camera side). ADR-0014 Save/Load Settings Infrastructure planifiée en phase Polish per `architecture.md §8.5`. Cette story reste **Blocked** tant que l'ADR n'est pas Accepted.
+**ADR Governing Implementation**: **ADR-0014 Save/Load Settings Infrastructure** (Accepted 2026-05-02)
+**ADR Decision Summary**: Resource (.tres) typé pour settings (D-1) + helper static class `SettingsResource` zero autoload (D-5) + sub-folder `user://settings/<system>.tres` (D-2 — path canonique : `user://settings/input.tres`) + versioning `_settings_version: int` + migration forward-only (D-3) + corruption fallback defaults+warning+rewrite-on-next-save (D-4) + factory function `create_defaults()` obligatoire (D-7) + outbound-zero (D-10).
 
-**Engine**: Godot 4.6 | **Risk**: LOW
-**Engine Notes**: `Resource` + `ResourceSaver.save(res, path)` + `ResourceLoader.load(path)` est le pattern standard Godot (existe pre-cutoff). `user://` path est géré par la plateforme (Windows APPDATA / macOS Application Support / Linux XDG). Points à trancher par ADR-0014 : migration de versions, fallback corruption strategy, ownership du fichier (SaveLoadManager vs système propriétaire), timing (save immediate vs batched).
+**Engine**: Godot 4.6 | **Risk**: LOW (`Resource` + `ResourceSaver.save` + `ResourceLoader.load` API stables 3.x — validé dans ADR-0014 Engine Compatibility)
+**Engine Notes**: `duplicate(true)` only (pas `duplicate_deep()` 4.5+ — ADR-0014 D-8). `make_dir_recursive_absolute()` pour bootstrap sub-folder. Pas d'API post-cutoff requise.
 
 **Control Manifest Rules (Foundation layer)**:
 - Required (post-ADR-0014, à re-générer): à définir par l'ADR
@@ -26,83 +28,89 @@
 
 ## Acceptance Criteria
 
-*From GDD `design/gdd/input-system.md`, scoped to this story:*
+*Path canonique (ADR-0014 D-2) : `user://settings/input.tres` (sub-folder, pas racine `user://`).*
 
-> ⚠️ **Story Blocked** — ne pas démarrer avant Accepted de ADR-0014 Save/Load Settings Infrastructure. Les ACs ci-dessous sont un draft à valider contre l'ADR une fois écrite.
+- [ ] **AC-INP-SAVE-1 (schema)** : Resource class `InputSettings extends Resource` créée avec :
+  - [ ] `CURRENT_VERSION: int = 1` (constant)
+  - [ ] `_settings_version: int = CURRENT_VERSION` (@export)
+  - [ ] `mouse_sensitivity: float = 0.0022` (@export_range [0.0005, 0.012])
+  - [ ] `mouse_y_inverted: bool = false` (@export)
+  - [ ] `mouse_capture_at_boot: bool = false` (@export)
+  - [ ] `focus_regain_window_ms: int = 50` (@export_range [20, 150])
+  - [ ] `debug_overlay_default: bool = false` (@export)
+  - [ ] `latency_anomaly_threshold_ms: float = 0.1` (@export_range [0.05, 1.0])
+  - [ ] `static create_defaults() -> InputSettings`
+  - [ ] `static migrate_from(version: int, raw: InputSettings) -> InputSettings` (forward-only)
+- [ ] **AC-INP-SAVE-2 (boot load)** : `InputManager._ready()` charge settings via `SettingsResource.load_or_default("input", Callable(InputSettings, "create_defaults"), Callable(InputSettings, "migrate_from")) as InputSettings`. Stocke dans `var settings: InputSettings` member.
+- [ ] **AC-INP-SAVE-3 (save explicit)** : `InputManager.save_settings() -> Error` delegate à `SettingsResource.save(settings, "input")`. Logger Error si != OK.
+- [ ] **AC-P-1 (round-trip identity)** : `settings.mouse_sensitivity = 0.0035`, `save_settings()`, recharger via helper → `mouse_sensitivity == 0.0035` + `_settings_version == CURRENT_VERSION`.
+- [ ] **AC-P-2 (first launch defaults silent)** : aucun fichier sur disque, sub-folder potentiellement absent → `_ready()` → defaults appliqués (`mouse_sensitivity == 0.0022`) + AUCUN warning + sub-folder créé idempotent.
+- [ ] **AC-P-3 (corruption fallback)** : fichier corrompu (bytes flippés ou `_settings_version = 999` invalide) → `_ready()` → `SettingsResource.load_or_default()` retourne `InputSettings.create_defaults()` + `push_warning("[settings] user://settings/input.tres corrupted, using defaults")` + fichier corrompu **non-réécrit au boot** (réécriture only on next explicit `save_settings()` per ADR-0014 D-4).
 
-- [ ] Resource class `InputSettings extends Resource` créée avec propriétés typed `@export` :
-  - [ ] `mouse_sensitivity: float = 0.0022` (safe range [0.0005, 0.012])
-  - [ ] `mouse_y_inverted: bool = false`
-  - [ ] `mouse_capture_at_boot: bool = false`
-  - [ ] `focus_regain_window_ms: int = 50` (safe range [20, 150])
-  - [ ] `debug_overlay_default: bool = false`
-  - [ ] `latency_anomaly_threshold_ms: float = 0.1` (safe range [0.05, 1.0])
-- [ ] `InputManager._ready()` : load `user://input_settings.tres` si présent ; fallback hardcoded defaults sinon + `push_warning` ; re-écrit au prochain save
-- [ ] `InputManager.save_settings()` : écrit la resource courante vers `user://input_settings.tres`
-- [ ] Validation clamp au load : si `mouse_sensitivity` hors safe range ou NaN → fallback 0.0022 + push_warning
-- [ ] **AC-P-1** : `mouse_sensitivity = 0.0035` assigné → `save_settings()` → nouvelle instance `_ready()` → `mouse_sensitivity == 0.0035`
-- [ ] **AC-P-2** : fichier absent → `_ready()` → `mouse_sensitivity == 0.0022` (default) ; prochain save écrit fichier valide
-- [ ] **AC-P-3** : fichier avec `mouse_sensitivity = NaN` ou hors safe range → `_ready()` → fallback 0.0022 + `push_warning`
-- [ ] **Post-ADR-0014** : alignement exact sur le pattern décidé (ownership SaveLoadManager vs InputManager, timing save, migration versions)
+**Bonus tests recommandés** :
+- `test_input_settings_defaults_version_matches_current` : asserte `InputSettings.create_defaults()._settings_version == InputSettings.CURRENT_VERSION` (mitigation Risk schema drift, ADR-0014 Risks).
+- `test_migrate_from_v0` : vérifie migration v0 → CURRENT_VERSION (futur bump).
 
 ---
 
 ## Implementation Notes
 
-*Tentative — à aligner avec ADR-0014:*
+**Files à créer/modifier** :
+
+1. `src/core/settings/settings_resource.gd` — helper static class réutilisable. **Si déjà créé par camera story-013, sinon créer ici** (mêmes 3 verbes : `load_or_default`, `save`, `_resolve_path`, `_ensure_dir`).
+2. `src/core/settings/input_settings.gd` (NEW) — Resource class :
 
 ```gdscript
-# src/core/input_settings.gd
-class_name InputSettings
-extends Resource
+class_name InputSettings extends Resource
 
+const CURRENT_VERSION: int = 1
+
+@export var _settings_version: int = CURRENT_VERSION
 @export_range(0.0005, 0.012, 0.0001) var mouse_sensitivity: float = 0.0022
 @export var mouse_y_inverted: bool = false
 @export var mouse_capture_at_boot: bool = false
 @export_range(20, 150, 1) var focus_regain_window_ms: int = 50
 @export var debug_overlay_default: bool = false
 @export_range(0.05, 1.0, 0.01) var latency_anomaly_threshold_ms: float = 0.1
+
+static func create_defaults() -> InputSettings:
+    var s := InputSettings.new()
+    s._settings_version = CURRENT_VERSION
+    return s
+
+static func migrate_from(version: int, raw: InputSettings) -> InputSettings:
+    if version >= CURRENT_VERSION:
+        return raw
+    push_warning("[input-settings] migrating v%d → v%d" % [version, CURRENT_VERSION])
+    raw._settings_version = CURRENT_VERSION
+    return raw
 ```
+
+3. `src/core/input_manager.gd` (MODIFIED) :
 
 ```gdscript
-# InputManager
-const SETTINGS_PATH: String = "user://input_settings.tres"
-const SENSITIVITY_SAFE_MIN: float = 0.0005
-const SENSITIVITY_SAFE_MAX: float = 0.012
-const SENSITIVITY_DEFAULT: float = 0.0022
-
 var settings: InputSettings
 
-func _load_settings() -> void:
-    if ResourceLoader.exists(SETTINGS_PATH):
-        settings = ResourceLoader.load(SETTINGS_PATH) as InputSettings
-        if settings == null:
-            push_warning("input_settings.tres corrompu — fallback defaults")
-            settings = InputSettings.new()
-        else:
-            # Validation clamp
-            var s := settings.mouse_sensitivity
-            if is_nan(s) or s < SENSITIVITY_SAFE_MIN or s > SENSITIVITY_SAFE_MAX:
-                push_warning("mouse_sensitivity hors range (%f) — fallback %f" % [s, SENSITIVITY_DEFAULT])
-                settings.mouse_sensitivity = SENSITIVITY_DEFAULT
-    else:
-        settings = InputSettings.new()
+func _ready() -> void:
+    # ... existing code ...
+    settings = SettingsResource.load_or_default(
+        "input",
+        Callable(InputSettings, "create_defaults"),
+        Callable(InputSettings, "migrate_from"),
+    ) as InputSettings
+    # consume settings.mouse_sensitivity, focus_regain_window_ms, etc.
 
-func save_settings() -> void:
-    var err := ResourceSaver.save(settings, SETTINGS_PATH)
-    if err != OK:
-        push_error("save_settings failed: %d" % err)
+func save_settings() -> Error:
+    return SettingsResource.save(settings, "input")
 ```
 
-Notes clés :
-- **Blocker structurel** : le pattern "qui écrit quand" (InputManager seul ? SaveLoadManager autoload central ?) dépend de ADR-0014. Ne pas implémenter avant que le choix soit acté — risque de refactor complet.
-- **Points à résoudre par ADR-0014** :
-  - Ownership : chaque système écrit son propre fichier vs centralisation
-  - Migration : stratégie versions (ex : champs ajoutés/retirés)
-  - Fallback corruption : hardcoded vs last-known-good vs prompt user
-  - Timing : save synchrone à chaque mutation vs batched périodique
-  - Threading : save async via `WorkerThreadPool` (attention `Input.*` main-thread only ADR-0004 D-7)
-- **Tuning knob `focus_regain_window_ms`** (GDD) : une fois cette story déblockée, InputManager lit `settings.focus_regain_window_ms` au `_ready()` et remplace la constante `FOCUS_REGAIN_WINDOW_USEC` de story-005 (× 1000 pour µs).
+4. `tests/unit/input/input_settings_test.gd` (NEW) — 3 ACs (schema + version match + migration round-trip) + 2 bonus.
+5. `tests/integration/input/input_settings_lifecycle_test.gd` (NEW) — corruption fallback + first-launch + round-trip identity.
+
+**Notes clés** :
+- **Tuning knob `focus_regain_window_ms`** (GDD) : InputManager lit `settings.focus_regain_window_ms` au `_ready()` et remplace la constante `FOCUS_REGAIN_WINDOW_USEC` de story-005 (× 1000 pour µs). **Cette migration est in-scope cette story** (1 ligne change dans story-005 hot path).
+- **Validation clamp redondance** : `@export_range` enforce les bornes au boot via Godot validation (rejected si `_settings_version` corrompu détecté côté ADR-0014 D-4 fallback). NaN edge case : `@export_range` ne couvre pas NaN explicitement → ajouter `if is_nan(s.mouse_sensitivity): s = create_defaults()` après load (ou dans `migrate_from`).
+- **Coordination camera-013** : si camera story-013 implémentée AVANT input-010, `settings_resource.gd` existe déjà — réutiliser. Sinon, input-010 crée le helper. **Convention : ne pas dupliquer.**
 
 ---
 
@@ -140,28 +148,33 @@ Notes clés :
 
 ## Test Evidence
 
-**Story Type**: Config/Data
-**Required evidence** (post-unblock):
-- `tests/unit/input/settings_persistence_test.gd` — AC-P-1, AC-P-2, AC-P-3
-- Smoke check post-save : `production/qa/smoke-{date}.md` — settings modifié via menu, restart jeu, paramètre persisté
+**Story Type**: Config/Data (test evidence ADVISORY — mais la story embarque assez de logique unit-testable pour mériter Logic ACs : adopter Logic + Integration tests parallèle camera-013 pattern).
 
-**Status**: [ ] **Blocked — ADR-0014 non écrite**
+**Required evidence**:
+- `tests/unit/settings/input_settings_test.gd` — AC-INP-SAVE-1 schema + bonus version match + migration v0→v1.
+- `tests/integration/settings/input_settings_lifecycle_test.gd` — AC-P-1 round-trip + AC-P-2 first-launch silent + AC-P-3 corruption fallback.
+- Smoke check post-save Tier 2+ Settings menu (manual) : `production/qa/smoke-{date}.md` — settings modifié via menu, restart jeu, paramètre persisté.
+
+**Status**: [ ] To be created during implementation per ADR-0014 D-3 + D-4 + D-5 patterns.
 
 ---
 
-## Unblock Checklist
+## Unblock Status — RESOLVED 2026-05-02
 
-- [ ] `/architecture-decision` ADR-0014 Save/Load Settings Infrastructure écrite + status Accepted
-- [ ] ADR-0014 section Engine Compatibility traite `ResourceLoader` / `ResourceSaver` Godot 4.6
-- [ ] ADR-0014 tranche ownership (per-system autonomous vs centralized SaveLoadManager)
-- [ ] ADR-0014 couvre migration versions + fallback corruption
-- [ ] `tr-registry.yaml` : TR-inp-009 `covered_by: [ADR-0014]` après Accepted
-- [ ] Re-run `/create-control-manifest` pour capturer les nouvelles règles
-- [ ] Cette story re-vérifier et update Implementation Notes contre le pattern final
+- [x] `/architecture-decision` ADR-0014 Save/Load Settings Infrastructure écrite + status **Accepted** (2026-05-02).
+- [x] ADR-0014 §Engine Compatibility traite `ResourceLoader` / `ResourceSaver` Godot 4.6 (LOW risk).
+- [x] ADR-0014 D-5 tranche ownership : helper static class `SettingsResource` + per-system autonomous load au `_ready()` consumer (zero autoload).
+- [x] ADR-0014 D-3 migration forward-only par champ `_settings_version` + factory `create_defaults()` ; D-4 corruption fallback defaults+warning+rewrite-on-next-save.
+- [x] `tr-registry.yaml` : TR-inp-009 `covered_by: [ADR-0014]`.
+- [ ] Re-run `/create-control-manifest` (à programmer prochain manifest version bump — pas blocking implémentation).
+
+**Story Ready** — implémentation peut démarrer.
 
 ---
 
 ## Dependencies
 
-- Depends on: **ADR-0014 Save/Load Settings Infrastructure (not yet written)**, Story 005 (consommera `focus_regain_window_ms`)
-- Unlocks: story équivalente Camera Settings (TR-cam-006 G-2a), fonctionnalité sensitivity slider Settings menu
+- **Depends on** : ADR-0014 Save/Load Settings Infrastructure (Accepted 2026-05-02).
+- **Soft depends on** : Story 005 (consommera `focus_regain_window_ms` après cette story livrée).
+- **Coordination** : camera story-013 partage le helper `SettingsResource` — implémenter en parallèle ou séquentiellement (pas de duplication).
+- **Unlocks** : sensitivity slider Settings menu Tier 2+ ; camera story-013 (peut s'appuyer sur le helper si cette story livrée en premier).

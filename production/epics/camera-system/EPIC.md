@@ -45,7 +45,7 @@ cohérent budget Pillar 1). Budget perf p99 ≤ 0.5 ms/frame (TR-cam-005).
 | TR-cam-003 | Logique caméra en `_process` (frame rate 60+ fps) — pas `_physics_process`. Mouse motion event-driven via signal | ADR-0001, ADR-0003 ✅ |
 | TR-cam-004 | Tilt wall-run visible à 95% de WALL_RUN_TILT_ANGLE=0.35 rad dans ≤ 200 ms (lerp `camera_effects.rotation.z`) | ❌ No ADR (spec implémentable depuis GDD Rule 4 — comportement non-structurel, pas d'ADR requis) |
 | TR-cam-005 | Performance budget caméra ≤ 0.5 ms/frame p99 — logique camera en `_process` (yaw+pitch apply, tilt lerp, shake decay, FOV interp) | ADR-0002 ✅ (claim enregistré registry 2026-04-21) |
-| TR-cam-006 | Lifecycle save/load `camera_settings.tres` (mouse_sensitivity, mouse_y_inverted, fov_user_offset) — persist + migration versions + fallback corruption | ❌ No ADR (G-2a post-MVP polish — ADR-0014 Save/Load Settings Infrastructure planned phase Polish) |
+| TR-cam-006 | Lifecycle save/load `camera_settings.tres` (mouse_sensitivity, mouse_y_inverted, fov_user_offset) — persist + migration versions + fallback corruption | ADR-0014 ✅ (Accepted 2026-05-02 — Polish P3) |
 
 ## Known Gaps
 
@@ -53,10 +53,7 @@ cohérent budget Pillar 1). Budget perf p99 ≤ 0.5 ms/frame (TR-cam-005).
   testable directement depuis GDD Rule 4 (AC-CAM-TILT-*). Pas d'ADR requis —
   cela reste un behavior target, pas une décision architecturale. Stories
   peuvent procéder avec référence GDD directe.
-- **TR-cam-006** (save/load camera_settings) — non-blocker MVP. Stories touchant
-  ce TR seront marquées **Blocked** jusqu'à écriture de **ADR-0014 Save/Load
-  Settings Infrastructure** (phase Polish). Pairé avec TR-inp-009 (input_settings)
-  — un ADR unique couvre les deux.
+- **TR-cam-006** (save/load camera_settings) — RÉSOLU 2026-05-02. **ADR-0014 Save/Load Settings Infrastructure** Accepted (Polish P3). Story 013 Status `Ready` — implémentation programmable post-Sprint 1 release. Pattern partagé avec TR-inp-009 (input-010) via helper static `SettingsResource`.
 
 ## Validation Requirements (Sprint 1)
 
@@ -125,7 +122,7 @@ This epic is complete when:
 | 010 | Reduce_motion gate (tilt×0.25, fov_kick×0.5, shake×0) | Logic | Ready | ADR-0002 | — |
 | 011 | _exit_tree cleanup + NaN safeguard + focus-loss behavior | Integration | Ready | ADR-0002, ADR-0004 | TR-cam-001 |
 | 012 | Perf instrumentation ring buffer p50/p99 + E2E mouse latency | Integration (Perf) | Ready | ADR-0002, ADR-0003 | TR-cam-005 |
-| 013 | camera_settings.tres save/load | Config/Data | **Blocked (ADR-0014 absent)** | — | TR-cam-006 |
+| 013 | camera_settings.tres save/load | Config/Data | Ready (Polish P3) | M | TR-cam-006 |
 
 ## Dependency Chain
 
@@ -143,7 +140,7 @@ Story 001 (scene skeleton)
                      Story 010 (reduce_motion) ◄── depends on 005,006,007
                      Story 011 (cleanup+NaN+focus) ◄── depends on 001,002,005-008
                      Story 012 (perf ring buffer) ◄── depends on 001-007,011
-                     Story 013 (save/load) ◄── BLOCKED until ADR-0014
+                     Story 013 (save/load) ◄── Ready (ADR-0014 Accepted 2026-05-02)
 ```
 
 ## Story Distribution
@@ -153,7 +150,7 @@ Story 001 (scene skeleton)
 | Logic | 4 | 002, 003, 004, 010 |
 | Integration | 7 | 001, 005, 006, 007, 008, 011, 012 |
 | Visual/Feel | 1 | 009 |
-| Config/Data | 1 | 013 (Blocked) |
+| Config/Data | 1 | 013 (Ready, Polish P3) |
 | **Total** | **13** | — |
 
 ## Next Step
@@ -162,4 +159,4 @@ Run `/story-readiness production/epics/camera-system/story-001-scene-skeleton-pr
 
 Les stories suivantes doivent être implémentées dans l'ordre de la dependency chain ; chaque story liste précisément ses `Depends on:` et `Unlocks:`.
 
-Story 013 (camera_settings save/load) reste **Blocked** jusqu'à création de ADR-0014 Save/Load Settings Infrastructure (phase Polish, non-MVP).
+Story 013 (camera_settings save/load) est `Ready` depuis ADR-0014 Save/Load Settings Infrastructure (Accepted 2026-05-02). Implémentation programmable phase Polish P3 (post-Sprint 1 release). Pattern helper `SettingsResource` partagé avec input story-010 (TR-inp-009) — pas de duplication.

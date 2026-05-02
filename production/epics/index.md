@@ -6,10 +6,10 @@ Control Manifest Version: 2026-04-23
 
 | Epic | Layer | System | GDD | Stories | Status |
 |------|-------|--------|-----|---------|--------|
-| [input-system](input-system/EPIC.md) | Foundation | Input System | [input-system.md](../../design/gdd/input-system.md) | 10 created (9 Ready + 1 Blocked story-010 attend ADR-0014) | Ready |
+| [input-system](input-system/EPIC.md) | Foundation | Input System | [input-system.md](../../design/gdd/input-system.md) | 10 created (10 Ready — story-010 unblocked par ADR-0014 Accepted 2026-05-02, Polish P3) | Ready |
 | [save-load-system](save-load-system/EPIC.md) | Foundation | Save/Load System | [save-load-system.md](../../design/gdd/save-load-system.md) | Not yet created — run `/create-stories save-load-system` (priorité Sprint 1 — story-001 débloque upgrade-001 + Shop + Credit + Menu) | Ready |
 | [player-movement-system](player-movement-system/EPIC.md) | Core | Player Movement System | [player-movement-system.md](../../design/gdd/player-movement-system.md) | 18 created (17 Ready + 1 Blocked story-018 attend ADR-0015) | Ready |
-| [camera-system](camera-system/EPIC.md) | Core | Camera System | [camera-system.md](../../design/gdd/camera-system.md) | 13 created (12 Ready + 1 Blocked story-013 attend ADR-0014) | Ready |
+| [camera-system](camera-system/EPIC.md) | Core | Camera System | [camera-system.md](../../design/gdd/camera-system.md) | 13 created (13 Ready — story-013 unblocked par ADR-0014 Accepted 2026-05-02, Polish P3) | Ready |
 | [level-system](level-system/EPIC.md) | Core | Level System | [level-system.md](../../design/gdd/level-system.md) | 22 created (all Ready — C1..C8 full coverage) | Ready |
 | [combat-system](combat-system/EPIC.md) | Feature | Player Combat System | [player-combat-system.md](../../design/gdd/player-combat-system.md) | 22 created (13 Ready + 9 Blocked — Gaps 1/2/5/7/8 + Audio/VFX/Accessibility) | Ready |
 | [shop-system](shop-system/EPIC.md) | Feature | Shop System | [shop-system.md](../../design/gdd/shop-system.md) | Not yet created — run `/create-stories shop-system` | Ready |

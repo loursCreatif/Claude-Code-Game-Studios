@@ -41,15 +41,11 @@ FLOW AVANT TOUT (latence intra-engine ≤ 16 ms p99).
 | TR-inp-006 | Signal `application_focus_lost` / `application_focus_gained` pour découplage Input ↔ GameStateManager (Foundation one-way) | ADR-0004 ✅ |
 | TR-inp-007 | Zero-alloc hot path : ring buffer `PackedFloat32Array` préalloué cap 120 pour métriques latence | ADR-0004 ✅ |
 | TR-inp-008 | Latence cible p99 ≤ 16 ms intra-engine (input event → physics state change) | ADR-0001, ADR-0003 ✅ |
-| TR-inp-009 | Save/load `input_settings.tres` (remap Tier 2+, sensitivity, invert_y, focus burst window 20-150 ms) | ❌ No ADR (G-2b post-MVP polish — ADR-0014 planned) |
+| TR-inp-009 | Save/load `input_settings.tres` (remap Tier 2+, sensitivity, invert_y, focus burst window 20-150 ms) | ADR-0014 ✅ (Accepted 2026-05-02 — Polish P3) |
 
 ## Known Gaps
 
-- **TR-inp-009** (save/load input_settings) — non-blocker MVP. Stories touchant
-  ce TR seront marquées **Blocked** jusqu'à écriture de **ADR-0014 Save/Load
-  Settings Infrastructure** (phase Polish). Le GDD spec implémentable pour remap
-  minimal (stretch goal Tier 2+) existe déjà — un ADR léger peut débloquer si
-  priorisé.
+- **TR-inp-009** (save/load input_settings) — RÉSOLU 2026-05-02. **ADR-0014 Save/Load Settings Infrastructure** Accepted (Polish P3). Story 010 Status `Ready` — implémentation programmable post-Sprint 1. Pattern helper `SettingsResource` partagé avec camera story-013 (TR-cam-006).
 
 ## Validation Requirements (Sprint 1)
 
@@ -102,9 +98,9 @@ This epic is complete when:
 | 007 | [Benchmark E2E p99 ≤ 16 ms](story-007-latency-benchmark-e2e.md) | Integration | Ready | ADR-0004 + ADR-0001 |
 | 008 | [Zero-alloc stress 10k events/60s](story-008-zero-alloc-stress.md) | Integration | Ready | ADR-0004 D-8 + VC-3 |
 | 009 | [Debug overlay F3](story-009-debug-overlay.md) | UI | Ready | ADR-0004 D-9 |
-| 010 | [Settings persistence `input_settings.tres`](story-010-settings-persistence.md) | Config/Data | **Blocked** | ❌ ADR-0014 absent |
+| 010 | [Settings persistence `input_settings.tres`](story-010-settings-persistence.md) | Config/Data | Ready (Polish P3) | ADR-0014 ✅ |
 
-**Dependency chain** : 001 → {002, 003, 006} → {004, 005, 009} → {007, 008}. Story 010 indépendante, blocked hors ADR-0014.
+**Dependency chain** : 001 → {002, 003, 006} → {004, 005, 009} → {007, 008}. Story 010 indépendante (Polish P3, ADR-0014 Accepted 2026-05-02 — implémentation post-Sprint 1).
 
 ## Next Step
 
