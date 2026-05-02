@@ -98,9 +98,9 @@ This epic is complete when:
 | 007 | [Benchmark E2E p99 ≤ 16 ms](story-007-latency-benchmark-e2e.md) | Integration | Ready | ADR-0004 + ADR-0001 |
 | 008 | [Zero-alloc stress 10k events/60s](story-008-zero-alloc-stress.md) | Integration | Ready | ADR-0004 D-8 + VC-3 |
 | 009 | [Debug overlay F3](story-009-debug-overlay.md) | UI | Ready | ADR-0004 D-9 |
-| 010 | [Settings persistence `input_settings.tres`](story-010-settings-persistence.md) | Config/Data | Ready (Polish P3) | ADR-0014 ✅ |
+| 010 | [Settings persistence `input_settings.tres`](story-010-settings-persistence.md) | Config/Data | Complete (2026-05-02) | ADR-0014 ✅ |
 
-**Dependency chain** : 001 → {002, 003, 006} → {004, 005, 009} → {007, 008}. Story 010 indépendante (Polish P3, ADR-0014 Accepted 2026-05-02 — implémentation post-Sprint 1).
+**Dependency chain** : 001 → {002, 003, 006} → {004, 005, 009} → {007, 008}. Story 010 indépendante (Polish P3, Complete 2026-05-02 — ADR-0014 helper `SettingsResource` partagé avec camera-013).
 
 ## Next Step
 

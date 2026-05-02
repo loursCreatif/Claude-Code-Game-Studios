@@ -274,10 +274,10 @@ requirements:
     gdd: design/gdd/player-movement-system.md
     requirement: "Accessibility toggles `reduce_flash` et `reduce_motion` (WCAG 2.3.1/2.3.3) MVP-required — interface ownership, default values, propagation cross-system (Camera shake bypass, Movement tilt bypass, VFX flash bypass)"
     created: 2026-04-21
-    revised: ""
+    revised: 2026-05-02
     status: active
-    covered_by: []
-    # GAP G-4 — accessibility interface à spécifier (inline spec ou ADR dédié).
+    covered_by: [ADR-0015]
+    # ADR-0015 Accessibility Interface Layer Accepted 2026-05-02 — autoload AccessibilityService + accessibility_settings.tres délégué ADR-0014 ; débloque combat story-022 + ratifie Camera Rule 14 propagation.
 
   # --- Player Combat System (TR-cmb-*) — ajouté 2026-04-23 /architecture-review ---
   # Source: design/gdd/player-combat-system.md (r6 APPROVED)
@@ -425,10 +425,10 @@ requirements:
     gdd: design/gdd/player-combat-system.md
     requirement: "Accessibility toggles `reduce_motion` impact Combat : reduce_motion_slow_mo_scale_mult ≥1.0 (bornes [1.0, 3.33]) attenue slow-mo ; reduce_motion_disable_slow_mo toggle ; reduce_motion_flash_mult ∈[0.0,1.0] sur VFX flash alpha (owned VFX) ; sémantique r1 = 'attenuate' (mult ≥ 1.0)"
     created: 2026-04-23
-    revised: ""
+    revised: 2026-05-02
     status: active
-    covered_by: []
-    # GAP G-4 extension — interface accessibility cross-system Movement/Camera/Combat/VFX. Suggested ADR : ADR Accessibility Interface Layer (mutualisé TR-mov-008).
+    covered_by: [ADR-0015]
+    # ADR-0015 Accessibility Interface Layer Accepted 2026-05-02 — AccessibilityService.get_disable_slow_mo / get_slow_mo_scale_mult / get_flash_mult avec bornes service-level ; débloque combat story-022 (mutualisé TR-mov-008).
 
   - id: TR-cmb-017
     system: combat

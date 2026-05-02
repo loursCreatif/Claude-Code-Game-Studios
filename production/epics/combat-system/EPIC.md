@@ -4,7 +4,7 @@
 > **GDD**: design/gdd/player-combat-system.md
 > **Architecture Module**: PlayerCombat (architecture.md §Feature Layer)
 > **Status**: Ready
-> **Stories**: 22 created (2026-04-27) — 16 Ready + 6 Blocked (Gap 1 MockEnemy / Gap 2 ShapeCast empirical / Gap 5 playtest protocol / Audio System GDD / VFX System GDD / ADR Accessibility)
+> **Stories**: 22 created (2026-04-27) — 17 Ready + 5 Blocked (Gap 1 MockEnemy / Gap 2 ShapeCast empirical / Gap 5 playtest protocol / Audio System GDD / VFX System GDD) — ADR-0015 Accepted 2026-05-02 a débloqué story-022
 
 ## Overview
 
@@ -35,6 +35,7 @@ ShapeCast layer=1 mask=2 ; Enemy lethal hitbox layer=3 mask=1).
 | ADR-0005: Movement Signals Architecture | Movement émet `attacked` signal outbound-only ; Combat reçoit (jamais polling Input) ; `Player.died` SYNC exemption Rule 17 | LOW |
 | ADR-0006: Combat Tick Model | DFS Player→Combat, ShapeCast3D anti-tunneling N=3 substeps, mutual kill Hybrid M1 Option C, slow-mo wall-clock injecté Callable | MEDIUM (Jolt CCD margin behavior empirique) |
 | ADR-0008: Collision Layer Taxonomy | 5 layers (1=Player, 2=Enemy, 3=EnemyHitbox, 4=Environment, 5=Interactive) ; API 1-indexée `set_collision_layer_value(N)` ; helper `CollisionLayers.build_mask()` | LOW |
+| ADR-0015: Accessibility Interface Layer | Autoload `AccessibilityService` source-of-truth `reduce_motion` / `disable_slow_mo` / `slow_mo_scale_mult` / `flash_mult` ; pull-pattern + `settings_changed` signal ; persistance déléguée ADR-0014 | LOW |
 
 **Highest engine risk**: MEDIUM (ADR-0006 — ShapeCast3D.margin behavior Jolt
 vs GodotPhysics3D à benchmarker EC-8 lors de la story sweep).
@@ -58,17 +59,16 @@ vs GodotPhysics3D à benchmarker EC-8 lors de la story sweep).
 | TR-cmb-013 | Slow-mo wall-clock `_get_time_msec` Callable injecté ; restore dans `_physics_process` | ADR-0001, ADR-0006 ✅ |
 | TR-cmb-014 | Mutual kill Hybrid M1 Option C : `_death_pending` flag END tick | ADR-0005, ADR-0006 ✅ |
 | TR-cmb-015 | Idempotence hit tracking instance_ids + filter is_instance_valid + clear sur exit Swinging | ADR-0006 ✅ |
-| TR-cmb-016 | Accessibility `reduce_motion` impact Combat (slow-mo mult ≥1.0, disable toggle, flash mult) | ❌ Gap G-4 (post-MVP, planned ADR Accessibility Interface Layer) |
+| TR-cmb-016 | Accessibility `reduce_motion` impact Combat (slow-mo mult ≥1.0, disable toggle, flash mult) | ADR-0015 ✅ Accepted 2026-05-02 |
 | TR-cmb-017 | Injection `_get_time_msec: Callable = Time.get_ticks_msec` substitutable test | ADR-0006 ✅ |
 
-**Coverage**: 14 / 17 covered, 1 N/A intentional (TR-cmb-006 GDD-owned tuning),
-2 gaps (TR-cmb-016 G-4 accessibility post-MVP).
+**Coverage**: 16 / 17 covered, 1 N/A intentional (TR-cmb-006 GDD-owned tuning), 0 gaps.
 
 ## Untraced Requirements (warnings)
 
-⚠️ **TR-cmb-016** : accessibilité Combat. Post-MVP (G-4 Polish phase). Stories
-implémentant cette TR seront marquées **Blocked** jusqu'à création de l'ADR
-Accessibility Interface Layer mutualisé (Movement/Camera/Combat/VFX).
+✅ **TR-cmb-016** : RÉSOLU 2026-05-02. ADR-0015 Accessibility Interface Layer
+Accepted (autoload `AccessibilityService` + `accessibility_settings.tres`
+délégué ADR-0014). Story-022 Status `Blocked → Ready (Polish P3)`.
 
 ✅ **TR-cmb-006** : intentional N/A — tuning GDD-owned (Rule 4/11). Implémenté
 comme constants @export ou const dans le script Combat sans ADR ; safe ranges
@@ -109,10 +109,10 @@ L'epic est complet quand :
 | 019 | Combat feel playtest protocol + Visual/Feel ACs | Visual/Feel | **Blocked** | Gap 5 — protocol qa-lead non créé |
 | 020 | Swoosh fade-out wall-clock + multi-kill clac + ducking | Integration | **Blocked** | Audio System GDD non écrit (#11 backlog) |
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
-| 022 | Accessibility `reduce_motion` Combat impact | Logic | **Blocked** | ADR Accessibility Interface Layer (Gap G-4 post-MVP) |
+| 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 13 Ready (8 Logic + 5 Integration) + 9 Blocked (4 Logic + 4 Integration + 1 Visual/Feel).
-**Coverage TR-cmb** : 14/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 Blocked Gap G-4 accessibility post-MVP.
+**Totaux** : 22 stories — 14 Ready (9 Logic + 5 Integration) + 8 Blocked (3 Logic + 4 Integration + 1 Visual/Feel).
+**Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :
 - Story 005 + 010 sont conditionnés par travail empirique pré-Sprint 1 du lead-programmer (Gap 2 + Gap 7 + Gap 8 docs `engine-reference/godot/modules/physics.md`).

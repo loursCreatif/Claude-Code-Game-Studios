@@ -255,6 +255,26 @@ var _latency_write_idx: int = 0
 
 
 # ---------------------------------------------------------------------------
+# Module state — settings persistence (story 013, ADR-0014)
+# ---------------------------------------------------------------------------
+
+## Préférences utilisateur Camera persistées (TR-cam-006). Chargées au `_ready()`
+## via `SettingsResource.load_or_default("camera", …)` (ADR-0014 D-5).
+## `null` jusqu'au load, ou si `suppress_settings_load == true` (tests qui n'ont
+## pas besoin de toucher `user://settings/`).
+##
+## Sauvegarde via `save_settings()` (trigger explicite — Settings menu apply,
+## flush-on-quit, debug command). ADR-0014 D-6 interdit l'auto-save en hot path.
+var settings: CameraSettings = null
+
+## Flag de désactivation du chargement settings au boot (parité InputManager.suppress_settings_load
+## et `suppress_debug_overlay`). Tests qui veulent isoler le filesystem settent
+## `true` AVANT `add_child` (stories 002–012 n'en ont pas besoin — defaults silent
+## si fichier absent, mais le flag évite la pollution de `user://settings/`).
+var suppress_settings_load: bool = false
+
+
+# ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 
@@ -282,8 +302,16 @@ func _ready() -> void:
 	assert(PITCH_LIMIT < PI / 2.0, "CameraSystem: PITCH_LIMIT must stay strictly under PI/2 to avoid gimbal lock")
 	assert(MAX_ROT_PER_FRAME > 0.0, "CameraSystem: MAX_ROT_PER_FRAME must be positive")
 
+	# Story 013 (ADR-0014) — chargement settings AVANT init FOV pour appliquer
+	# `fov_user_offset` au snapshot initial. Defaults silent si first launch (D-4).
+	# `suppress_settings_load` permet aux tests de bypasser le filesystem.
+	if not suppress_settings_load:
+		_load_settings()
+
 	# Initialisation explicite FOV avant toute lerp (story 006, AC-CAM-20 initial state).
-	_camera3d.fov = BASE_FOV
+	# Offset utilisateur (story 013) ajouté au baseline pour cohérence avec _update_fov_dash.
+	var fov_offset: float = settings.fov_user_offset if settings != null else 0.0
+	_camera3d.fov = BASE_FOV + fov_offset
 
 	# Story 002 : connexion synchrone (CONNECT_0 default) — handler léger,
 	# zéro alloc, mutation scalaire uniquement (ADR-0005 D-5 consumer léger).
@@ -470,7 +498,10 @@ func _update_fov_dash(delta: float) -> void:
 	var dash_kick: float = DASH_FOV_KICK
 	if _reduce_motion:
 		dash_kick *= REDUCE_MOTION_FOV_KICK_MULT
-	var target_fov: float = BASE_FOV + (dash_kick if _is_dashing else 0.0)
+	# Story 013 — `fov_user_offset` (settings) ajouté au baseline ; null-safe pour
+	# les chemins de test qui suppressent le load (settings reste null).
+	var fov_offset: float = settings.fov_user_offset if settings != null else 0.0
+	var target_fov: float = BASE_FOV + fov_offset + (dash_kick if _is_dashing else 0.0)
 	_camera3d.fov = lerp(
 		_camera3d.fov,
 		target_fov,
@@ -664,7 +695,9 @@ func _on_died() -> void:
 ## (pas de guard) — reset des valeurs déjà default = no-op silencieux.
 func _on_respawned(_position: Vector3) -> void:
 	_camera_effects.rotation.z = 0.0
-	_camera3d.fov = BASE_FOV
+	# Story 013 — reset FOV au baseline + offset utilisateur (cohérence avec _update_fov_dash).
+	var fov_offset: float = settings.fov_user_offset if settings != null else 0.0
+	_camera3d.fov = BASE_FOV + fov_offset
 	_camera3d.rotation = Vector3.ZERO
 	_shake_offset = Vector3.ZERO
 	_is_dashing = false
@@ -822,6 +855,50 @@ func get_camera_effects() -> Node3D:
 ## Returns the Camera3D node. Ownership : FOV + shake (story 005+).
 func get_camera3d() -> Camera3D:
 	return _camera3d
+
+
+# ---------------------------------------------------------------------------
+# Public API — settings persistence (story 013, ADR-0014)
+# ---------------------------------------------------------------------------
+
+## Sauvegarde les `settings` courants vers `user://settings/camera.tres` via le
+## helper SettingsResource. Trigger explicite uniquement (Settings menu apply,
+## flush-on-quit, debug command) — ADR-0014 D-6 interdit l'auto-save en hot path.
+##
+## Retourne l'Error de ResourceSaver (OK si succès). No-op safe si `settings == null`
+## (suppress_settings_load actif) — retourne ERR_UNCONFIGURED.
+## Usage : var err := camera_system.save_settings()
+func save_settings() -> Error:
+	if settings == null:
+		return ERR_UNCONFIGURED
+	var err: Error = SettingsResource.save(settings, "camera")
+	if err != OK:
+		push_warning("[camera-settings] save failed: %d" % err)
+	return err
+
+
+# ---------------------------------------------------------------------------
+# Private — settings load (story 013, ADR-0014 D-3/D-4/D-5)
+# ---------------------------------------------------------------------------
+
+## Charge `user://settings/camera.tres` ou applique les defaults silencieusement
+## si first launch (ADR-0014 D-4). Migration forward-only via `CameraSettings.migrate_from`.
+##
+## Propagation Tuning Knobs : `mouse_sensitivity` + `mouse_y_inverted` exposés sur
+## InputManager (consumer principal — Camera lit ces props chaque mouse_motion).
+## Ainsi Camera est l'autorité settings (GDD camera-system Tuning Knobs) et
+## Input est tenant runtime (hot path). `fov_user_offset` reste local — appliqué
+## par `_update_fov_dash` et le reset `_on_respawned`.
+func _load_settings() -> void:
+	settings = SettingsResource.load_or_default(
+		"camera",
+		Callable(CameraSettings, "create_defaults"),
+		Callable(CameraSettings, "migrate_from"),
+	) as CameraSettings
+	# Propagation aux propriétés runtime InputManager — last-write-wins par rapport
+	# à input_settings.tres (cohérent : Camera GDD est autorité Tuning Knobs souris).
+	InputManager.mouse_sensitivity = settings.mouse_sensitivity
+	InputManager.mouse_y_inverted = settings.mouse_y_inverted
 
 
 # ---------------------------------------------------------------------------

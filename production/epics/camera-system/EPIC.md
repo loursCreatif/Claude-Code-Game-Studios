@@ -122,7 +122,7 @@ This epic is complete when:
 | 010 | Reduce_motion gate (tilt×0.25, fov_kick×0.5, shake×0) | Logic | Ready | ADR-0002 | — |
 | 011 | _exit_tree cleanup + NaN safeguard + focus-loss behavior | Integration | Ready | ADR-0002, ADR-0004 | TR-cam-001 |
 | 012 | Perf instrumentation ring buffer p50/p99 + E2E mouse latency | Integration (Perf) | Ready | ADR-0002, ADR-0003 | TR-cam-005 |
-| 013 | camera_settings.tres save/load | Config/Data | Ready (Polish P3) | M | TR-cam-006 |
+| 013 | camera_settings.tres save/load | Config/Data | Complete (2026-05-02) | M | TR-cam-006 |
 
 ## Dependency Chain
 
@@ -140,7 +140,7 @@ Story 001 (scene skeleton)
                      Story 010 (reduce_motion) ◄── depends on 005,006,007
                      Story 011 (cleanup+NaN+focus) ◄── depends on 001,002,005-008
                      Story 012 (perf ring buffer) ◄── depends on 001-007,011
-                     Story 013 (save/load) ◄── Ready (ADR-0014 Accepted 2026-05-02)
+                     Story 013 (save/load) ◄── Complete (2026-05-02, ADR-0014)
 ```
 
 ## Story Distribution
@@ -150,7 +150,7 @@ Story 001 (scene skeleton)
 | Logic | 4 | 002, 003, 004, 010 |
 | Integration | 7 | 001, 005, 006, 007, 008, 011, 012 |
 | Visual/Feel | 1 | 009 |
-| Config/Data | 1 | 013 (Ready, Polish P3) |
+| Config/Data | 1 | 013 (Complete 2026-05-02) |
 | **Total** | **13** | — |
 
 ## Next Step

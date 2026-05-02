@@ -385,7 +385,7 @@ Aucun cycle. Foundation → Core pattern.
 
 Voir `docs/architecture/architecture-traceability.md` pour la matrice complète.
 
-Résumé : **17/21 ✅ covered** / **2/21 ⚠️ N/A intentionnel** (TR-mov-005 post-MVP, TR-cam-004 tuning) / **3/21 ❌ gaps non-blocker MVP** (G-2a TR-cam-006 save/load camera, G-2b TR-inp-009 save/load input, G-4 TR-mov-008 accessibility).
+Résumé : **20/21 ✅ covered** (incluant TR-cam-006 + TR-inp-009 ADR-0014 Accepted 2026-05-02 et TR-mov-008 ADR-0015 Accepted 2026-05-02) / **2/21 ⚠️ N/A intentionnel** (TR-mov-005 post-MVP, TR-cam-004 tuning) / **0/21 ❌ gaps**.
 
 **Foundation layer coverage** : ✅ zero gaps (gate requirement satisfied).
 
@@ -417,8 +417,8 @@ Aucun bloquant Sprint 1-2. Les systèmes suivants auront besoin d'un ADR **avant
 
 ### 8.4 Can defer to Polish phase
 
-- **ADR-0014 Save/Load Settings Infrastructure** (résout TR-cam-006 G-2a + TR-inp-009 G-2b).
-- **ADR-0015 Accessibility Interface Layer** (résout TR-mov-008 G-4 : `reduce_flash`, `reduce_motion` propagation cross-system).
+- ~~**ADR-0014 Save/Load Settings Infrastructure**~~ ✅ **Accepted 2026-05-02** (résout TR-cam-006 + TR-inp-009).
+- ~~**ADR-0015 Accessibility Interface Layer**~~ ✅ **Accepted 2026-05-02** (résout TR-mov-008 + TR-cmb-016 : `reduce_flash`, `reduce_motion` propagation cross-system via autoload `AccessibilityService` + `accessibility_settings.tres` délégué ADR-0014).
 - **ADR-0016 VFX & Feedback Architecture** (Niagara-equivalent Godot particles, shader budget).
 
 ### 8.5 Post-MVP / Full Vision
