@@ -222,16 +222,18 @@ var _overlay: ColorRect = null
 var _respawn_tween: Tween = null
 
 
-## Gate accessibility floor (story 010, GDD Rule 14). Atténue tilt × 0.25,
-## fov_kick × 0.5 et désactive shake (× 0.0).
+## Cache multipliers reduce_motion (GDD Rule 14, story 010 + Polish P4 wiring ADR-0015).
+## Lus depuis `AccessibilityService.get_camera_*_mult()` au `_ready()` + reconnect
+## `settings_changed` pour live update mid-game (pull-pattern ADR-0015 D-3).
 ##
-## TODO : router via AccessibilitySettings autoload quand cette story ship.
-## MVP : hardcoded false (pas d'UI Menu Settings encore). Tests injectent
-## directement (`_reduce_motion = true`)  pour valider AC-CAM-70/71/72.
+## Defaults 1.0/1.0/1.0 → comportement Camera identique au MVP non-accessibility (D-5).
+## Service-level clamping garanti (D-7) — Camera n'a pas à re-clamper.
 ##
-## Hot-reload : lu chaque frame depuis les handlers concernés — toggle ON/OFF
-## en cours de partie a effet immédiat au prochain frame (lerp smooth la transition).
-var _reduce_motion: bool = false
+## Tests : injectent directement les 3 floats pour valider AC-CAM-70/71/72 sans
+## passer par AccessibilityService (pattern parity story-022 Combat).
+var _tilt_mult: float = 1.0
+var _fov_kick_mult: float = 1.0
+var _shake_mult: float = 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +353,12 @@ func _ready() -> void:
 	_player.died.connect(_on_died)
 	_player.respawned.connect(_on_respawned)
 
+	# Polish P4 (ADR-0015 D-3) : Camera consumer AccessibilityService — pull-pattern
+	# au _ready + reconnect signal_changed pour live update mid-game (GDD Rule 14).
+	if not AccessibilityService.settings_changed.is_connected(_on_accessibility_changed):
+		AccessibilityService.settings_changed.connect(_on_accessibility_changed)
+	_apply_accessibility()
+
 	# Story 012 : pré-allocation ring buffers perf — déjà fait en haut de _ready()
 	# (avant l'early-return du test harness). Idempotent — no-op si déjà sized.
 	# ADR-0004 D-8 pattern : capacité fixe réservée au boot, jamais realloc ensuite.
@@ -376,6 +384,10 @@ func _exit_tree() -> void:
 	# Disconnect InputManager.mouse_motion (story 002).
 	if InputManager.mouse_motion.is_connected(_on_mouse_motion):
 		InputManager.mouse_motion.disconnect(_on_mouse_motion)
+
+	# Disconnect AccessibilityService.settings_changed (Polish P4 ADR-0015).
+	if AccessibilityService.settings_changed.is_connected(_on_accessibility_changed):
+		AccessibilityService.settings_changed.disconnect(_on_accessibility_changed)
 
 	# Disconnect signaux player (stories 006/007/008) via référence locale au
 	# parent plutôt que _player : évite accès à @onready var freed potentiellement.
@@ -463,11 +475,11 @@ func _update_tilt_wall_run(delta: float) -> void:
 	var target_roll: float = WALL_RUN_TILT_ANGLE * float(_wall_side_cached)
 
 	# Story 010 reduce_motion gate (GDD Rule 14, AC-CAM-70) : applique multiplier
-	# AU TARGET avant lerp — pas après commit. Lecture chaque frame (hot-reload),
-	# pas caché. Toggle ON pendant wall-run actif → lerp adapte vers nouveau target
-	# au frame suivant (smooth transition).
-	if _reduce_motion:
-		target_roll *= REDUCE_MOTION_TILT_MULT
+	# AU TARGET avant lerp — pas après commit. Cache `_tilt_mult` lu depuis
+	# AccessibilityService au _ready + signal_changed (Polish P4 ADR-0015 D-3).
+	# Toggle mid-game → service emit settings_changed → cache rechargé → lerp
+	# adapte vers nouveau target au frame suivant (smooth transition).
+	target_roll *= _tilt_mult
 
 	# Lerp cosmétique, clamp du facteur pour protéger contre delta élevé (frame spike).
 	_camera_effects.rotation.z = lerp(
@@ -495,9 +507,7 @@ func _update_tilt_wall_run(delta: float) -> void:
 ## à DASH_FOV_KICK avant calcul target_fov — peak passe de 100° à 95°.
 ## Respawn reset (_camera3d.fov = BASE_FOV, _is_dashing = false) : story 008.
 func _update_fov_dash(delta: float) -> void:
-	var dash_kick: float = DASH_FOV_KICK
-	if _reduce_motion:
-		dash_kick *= REDUCE_MOTION_FOV_KICK_MULT
+	var dash_kick: float = DASH_FOV_KICK * _fov_kick_mult
 	# Story 013 — `fov_user_offset` (settings) ajouté au baseline ; null-safe pour
 	# les chemins de test qui suppressent le load (settings reste null).
 	var fov_offset: float = settings.fov_user_offset if settings != null else 0.0
@@ -549,6 +559,23 @@ func _on_wall_run_exited() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Signal handlers — AccessibilityService (Polish P4, ADR-0015 D-3 pull-pattern)
+# ---------------------------------------------------------------------------
+
+## Recharge les 3 multipliers depuis AccessibilityService. Service-level clamping
+## déjà appliqué (D-7) — Camera ne re-clampe pas. Lecture one-shot zero-alloc.
+func _apply_accessibility() -> void:
+	_tilt_mult = AccessibilityService.get_camera_tilt_mult()
+	_fov_kick_mult = AccessibilityService.get_camera_fov_kick_mult()
+	_shake_mult = AccessibilityService.get_camera_shake_mult()
+
+
+## Handler signal `settings_changed` — déclenche reload cache (live update mid-game).
+func _on_accessibility_changed() -> void:
+	_apply_accessibility()
+
+
+# ---------------------------------------------------------------------------
 # Public API — shake (story 007, TR-cam-001, ADR-0002 Risk 3)
 # Préparée pour consumers VFX hit katana / boss impact (post-MVP, hors scope MVP).
 # MVP : seul _on_wall_jumped l'appelle.
@@ -559,13 +586,14 @@ func _on_wall_run_exited() -> void:
 ## AC-CAM-32 : 3× add_shake_roll(0.05) même tick → length() ≤ 0.2 (cap).
 ##
 ## Story 010 reduce_motion gate (GDD Rule 14, AC-CAM-72) : early-return si
-## `_reduce_motion == true` — équivaut à shake_mult = 0.0 mais plus économique
+## `_shake_mult <= 0.0` — équivaut à shake_mult = 0.0 mais plus économique
 ## (évite inject + clamp à 0 répété). Le shake déjà injecté pré-toggle continue
 ## son decay naturel via `_update_shake` (gate sur injection seule, pas decay).
+## Polish P4 (ADR-0015 D-3) : `_shake_mult` lu depuis AccessibilityService.
 func add_shake(offset_radians: Vector3) -> void:
-	if _reduce_motion:
+	if _shake_mult <= 0.0:
 		return
-	_shake_offset += offset_radians
+	_shake_offset += offset_radians * _shake_mult
 	_shake_offset = _shake_offset.limit_length(MAX_SHAKE_MAGNITUDE)
 
 

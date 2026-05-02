@@ -436,7 +436,11 @@ func test_ac_cam_80_process_cost_p50_p99_within_budget() -> void:
 	_camera3d.fov = 90.0
 	_camera_system._shake_offset = Vector3.ZERO
 	_camera_system._is_dashing = false
-	_camera_system._reduce_motion = false
+	# Polish P4 (ADR-0015) : 3 mults remplacent l'ancien _reduce_motion bool.
+	# 1.0 = full intensity (équivalent ancien _reduce_motion = false).
+	_camera_system._tilt_mult = 1.0
+	_camera_system._fov_kick_mult = 1.0
+	_camera_system._shake_mult = 1.0
 	# Réinitialise ring buffer pour mesure propre.
 	_camera_system._process_cost_samples = PackedFloat32Array()
 	_camera_system._process_cost_samples.resize(PROCESS_COST_CAPACITY)

@@ -9,9 +9,10 @@
 # Framework : GdUnit4 (extends GdUnitTestSuite).
 #
 # Pattern : load Player.tscn (cohérent stories 002/003/004 unit tests) — résout
-# proprement %CameraEffects + %Camera3D via scene owner. Inject `_reduce_motion`
-# directement sur le CameraSystem (var member, hardcoded false MVP, route via
-# AccessibilitySettings post-MVP).
+# proprement %CameraEffects + %Camera3D via scene owner. Polish P4 (ADR-0015) :
+# inject directement les 3 mults `_tilt_mult/_fov_kick_mult/_shake_mult` sur le
+# CameraSystem post-_ready (le wiring AccessibilityService est testé séparément
+# dans accessibility_service_wiring_test.gd).
 
 extends GdUnitTestSuite
 
@@ -58,9 +59,24 @@ func before_test() -> void:
 	_player.rotation = Vector3.ZERO
 	_camera_arm.rotation = Vector3.ZERO
 
-	# Active reduce_motion par défaut pour TOUS les tests de cette suite.
-	# Tests baseline (reduce_motion=false) explicitent l'override.
-	_camera_system._reduce_motion = true
+	# Active reduce_motion par défaut pour TOUS les tests de cette suite (post-_ready
+	# inject — bypass AccessibilityService pour tests isolés du service wiring).
+	# Tests baseline explicitent l'override via `_set_full_intensity()`.
+	_set_reduce_motion(_camera_system)
+
+
+# Helper : applique reduce_motion mults (parité GDD Rule 14 + ADR-0015 service-side).
+func _set_reduce_motion(cam: CameraSystem) -> void:
+	cam._tilt_mult = CameraSystem.REDUCE_MOTION_TILT_MULT
+	cam._fov_kick_mult = CameraSystem.REDUCE_MOTION_FOV_KICK_MULT
+	cam._shake_mult = 0.0
+
+
+# Helper : reset mults à full intensity (baseline non-accessibility).
+func _set_full_intensity(cam: CameraSystem) -> void:
+	cam._tilt_mult = 1.0
+	cam._fov_kick_mult = 1.0
+	cam._shake_mult = 1.0
 
 
 func after_test() -> void:
@@ -104,7 +120,7 @@ func test_ac_cam_70_reduce_motion_attenuates_wall_run_tilt_to_quarter() -> void:
 
 func test_ac_cam_70_reduce_motion_disabled_keeps_full_tilt() -> void:
 	# Arrange — baseline reduce_motion=false : tilt full magnitude (story 005).
-	_camera_system._reduce_motion = false
+	_set_full_intensity(_camera_system)
 	# TD-004 : signal-driven cache via wall_run_entered.
 	_player.wall_run_entered.emit(Vector3(1.0, 0.0, 0.0))
 
@@ -151,7 +167,7 @@ func test_ac_cam_71_reduce_motion_attenuates_dash_fov_kick_to_half() -> void:
 
 func test_ac_cam_71_reduce_motion_disabled_keeps_full_fov_kick() -> void:
 	# Arrange — baseline reduce_motion=false.
-	_camera_system._reduce_motion = false
+	_set_full_intensity(_camera_system)
 	_player.dash_started.emit(Vector3.FORWARD, 18.0)
 
 	# Act — 30 frames.
@@ -210,7 +226,7 @@ func test_ac_cam_72_reduce_motion_blocks_shake_via_wall_jumped_signal() -> void:
 
 func test_ac_cam_72_reduce_motion_disabled_allows_shake_injection() -> void:
 	# Arrange — baseline reduce_motion=false : shake injecté normalement.
-	_camera_system._reduce_motion = false
+	_set_full_intensity(_camera_system)
 	assert_vector(_camera_system._shake_offset).is_equal(Vector3.ZERO)
 
 	# Act — inject 0.05 sur axe Z.
