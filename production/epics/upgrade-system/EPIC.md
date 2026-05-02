@@ -3,24 +3,24 @@
 > **Layer**: Feature
 > **GDD**: `design/gdd/upgrade-system.md` (APPROVED r2, 2026-04-28)
 > **Architecture Module**: `UpgradeSystem` (`docs/architecture/architecture.md` §4.3 ligne 149 — Feature Layer Game Systems)
-> **Status**: Ready
+> **Status**: 10/11 Complete (story-011 Visual/Feel pending Martin playtest)
 > **Stories**: 11 stories écrites 2026-04-28 — voir table ci-dessous
 
 ## Stories
 
 | # | Story | Type | Status | ADR / Source |
 |---|-------|------|--------|--------------|
-| 001 | [autoload-skeleton-capability-vars](story-001-autoload-skeleton-capability-vars.md) | Integration | Ready | ADR-0007 D-1/D-4 + R-UPG-1/2/11 |
-| 002 | [logger-di-unknown-id-warning](story-002-logger-di-unknown-id-warning.md) | Logic | Ready | R-UPG-9 + GDD r2 B-11 |
-| 003 | [apply-upgrade-helper-flag-sync-idempotent](story-003-apply-upgrade-helper-flag-sync-idempotent.md) | Logic | Ready | ADR-0001 + R-UPG-4 (1/3/4) + C.1 helper |
-| 004 | [apply-upgrade-resync-guard-step2](story-004-apply-upgrade-resync-guard-step2.md) | Logic | Ready | R-UPG-4 step 2 r2 + EC-UPG-13/14 |
-| 005 | [boot-hydration-saveload-readyfn](story-005-boot-hydration-saveload-readyfn.md) | Integration | Ready | ADR-0010 + R-UPG-5 (1/3/4) + F-UPG-2 |
-| 006 | [save-bloat-truncation-defense](story-006-save-bloat-truncation-defense.md) | Logic | Ready | R-UPG-5 step 2 r2 + EC-UPG-36 |
-| 007 | [pull-pattern-movement-integration](story-007-pull-pattern-movement-integration.md) | Integration | Ready | ADR-0001 + R-UPG-7/8 |
-| 008 | [catalog-sanity-test-fupg3](story-008-catalog-sanity-test-fupg3.md) | Logic | Ready | F-UPG-3 + R-UPG-3 |
-| 009 | [anti-patterns-lint-static](story-009-anti-patterns-lint-static.md) | Logic | Ready | R-UPG-6/10/12/14 |
-| 010 | [performance-headless-ci](story-010-performance-headless-ci.md) | Logic | Ready | F-UPG-2 + ADR-0001 frame budget |
-| 011 | [playtest-pillar2-understanding-evidence](story-011-playtest-pillar2-understanding-evidence.md) | Visual/Feel | Ready | Pillar 2 — AC-UPG-37/37-bis |
+| 001 | [autoload-skeleton-capability-vars](story-001-autoload-skeleton-capability-vars.md) | Integration | Complete | ADR-0007 D-1/D-4 + R-UPG-1/2/11 |
+| 002 | [logger-di-unknown-id-warning](story-002-logger-di-unknown-id-warning.md) | Logic | Complete | R-UPG-9 + GDD r2 B-11 |
+| 003 | [apply-upgrade-helper-flag-sync-idempotent](story-003-apply-upgrade-helper-flag-sync-idempotent.md) | Logic | Complete | ADR-0001 + R-UPG-4 (1/3/4) + C.1 helper |
+| 004 | [apply-upgrade-resync-guard-step2](story-004-apply-upgrade-resync-guard-step2.md) | Logic | Complete | R-UPG-4 step 2 r2 + EC-UPG-13/14 |
+| 005 | [boot-hydration-saveload-readyfn](story-005-boot-hydration-saveload-readyfn.md) | Integration | Complete | ADR-0010 + R-UPG-5 (1/3/4) + F-UPG-2 |
+| 006 | [save-bloat-truncation-defense](story-006-save-bloat-truncation-defense.md) | Logic | Complete | R-UPG-5 step 2 r2 + EC-UPG-36 |
+| 007 | [pull-pattern-movement-integration](story-007-pull-pattern-movement-integration.md) | Integration | Complete | ADR-0001 + R-UPG-7/8 |
+| 008 | [catalog-sanity-test-fupg3](story-008-catalog-sanity-test-fupg3.md) | Logic | Complete | F-UPG-3 + R-UPG-3 |
+| 009 | [anti-patterns-lint-static](story-009-anti-patterns-lint-static.md) | Logic | Complete | R-UPG-6/10/12/14 |
+| 010 | [performance-headless-ci](story-010-performance-headless-ci.md) | Logic | Complete | F-UPG-2 + ADR-0001 frame budget |
+| 011 | [playtest-pillar2-understanding-evidence](story-011-playtest-pillar2-understanding-evidence.md) | Visual/Feel | Ready (Martin playtest) | Pillar 2 — AC-UPG-37/37-bis |
 
 **Décomposition** : 7 Logic + 3 Integration + 1 Visual/Feel. Manifest v2026-04-23. Engine Risk LOW.
 

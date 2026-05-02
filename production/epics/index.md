@@ -13,7 +13,7 @@ Control Manifest Version: 2026-04-23
 | [level-system](level-system/EPIC.md) | Core | Level System | [level-system.md](../../design/gdd/level-system.md) | 22 created (all Ready — C1..C8 full coverage) | Ready |
 | [combat-system](combat-system/EPIC.md) | Feature | Player Combat System | [player-combat-system.md](../../design/gdd/player-combat-system.md) | 22 created (13 Ready + 9 Blocked — Gaps 1/2/5/7/8 + Audio/VFX/Accessibility) | Ready |
 | [shop-system](shop-system/EPIC.md) | Feature | Shop System | [shop-system.md](../../design/gdd/shop-system.md) | Not yet created — run `/create-stories shop-system` | Ready |
-| [upgrade-system](upgrade-system/EPIC.md) | Feature | Upgrade System | [upgrade-system.md](../../design/gdd/upgrade-system.md) | 11 created (all Ready — 7 Logic + 3 Integration + 1 Visual/Feel) | Ready |
+| [upgrade-system](upgrade-system/EPIC.md) | Feature | Upgrade System | [upgrade-system.md](../../design/gdd/upgrade-system.md) | 11 stories (10 Complete — story-011 Visual/Feel Ready pending Martin playtest) | 10/11 Complete |
 | [credit-economy-system](credit-economy-system/EPIC.md) | Feature | Credit Economy | [credit-economy-system.md](../../design/gdd/credit-economy-system.md) | Not yet created — run `/create-stories credit-economy-system` (Sprint 1 R-CRD-11/12 bloqué sur autoload SaveLoad) | Ready |
 | [menu-system](menu-system/EPIC.md) | Presentation | Menu System | [menu-system.md](../../design/gdd/menu-system.md) | 13 created (all Ready — 7 Integration + 3 Logic + 2 UI + 1 Config/Data + 1 Visual/Feel) | Ready |
 
