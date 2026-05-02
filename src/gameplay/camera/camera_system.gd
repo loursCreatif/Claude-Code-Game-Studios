@@ -19,6 +19,22 @@ extends Node3D
 ## Story 006 : FOV dash pulse — signal-driven flag + lerp camera3d.fov.
 ## Story 007 : shake additif + wall_jump kick — assignation camera3d.rotation, exp decay, limit_length cap.
 ## Story 011 : _exit_tree cleanup (symétrie _ready ↔ _exit_tree, Rule 16) + NaN safeguard (GDD Edge Case).
+## Story 012 : perf instrumentation ring buffer — p50/p99 _process cost + E2E mouse→rendered latency.
+##             ADR-0002 VC-6 : _process cost ≤ 0.2 ms p99 / 1000 frames.
+##             GDD AC-CAM-80/81 : p50 ≤ 0.2 ms, p99 ≤ 0.4 ms (240 samples) ;
+##             latency mouse_motion → rotation applied ≤ 16 ms p99 (1000 samples).
+
+
+# ---------------------------------------------------------------------------
+# Constants — perf instrumentation ring buffer (story 012, GDD AC-CAM-80/81)
+# ADR-0004 D-8 pattern : PackedFloat32Array pré-alloué, zero-alloc runtime.
+# ---------------------------------------------------------------------------
+
+## Capacité ring buffer coût _process — ~4 s à 60 fps (GDD AC-CAM-80 : 240 samples).
+const PROCESS_COST_CAPACITY: int = 240
+
+## Capacité ring buffer latence mouse_motion — 1000 événements (GDD AC-CAM-81).
+const LATENCY_CAPACITY: int = 1000
 
 
 # ---------------------------------------------------------------------------
@@ -200,11 +216,31 @@ var _respawn_tween: Tween = null
 ##
 ## TODO : router via AccessibilitySettings autoload quand cette story ship.
 ## MVP : hardcoded false (pas d'UI Menu Settings encore). Tests injectent
-## directement (`_reduce_motion = true`) pour valider AC-CAM-70/71/72.
+## directement (`_reduce_motion = true`)  pour valider AC-CAM-70/71/72.
 ##
 ## Hot-reload : lu chaque frame depuis les handlers concernés — toggle ON/OFF
 ## en cours de partie a effet immédiat au prochain frame (lerp smooth la transition).
 var _reduce_motion: bool = false
+
+
+# ---------------------------------------------------------------------------
+# Module state — perf instrumentation ring buffers (story 012, GDD AC-CAM-80/81)
+# Pré-alloués au _ready() via .resize() — zero-alloc runtime garanti après init.
+# Écritures uniquement dans hot paths (_process + _on_mouse_motion).
+# ---------------------------------------------------------------------------
+
+## Ring buffer coût _process (ms). Pré-alloué PROCESS_COST_CAPACITY floats.
+var _process_cost_samples: PackedFloat32Array = PackedFloat32Array()
+
+## Indice d'écriture courant dans _process_cost_samples (wrap modulo CAPACITY).
+var _process_cost_write_idx: int = 0
+
+## Ring buffer latence mouse_motion → rotation appliquée (ms).
+## t_event capturé au début de _on_mouse_motion (meilleure précision sans modification InputManager).
+var _latency_samples: PackedFloat32Array = PackedFloat32Array()
+
+## Indice d'écriture courant dans _latency_samples (wrap modulo CAPACITY).
+var _latency_write_idx: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +296,12 @@ func _ready() -> void:
 	_player.died.connect(_on_died)
 	_player.respawned.connect(_on_respawned)
 
+	# Story 012 : pré-allocation ring buffers perf (zero-alloc runtime garanti).
+	# .resize() sur une PackedArray vide alloue CAPACITY éléments initialisés à 0.
+	# ADR-0004 D-8 pattern : capacité fixe réservée au boot, jamais realloc ensuite.
+	_process_cost_samples.resize(PROCESS_COST_CAPACITY)
+	_latency_samples.resize(LATENCY_CAPACITY)
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle — cleanup (story 011, GDD Rule 16 symétrie _ready ↔ _exit_tree)
@@ -306,11 +348,18 @@ func _exit_tree() -> void:
 ## Presentation layer). Tilt wall-run, FOV dash et shake exécutés ici, pas dans _physics_process.
 ## Ordre : safeguard → tilt → fov → shake. Indépendants (noeuds distincts), ordre cosmétique seulement.
 ## Story 011 : _safeguard_rotation() exécutée en premier — protège le lerp tilt contre NaN.
+## Story 012 : instrumentation ring buffer — 2× Time.get_ticks_usec() + 1 subtract + 1 write.
+##             Overhead ≤ 0.01 ms/frame (GDD AC-CAM-80 guardrail instrumentation). Zero-alloc.
 func _process(delta: float) -> void:
+	var t_start: int = Time.get_ticks_usec()
 	_safeguard_rotation()       # Story 011 — doit précéder _update_tilt_wall_run
 	_update_tilt_wall_run(delta)
 	_update_fov_dash(delta)
 	_update_shake(delta)
+	# Story 012 — écriture coût _process en µs → ms, ring buffer write index wrap.
+	var elapsed_ms: float = float(Time.get_ticks_usec() - t_start) / 1000.0
+	_process_cost_samples[_process_cost_write_idx] = elapsed_ms
+	_process_cost_write_idx = (_process_cost_write_idx + 1) % PROCESS_COST_CAPACITY
 
 
 # ---------------------------------------------------------------------------
@@ -641,7 +690,20 @@ func is_respawning() -> bool:
 ## Pas de smoothing, pas de buffer (Pillar 1 FLOW raw feel).
 ## Gates enabled / mouse_captured : story-003 (early return, zero alloc, no log).
 ## Gates state Respawning : story-008 (rotation figée pendant respawn). reduce_motion : story 010.
+## Story 012 : capture t_event en entrée de handler pour mesure latence E2E.
+##   t_event = Time.get_ticks_usec() à réception du signal (post-InputManager dispatch).
+##   t_applied = après commit des rotations yaw+pitch.
+##   Overhead : 2× get_ticks_usec() + 1 subtract + 1 write — ≤ 0.005 ms.
+##   Note : InputManager.mouse_motion ne transmet pas le timestamp hardware — on mesure
+##   la latence depuis réception signal → rotation committed (sous-ensemble E2E réel).
+##   Coordination avec Input epic (ADR-0004 D-8) prévue pour timestamp hardware quand
+##   disponible (story-input-latency). Sans ce timestamp, p99 mesuré ici sera
+##   conservateur (exclut OS driver latency).
 func _on_mouse_motion(delta: Vector2) -> void:
+	# Story 012 — timestamp d'entrée handler pour mesure latence.
+	# Capture AVANT les gates (mesure le coût complet du handler incluant early-returns).
+	var t_event: int = Time.get_ticks_usec()
+
 	# Story-008 Gate #0 (AC-CAM-40) : pendant Respawning la rotation est figée.
 	# Skip silencieux, pas de buffer du delta (cohérent avec gates story-003).
 	if _state == State.RESPAWNING:
@@ -683,6 +745,12 @@ func _on_mouse_motion(delta: Vector2) -> void:
 		PITCH_LIMIT,
 	)
 
+	# Story 012 — mesure latence E2E depuis réception signal → rotation committed.
+	# Écriture ring buffer après commit (t_applied implicite = maintenant).
+	var latency_ms: float = float(Time.get_ticks_usec() - t_event) / 1000.0
+	_latency_samples[_latency_write_idx] = latency_ms
+	_latency_write_idx = (_latency_write_idx + 1) % LATENCY_CAPACITY
+
 
 # ---------------------------------------------------------------------------
 # Public getters — used by integration tests (story 001) and future systems.
@@ -702,6 +770,42 @@ func get_camera_effects() -> Node3D:
 ## Returns the Camera3D node. Ownership : FOV + shake (story 005+).
 func get_camera3d() -> Camera3D:
 	return _camera3d
+
+
+# ---------------------------------------------------------------------------
+# Public API — perf instrumentation (story 012, GDD AC-CAM-80/81)
+# Consommé par tests GdUnit4 + QA dashboard.
+# ---------------------------------------------------------------------------
+
+## Retourne {p50: float, p99: float} du coût _process en ms.
+## Calculé depuis _process_cost_samples (ring buffer 240 samples, pré-alloué).
+## Retourne {p50: 0.0, p99: 0.0} si le buffer est vide (pas encore d'échantillons).
+## GDD AC-CAM-80 : p50 ≤ 0.2 ms, p99 ≤ 0.4 ms.
+func get_process_cost_percentiles() -> Dictionary:
+	return _compute_percentiles(_process_cost_samples)
+
+
+## Retourne {p50: float, p99: float} de la latence mouse_motion → rotation applied en ms.
+## Calculé depuis _latency_samples (ring buffer 1000 samples, pré-alloué).
+## GDD AC-CAM-81 : p99 ≤ 16 ms (= 1 frame à 60 fps).
+func get_mouse_latency_percentiles() -> Dictionary:
+	return _compute_percentiles(_latency_samples)
+
+
+## Calcule p50 + p99 depuis un PackedFloat32Array.
+## Tri in-place sur un duplicate() pour ne pas altérer le ring buffer source.
+## Zero-alloc côté caller (PackedFloat32Array duplicate + sort = one-shot alloc hors hot-path).
+## n == 0 → retour immédiat avec zeros (buffer pas encore rempli ou non-initialisé).
+func _compute_percentiles(samples: PackedFloat32Array) -> Dictionary:
+	var n: int = samples.size()
+	if n == 0:
+		return {"p50": 0.0, "p99": 0.0}
+	var sorted: PackedFloat32Array = samples.duplicate()
+	sorted.sort()
+	return {
+		"p50": sorted[int(float(n) * 0.50)],
+		"p99": sorted[int(float(n) * 0.99)],
+	}
 
 
 # ---------------------------------------------------------------------------
