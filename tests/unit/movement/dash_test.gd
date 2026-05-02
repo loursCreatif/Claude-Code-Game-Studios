@@ -57,7 +57,7 @@ func _tick(player: MovementController) -> void:
 
 ## Presses dash and runs one physics tick (press + swap + player logic).
 func _press_dash_and_tick(player: MovementController) -> void:
-	InputManager.simulate_action_press(&"dash")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
 
 
@@ -82,9 +82,9 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	InputManager.simulate_action_release(&"dash")
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"move_left")
+	# (edge auto-consumed — &"dash" no release needed)
+	Input.action_release(&"move_forward")
+	Input.action_release(&"move_left")
 	# Consume any residual press flag via one swap so next test starts clean.
 	InputManager._physics_process(PHYSICS_DT)
 	if is_instance_valid(_player):
@@ -114,11 +114,11 @@ func test_dash_distance_280cm_and_exit_speed() -> void:
 
 	# Act — press move_forward to set wish_dir to -Z, then press dash.
 	# Tick 1 is the dash entry tick; ticks 2-6 drive through the burst.
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	for _i: int in 6:
 		_tick(_player)
-	InputManager.simulate_action_release(&"move_forward")
+	Input.action_release(&"move_forward")
 
 	# Assert — AC-MV-20 distance: player should have moved ~2.80m in -Z direction.
 	# DASH_SPEED=30 * DASH_DURATION=0.10 = 3.0 m ideal; tolerance ±0.15 m.
@@ -228,18 +228,18 @@ func test_dash_direction_lock_during_dash() -> void:
 	_player.velocity = Vector3.ZERO
 
 	# Tick 1 — enter dash in -Z direction.
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(_player)
 	# Release move_forward and press move_left after dash entry.
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
+	Input.action_release(&"move_forward")
+	# (edge auto-consumed — &"dash" no release needed)
 
 	# Ticks 2–4 — mid-dash with move_left held.
-	InputManager.simulate_action_press(&"move_left")
+	Input.action_press(&"move_left")
 	for _i: int in 3:
 		_tick(_player)
-	InputManager.simulate_action_release(&"move_left")
+	Input.action_release(&"move_left")
 
 	# Assert — AC-MV-23: _dash_dir must still be (0,0,-1).
 	var dash_dir: Vector3 = _player.get("_dash_dir") as Vector3

@@ -54,7 +54,7 @@ func _tick(player: MovementController) -> void:
 
 ## Presses jump and runs one physics tick (press + swap + player logic).
 func _press_jump_and_tick(player: MovementController) -> void:
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(player)
 
 
@@ -79,7 +79,7 @@ func before_test() -> void:
 
 
 func after_test() -> void:
-	InputManager.simulate_action_release(&"jump")
+	# (edge auto-consumed — &"jump" no release needed)
 	# Consume any residual press flag via one swap so next test starts clean.
 	InputManager._physics_process(PHYSICS_DT)
 	if is_instance_valid(_player):
