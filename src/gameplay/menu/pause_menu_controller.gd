@@ -18,6 +18,15 @@ extends CanvasLayer
 ##   - 008 : refcount Input + tree_exiting cleanup détail
 ##   - 009 : Theme/palette/typo
 
+## Story-009 — Chrome Zen palette tokens K.4 (anti-hex-hardcode AC-MNU-51).
+## Source : design/gdd/menu-system.md §K.4 Palette et tokens.
+const MENU_BG_BLACK: Color    = Color("050608")
+const MENU_PANEL_BG: Color    = Color("0A0A12")
+const MENU_TEXT_BASE: Color   = Color("E8E8F0")
+const MENU_ACCENT_CYAN: Color = Color("3EE4FF")
+const MENU_BG_OVERLAY_ALPHA: float = 0.65  # F-MNU-2 dim alpha (Story 005 use, range Tuning Knob [0.55, 0.75])
+
+@onready var dim_rect: ColorRect = $DimRect
 @onready var pause_panel: PanelContainer = $PausePanel
 @onready var resume_button: Button = $PausePanel/VBoxContainer/ResumeButton
 @onready var main_menu_button: Button = $PausePanel/VBoxContainer/MainMenuButton
@@ -60,8 +69,9 @@ func _ready() -> void:
 	# Story-005 AC-MNU-8 — group helper pour query lifecycle scene transition.
 	add_to_group(&"pause_overlay")
 
-	# AC-MNU-6 / EC-MNU-32 / EC-MNU-40 — anti-flash : panel caché immédiat avant toute frame visible.
+	# AC-MNU-6 / EC-MNU-32 / EC-MNU-40 — anti-flash : panel + dim cachés immédiat avant toute frame visible.
 	pause_panel.visible = false
+	dim_rect.visible = false
 
 	# Story-004 — state sync. ADR-0007 D-10 : signal state_changed SYNC GSM-side, mais
 	# CONNECT_DEFERRED côté Menu pour absorber la r2 BLK-1 race fenêtre où
@@ -159,6 +169,9 @@ func _on_gsm_state_changed(new_state: GameStateManager.State) -> void:
 func _apply_visibility(show_overlay: bool, recapture_mouse: bool = true) -> void:
 	if not is_inside_tree():
 		return  # r2 BLK-3 — race CONNECT_DEFERRED pendant tree_exiting.
+	# Story-013 D-1 fix : DimRect alpha 0.65 toggle synchrone avec PausePanel
+	# (UX § 4.3 + GDD K.2). mouse_filter=STOP absorbe click-out (AC-UX-PM-10).
+	dim_rect.visible = show_overlay
 	pause_panel.visible = show_overlay
 	if show_overlay:
 		# Ouverture pause — refcount + mouse libre + focus initial.

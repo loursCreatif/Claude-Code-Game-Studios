@@ -10,6 +10,15 @@ extends Control
 ## Connections : start_button.pressed → _on_start_pressed (story-006 implémentation réelle)
 ##               quit_button.pressed  → _on_quit_pressed  (story-006 implémentation réelle)
 
+## Story-009 — Chrome Zen palette tokens K.4 (anti-hex-hardcode AC-MNU-51).
+## Source : design/gdd/menu-system.md §K.4 Palette et tokens.
+const MENU_BG_BLACK: Color    = Color("050608")
+const MENU_PANEL_BG: Color    = Color("0A0A12")
+const MENU_TEXT_BASE: Color   = Color("E8E8F0")
+const MENU_ACCENT_CYAN: Color = Color("3EE4FF")
+const MENU_BG_OVERLAY_ALPHA: float = 0.65  # F-MNU-2 dim alpha (Story 005 use, range Tuning Knob [0.55, 0.75])
+
+## Story-009 — DEBUG_SHOW_VERSION = false MVP (K.9 release-only safe, AC-MNU-67 enforce).
 const DEBUG_SHOW_VERSION: bool = false
 
 ## Story-006 — MVP MainMenu lance toujours l'étage 1 (R-MNU-8 pas de Continue MVP).
@@ -35,7 +44,7 @@ var _quit_handler: Callable = func() -> void:
 
 func _ready() -> void:
 	# Sanity : on est censé être en MENU, donc pas de pause active.
-	assert(get_tree().paused == false, "MainMenu loaded with tree paused — invalid state")
+	assert(get_tree().paused == false, "MainMenu loaded with tree paused — invalid state")  # lint-menu-ok: read-only sanity assert (story-010 AC-MNU-50 forbids mutation, not lecture).
 	# Sanity ADR-0007 D-9 pull pattern : on lit l'état initial sans le muter.
 	assert(GameStateManager.get_current_state() == GameStateManager.State.MENU,
 		"MainMenu expects GSM in MENU state at _ready (got %s)" % GameStateManager.State.keys()[GameStateManager.get_current_state()])

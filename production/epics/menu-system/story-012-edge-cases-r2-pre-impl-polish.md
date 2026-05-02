@@ -1,7 +1,7 @@
 # Story 012: Edge Cases r2 PRE-IMPL/POLISH — EC-MNU-36..42 + Tab Cycle Wrap
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -158,3 +158,23 @@
 
 - Depends on : Stories 002, 004, 005, 007, 008 (Pause Overlay + state sync + apply_visibility + boutons + refcount livrés) ; Story 010 (lints AC-MNU-59/63/64 actifs).
 - Unlocks : Story 013 (playtest manuel peut couvrir EC-37/38/42 sur hardware réel — confirmation cross-OS).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Criteria** : 10/11 COVERED automatic + 1 SKIP gracieux MVP (AC-MNU-39 etage_*.tscn empty — lint activates Sprint 1).
+**Mode review** : Solo — QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped. Manual `/code-review` pass 2026-05-02 → APPROVED.
+**Test Evidence** :
+- `tests/integration/menu/edge_cases_r2_test.gd` (NEW) — 10 tests GdUnit4 (EC-MNU-36/37/38/39/40/41/42 + AC-MNU-38 process_mode + AC-MNU-39 PAUSABLE static parse + Layer M cross-overlay × 2).
+- `tests/integration/menu/tab_cycle_wrap_test.gd` (NEW) — 7 tests GdUnit4 (AC-MNU-61 Shift+Tab inverse wrap + Tab forward wrap + N=0/1/3 bornes + 3 boutons cycle).
+**Tests run** : 17/17 PASSED (nouveaux fichiers) + suite menu complète **89/89 PASSED 0 régression** (50 integration + 8 theme + 10 anti-patterns + 4 perf + 17 story-012 = 89 total cumulé).
+
+**Deviations ADVISORY** :
+1. **EC-MNU-36 quit during LOADING** : test ne peut pas appeler `get_tree().quit()` (tuerait le runner). Couverture hybride : (a) runtime check MockSaveLoad inside_tree + process_mode = ALWAYS (conditions nécessaires R-SAV-9), (b) static check Menu non-comment code ne contient pas `NOTIFICATION_WM_CLOSE_REQUEST` (delegation pure R-MNU-19). Conforme à la note story Implementation §1 : "Aucun code Menu ajouté".
+2. **AC-MNU-39 etage_*.tscn glob** : MVP `scenes/levels/` ne contient que `primitives/` (pas de `etage_*.tscn`). Test SKIP gracieux avec print informatif — réactivé Sprint 1 quand etage_01.tscn arrivera.
+3. **Helper `_has_non_comment_pattern`** ajouté pour exclure les commentaires (`##` ou `#`) du grep AC pattern check — le `pause_menu_controller.gd` mentionne `NOTIFICATION_WM_CLOSE_REQUEST` dans des `##` doc strings. Workaround propre, cohérent avec project lint patterns.
+4. **Workaround InputManager bug story-011** réutilisé : `_force_clean_input_blocker_connection(owner)` dans cleanup. Tech debt potentiel ADR-0004 amendement déjà flagué Sprint 1.
+
+**Tech debt logged** : 0 nouveaux items. Tech debt InputManager déjà tracé story-011.

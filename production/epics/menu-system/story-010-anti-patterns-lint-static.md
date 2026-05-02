@@ -1,7 +1,7 @@
 # Story 010: Anti-Patterns Lint Static — 8 Grep + Anti-Deps + SaveLoad Zero-Ref
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-23
@@ -153,7 +153,7 @@
 - Smoke check : `production/qa/smoke-menu-anti-patterns-[date].md` (output CI green run + 11 lints pass).
 - Rule documentation : `.claude/rules/menu-anti-patterns.md`.
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — CI workflow `.github/workflows/tests.yml` job `lint-menu-anti-patterns` ajouté (11 lints) + rule file `.claude/rules/menu-anti-patterns.md` + smoke check `production/qa/smoke-menu-anti-patterns-2026-05-02.md` + GdUnit4 parity test `tests/static/menu_anti_patterns_lint_test.gd` (10/10 PASSED 127 ms `reports/report_122`). Suite menu complète régression-free **68/68 PASSED 1s 445ms** (`reports/report_123`).
 
 ---
 
@@ -161,3 +161,19 @@
 
 - Depends on : Stories 001-009 (code menu écrit pour que les lints aient quelque chose à scanner — mais peut courir en parallèle car les lints sur 0 fichiers passent triviaux ; activer en mode bloquant après chaque story merge).
 - Unlocks : Story 011 (perf bench peut tourner avec confiance que le code respecte les contraintes structurelles), Story 013 (playtest n'introduira pas de régression).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Criteria** : 11/11 PASS (AC-MNU-36/44/45/46/47/48/49/50/57/63/64 + R-MNU-18). Story-Type Config/Data — smoke check evidence requirement satisfied.
+**Deviations** : 1 ADVISORY — `src/gameplay/menu/main_menu_controller.gd:47` exception marker `# lint-menu-ok: read-only sanity assert (AC-MNU-50 forbids mutation, not lecture)`. Rationale ADR-0007 D-4 cible mutation, pas lecture. Project-pattern conforme.
+**Test Evidence** : Smoke check `production/qa/smoke-menu-anti-patterns-2026-05-02.md` + GdUnit4 static `tests/static/menu_anti_patterns_lint_test.gd` (10/10 PASSED 127 ms `reports/report_122`) + suite menu **68/68 PASSED 1s 445ms** (`reports/report_123`) régression-free.
+**Code Review** : APPROVED (manual /code-review pass 2026-05-02 — Solo mode QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped).
+**Files livrés** :
+- `.github/workflows/tests.yml` (MODIFIED +120 L) — job `lint-menu-anti-patterns` après `lint-collision-layers`
+- `.claude/rules/menu-anti-patterns.md` (NEW 130 L)
+- `tests/static/menu_anti_patterns_lint_test.gd` (NEW 195 L, 10 tests static)
+- `production/qa/smoke-menu-anti-patterns-2026-05-02.md` (NEW)
+- `src/gameplay/menu/main_menu_controller.gd:47` (+1 marker)

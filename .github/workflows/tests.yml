@@ -230,6 +230,161 @@ jobs:
           name: collision-layers-lint-log
           path: production/qa/evidence/collision-layers-lint-*.log
 
+  lint-menu-anti-patterns:
+    # story-010 — anti-pattern static lints menu-system.
+    # Source : .claude/rules/menu-anti-patterns.md.
+    # Couvre AC-MNU-36/44/45/46/47/48/49/50/57/63/64 + R-MNU-18 anti-deps
+    # (R-MNU-15/16/18/19 + ADR-0007 D-4 GSM seul autorité + ADR-0010 R-SAV-9 délégation pure).
+    # Exception comments : `# lint-menu-ok: <raison>` accepté ligne par ligne.
+    name: Lint — Menu Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run menu anti-patterns lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/menu-anti-patterns-lint-$(date +%Y-%m-%d).log"
+          echo "# Menu anti-patterns lint — $(date -Iseconds)" > "$log"
+
+          violations=0
+
+          # Helper grep négatif : exit 1 si match (utilisé pour `! grep` négatif).
+          # Skip lignes commentaires `#` et exception markers `# lint-menu-ok`.
+          run_negative() {
+            local label="$1"
+            local pattern="$2"
+            shift 2
+            local paths=("$@")
+            local missing=0
+            for p in "${paths[@]}"; do
+              if [ ! -e "$p" ]; then
+                missing=$((missing + 1))
+              fi
+            done
+            if [ "$missing" -eq "${#paths[@]}" ]; then
+              echo "## $label — SKIP (paths absent)" >> "$log"
+              return 0
+            fi
+            local matches
+            matches=$(grep -rnE "$pattern" "${paths[@]}" 2>/dev/null \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              | grep -v 'lint-menu-ok' \
+              || true)
+            if [ -n "$matches" ]; then
+              echo "## $label — FAIL" >> "$log"
+              echo "$matches" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## $label — PASS (0 match)" >> "$log"
+            fi
+          }
+
+          # ---- AC-MNU-36 + AC-MNU-64 — anti-tween/anim ----
+          run_negative "AC-MNU-36 + AC-MNU-64 anti-tween/anim (R-MNU-15 + K.7 + K.9)" \
+            '\b(Tween|create_tween|tween_property|InterpolateValue|AnimationPlayer|AnimationTree)\b' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-44 — anti-SFX (scenes/menus + src/gameplay/menu) ----
+          run_negative "AC-MNU-44 anti-SFX scenes/menus + src" \
+            'AudioStreamPlayer|play_sfx|audio_play' \
+            scenes/menus/ src/gameplay/menu/
+
+          # ---- AC-MNU-44 (extended) — scenes/levels parse plus fin (helper) ----
+          # Au MVP, scenes/levels/ peut être absent ou vide → SKIP gracieux.
+          # Post-MVP : helper script identifie AudioStreamPlayer dans sous-arborescence
+          # de pause_overlay.tscn instance vs ambient track étage (Implementation Notes #4).
+          if [ -d scenes/levels ] && find scenes/levels -name '*.tscn' -print -quit | grep -q .; then
+            level_audio=$(grep -rE 'AudioStreamPlayer' scenes/levels/ --include='*.tscn' 2>/dev/null || true)
+            if [ -n "$level_audio" ]; then
+              echo "## AC-MNU-44 (scenes/levels) — REVIEW (manual filter pause_overlay sub-tree required)" >> "$log"
+              echo "$level_audio" >> "$log"
+              echo "::warning::AC-MNU-44 scenes/levels : AudioStreamPlayer detected — verify not in pause_overlay sub-tree"
+            else
+              echo "## AC-MNU-44 (scenes/levels) — PASS (0 AudioStreamPlayer)" >> "$log"
+            fi
+          else
+            echo "## AC-MNU-44 (scenes/levels) — SKIP (dir absent or empty)" >> "$log"
+          fi
+
+          # ---- AC-MNU-45 — anti-confirm dialogs (R-MNU-16 zero confirm) ----
+          run_negative "AC-MNU-45 anti-confirm dialogs (R-MNU-16)" \
+            'AcceptDialog|ConfirmationDialog|PopupPanel|PopupMenu' \
+            scenes/menus/ src/gameplay/menu/
+
+          # ---- AC-MNU-46 — corner_radius zero ou absent (Chrome Zen K.5 hard-edge) ----
+          # Particulier : grep MATCH expected mais valeurs doivent toutes être 0.
+          if [ -d scenes/menus ]; then
+            non_zero_corner=$(grep -rnE 'corner_radius' scenes/menus/ 2>/dev/null \
+              | grep -vE '=\s*0\b' \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              || true)
+            if [ -n "$non_zero_corner" ]; then
+              echo "## AC-MNU-46 corner_radius zero — FAIL (non-zero values found)" >> "$log"
+              echo "$non_zero_corner" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## AC-MNU-46 corner_radius zero — PASS" >> "$log"
+            fi
+          else
+            echo "## AC-MNU-46 corner_radius zero — SKIP (scenes/menus absent)" >> "$log"
+          fi
+
+          # ---- AC-MNU-47 — anti-Parallax/Animation (scenes/menus) ----
+          run_negative "AC-MNU-47 anti-Parallax/AnimationPlayer/AnimationTree" \
+            'ParallaxBackground|ParallaxLayer|AnimationPlayer|AnimationTree' \
+            scenes/menus/
+
+          # ---- AC-MNU-48 — anti-gradient/material (src/gameplay/menu) ----
+          run_negative "AC-MNU-48 anti-gradient/CanvasItemMaterial/ShaderMaterial" \
+            'Gradient|GradientTexture|CanvasItemMaterial|ShaderMaterial' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-49 — Engine.time_scale (ADR-0007 D-4 GSM seul autorité) ----
+          run_negative "AC-MNU-49 Engine.time_scale (ADR-0007 D-4)" \
+            'Engine\.time_scale' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-50 — get_tree().paused mutation (autorité unique GSM) ----
+          run_negative "AC-MNU-50 get_tree().paused mutation (GSM only)" \
+            'get_tree\(\)\.paused|SceneTree.*paused' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-57 — zéro SaveLoad ref (R-MNU-19 + R-SAV-9 délégation pure) ----
+          run_negative "AC-MNU-57 zero SaveLoad reference (R-MNU-19 + R-SAV-9)" \
+            'SaveLoad|\bsave_int\b|\bsave_string_array\b|save_now' \
+            src/gameplay/menu/
+
+          # ---- AC-MNU-63 — zéro focus notification handler (R-MNU-18 anti-dep) ----
+          run_negative "AC-MNU-63 zero focus notification handler (R-MNU-18)" \
+            'NOTIFICATION_WM_WINDOW_FOCUS|_notification\b.*_focus' \
+            src/gameplay/menu/
+
+          # ---- R-MNU-18 — anti-deps cross-system ----
+          run_negative "R-MNU-18 anti-deps cross-system (Level/Combat/Movement/Credit/Secret/Upgrade)" \
+            '\b(LevelSystem|CombatSystem|MovementController|CreditSystem|SecretSystem|UpgradeSystem)\b' \
+            src/gameplay/menu/
+
+          # ---- Verdict ----
+          echo "" >> "$log"
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          cat "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::lint-menu-anti-patterns FAIL — $violations violation(s) (R-MNU-15/16/18/19 + ADR-0007/0010)"
+            exit 1
+          fi
+          echo "lint-menu-anti-patterns PASS"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: menu-anti-patterns-lint-log
+          path: production/qa/evidence/menu-anti-patterns-lint-*.log
+
   lint-level-invariants:
     # story-010 AC-LVL-11 — lint pre-build hiérarchie canonique scènes d'étage.
     # Valide StaticEnvironment, InteractiveVolumes, SpawnMarkers (Node3D) +

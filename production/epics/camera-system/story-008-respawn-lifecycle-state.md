@@ -1,7 +1,7 @@
 # Story 008: Respawn lifecycle — died/respawned handlers + state + idempotence + pitch/yaw preservation
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -30,9 +30,9 @@
 
 *From GDD `design/gdd/camera-system.md`, scoped to this story :*
 
-- [ ] **AC-CAM-40** : `GIVEN` Camera Active, `WHEN` Movement émet `died()`, `THEN` dans le même tick : Camera entre en Respawning, overlay `ColorRect` visible à `alpha=0.6` couleur `(0.4, 0.0, 0.0, 0.6)`, signals `mouse_motion` suivants ignorés (rotation figée).
-- [ ] **AC-CAM-41** : `GIVEN` Camera Respawning depuis `RESPAWN_DELAY=50ms`, `WHEN` Movement émet `respawned(Vector3(10, 2, 5))`, `THEN` `camera_effects.rotation.z == 0`, `camera3d.fov == BASE_FOV == 90°`, `camera3d.rotation == Vector3.ZERO`, `_shake_offset == Vector3.ZERO`, ET **`camera_arm.rotation.x` inchangé (pitch préservé)**, ET **`player.rotation.y` inchangé (yaw préservé)** — Ghostrunner approach.
-- [ ] **AC-CAM-43** : `GIVEN` Camera en état Respawning, `WHEN` Movement émet un second `died()` dans le délai (cas edge idempotence), `THEN` aucun second cycle de fade n'est déclenché (early return `if state == Respawning: return` en première ligne du handler `died`). Miroir de Movement AC-MV-41.
+- [x] **AC-CAM-40** : `GIVEN` Camera Active, `WHEN` Movement émet `died()`, `THEN` dans le même tick : Camera entre en Respawning, overlay `ColorRect` visible à `alpha=0.6` couleur `(0.4, 0.0, 0.0, 0.6)`, signals `mouse_motion` suivants ignorés (rotation figée).
+- [x] **AC-CAM-41** : `GIVEN` Camera Respawning depuis `RESPAWN_DELAY=50ms`, `WHEN` Movement émet `respawned(Vector3(10, 2, 5))`, `THEN` `camera_effects.rotation.z == 0`, `camera3d.fov == BASE_FOV == 90°`, `camera3d.rotation == Vector3.ZERO`, `_shake_offset == Vector3.ZERO`, ET **`camera_arm.rotation.x` inchangé (pitch préservé)**, ET **`player.rotation.y` inchangé (yaw préservé)** — Ghostrunner approach.
+- [x] **AC-CAM-43** : `GIVEN` Camera en état Respawning, `WHEN` Movement émet un second `died()` dans le délai (cas edge idempotence), `THEN` aucun second cycle de fade n'est déclenché (early return `if state == Respawning: return` en première ligne du handler `died`). Miroir de Movement AC-MV-41.
 
 > AC-CAM-42 (Visual/Feel fade 100ms + flash 50ms) couvert par Story 009.
 
@@ -166,7 +166,7 @@ func _on_mouse_motion(delta: Vector2) -> void:
 **Story Type** : Integration
 **Required evidence** : `tests/integration/camera/story-008-respawn-lifecycle_test.gd` — AC-CAM-40/41/43 via émission `player.died` / `player.respawned` + assertions état + reset effets + préservation pitch/yaw
 
-**Status** : [ ] Not yet created
+**Status** : [x] Created — `tests/integration/camera/story_008_respawn_lifecycle_test.gd` (underscore convention vs hyphen spec, cohérent stories 005/006/007). 5/5 PASSED 101 ms (`reports/report_145`).
 
 ---
 
@@ -174,3 +174,48 @@ func _on_mouse_motion(delta: Vector2) -> void:
 
 - Depends on : Story 005 (`_camera_effects.rotation.z` tilt existe pour reset), Story 006 (`_camera3d.fov` FOV existe), Story 007 (`_shake_offset` + `_camera3d.rotation` shake existent), Story 003 (`_on_mouse_motion` gate patché — requiert ajout `_state == RESPAWNING` check)
 - Unlocks : Story 009 (fade alpha + flash blanc overlay), Story 010 (reduce_motion aux effets reset ici)
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Verdict** : COMPLETE WITH NOTES
+**Criteria** : 3/3 passing (AC-CAM-40, AC-CAM-41, AC-CAM-43) — 5/5 tests PASSED 101 ms (`reports/report_145`).
+
+**Files livrés** :
+- `src/gameplay/camera/camera_system.gd` (MODIFIED) — enum State {ACTIVE, RESPAWNING} + RESPAWN_OVERLAY_COLOR/RESPAWN_OVERLAY_LAYER consts + `_setup_overlay()` (one-shot alloc `_ready()` hors hot-path) + `_on_died()` idempotent (AC-CAM-43 early return) + `_on_respawned()` reset effets SAUF pitch/yaw (Ghostrunner) + getters publics (`get_respawn_overlay`, `is_respawning`) + gate Respawning dans `_on_mouse_motion` (AC-CAM-40).
+- `tests/helpers/mock_player_with_dash_signals.gd` (MODIFIED +9 L) — ajout signaux `died()` + `respawned(position: Vector3)` ADR-0005 D-2 canonical.
+- `tests/integration/camera/story_008_respawn_lifecycle_test.gd` (NEW 270 L) — 5 tests GdUnit4 couvrant AC-CAM-40 ×2 + AC-CAM-41 + AC-CAM-43 ×2 (incluant cycle complet died→respawned→died).
+
+**Test-Criterion Traceability** : 5/5 COVERED (100%).
+
+| Criterion | Test | Status |
+|-----------|------|--------|
+| AC-CAM-40 (overlay show) | `test_ac_cam_40_died_enters_respawning_and_shows_overlay` | COVERED |
+| AC-CAM-40 (mouse gate) | `test_ac_cam_40_mouse_motion_during_respawning_does_not_rotate_player` | COVERED |
+| AC-CAM-41 (reset + pitch/yaw préservés) | `test_ac_cam_41_respawned_resets_effects_but_preserves_pitch_yaw` | COVERED |
+| AC-CAM-43 (early return) | `test_ac_cam_43_second_died_during_respawning_is_noop` | COVERED |
+| AC-CAM-43 (cycle complet) | `test_ac_cam_43_died_respawned_died_cycle_works_normally` | COVERED |
+
+**ADR Compliance** : COMPLIANT
+- ADR-0002 ownership matrice respectée (tilt = camera_effects.rotation.z, FOV = camera3d.fov, shake = camera3d.rotation assignation, pitch/yaw NON touchés au reset)
+- ADR-0005 D-2 (signaux canoniques) + D-5 (SYNC consumer léger post pré-création) + D-7 (no Movement mutation) + D-8 (idempotence guard)
+- Manifest 2026-04-23 zero-alloc handler ✓ (overlay pré-créé `_ready()`)
+
+**Deviations** :
+- ADVISORY-1 : Test filename `story_008_respawn_lifecycle_test.gd` (underscores) au lieu du spec `story-008-respawn-lifecycle_test.gd` (hyphens). Convention projet underscores cohérente avec stories 005/006/007.
+- ADVISORY-2 : Test setup workaround injection manuelle `_camera_system._camera_effects/_camera3d/_player` car `%CameraEffects` ne résout pas headless sans scene owner. Pattern hérité tech debt camera (commun stories 005/006/007). Refacto post-MVP via PackedScene mock ou set_owner discipline.
+- ADVISORY-3 : Code review S-1 (`anchors_preset` idiom Godot 4) + S-2 (test pattern refacto) + S-3 (defensive `_overlay.color` reset). Tous non-bloquants.
+
+**Code Review** : APPROVED WITH SUGGESTIONS (Solo mode — LP-CODE-REVIEW gate skipped, manual review pass clean).
+- Engine specialist : `godot-gdscript-specialist` (review direct effectué, aucune API post-cutoff)
+- Standards : 6/6 passing
+- Architecture : CLEAN
+- SOLID : COMPLIANT
+- Game-specific : CLEAN
+
+**Camera Epic Progress** : 8/12 stories Complete (001-008). Stories 009-012 Ready.
+
+**Next Recommended** : `/story-readiness production/epics/camera-system/story-009-*` (fade alpha + flash blanc — Visual/Feel, dépend story-008 just closed) puis `/dev-story`.
+

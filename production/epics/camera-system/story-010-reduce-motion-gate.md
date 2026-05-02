@@ -1,7 +1,7 @@
 # Story 010: Reduce_motion gate (tilt × 0.25, fov_kick × 0.5, shake × 0)
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Estimate**: 1h
@@ -30,9 +30,9 @@
 
 *From GDD `design/gdd/camera-system.md`, scoped to this story :*
 
-- [ ] **AC-CAM-70** : `GIVEN` `reduce_motion == true`, `WHEN` Player entre en WallRunning, `THEN` target_roll effectif = `WALL_RUN_TILT_ANGLE * wall_side * 0.25` (= 0.0875 rad au lieu de 0.35).
-- [ ] **AC-CAM-71** : `GIVEN` `reduce_motion == true`, `WHEN` Player dashe, `THEN` `camera3d.fov` converge vers `BASE_FOV + DASH_FOV_KICK * 0.5 = 95°` (peak) au lieu de 100°.
-- [ ] **AC-CAM-72** : `GIVEN` `reduce_motion == true`, `WHEN` `add_shake_roll(0.05)` appelé, `THEN` `_shake_offset` reste à `Vector3.ZERO` (shake désactivé, multiplier = 0).
+- [x] **AC-CAM-70** : `GIVEN` `reduce_motion == true`, `WHEN` Player entre en WallRunning, `THEN` target_roll effectif = `WALL_RUN_TILT_ANGLE * wall_side * 0.25` (= 0.0875 rad au lieu de 0.35).
+- [x] **AC-CAM-71** : `GIVEN` `reduce_motion == true`, `WHEN` Player dashe, `THEN` `camera3d.fov` converge vers `BASE_FOV + DASH_FOV_KICK * 0.5 = 95°` (peak) au lieu de 100°.
+- [x] **AC-CAM-72** : `GIVEN` `reduce_motion == true`, `WHEN` `add_shake_roll(0.05)` appelé, `THEN` `_shake_offset` reste à `Vector3.ZERO` (shake désactivé, multiplier = 0).
 
 ---
 
@@ -126,7 +126,7 @@ func add_shake(offset_radians: Vector3) -> void:
 **Story Type** : Logic
 **Required evidence** : `tests/unit/camera/story-010-reduce-motion-gate_test.gd` — AC-CAM-70/71/72 via mock `InputManager.reduce_motion` + assertions sur chaque effet
 
-**Status** : [ ] Not yet created
+**Status** : [x] Created — `tests/unit/camera/story_010_reduce_motion_gate_test.gd` (underscore convention, cohérent stories 005-009). 7/7 PASSED 156 ms (`reports/report_151`).
 
 ---
 
@@ -134,3 +134,53 @@ func add_shake(offset_radians: Vector3) -> void:
 
 - Depends on : Story 005 (tilt handler), Story 006 (FOV handler), Story 007 (shake injection point)
 - Unlocks : Future Accessibility Settings menu (UI exposition), Polish/Accessibility review sign-off
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Verdict** : COMPLETE WITH NOTES
+**Criteria** : 3/3 passing — AC-CAM-70/71/72 auto-COVERED via 7 tests (3 primary + 3 baselines + 1 edge signal).
+
+**Files livrés** :
+- `src/gameplay/camera/camera_system.gd` (MODIFIED) — 2 constants (REDUCE_MOTION_TILT_MULT=0.25, REDUCE_MOTION_FOV_KICK_MULT=0.5) + var `_reduce_motion: bool = false` (TODO route via AccessibilitySettings post-MVP) + patch `_update_tilt_wall_run` (target_roll *= mult avant lerp) + patch `_update_fov_dash` (dash_kick *= mult avant calcul) + patch `add_shake` (early-return si `_reduce_motion`, équivalent shake_mult=0 sans cost inject + clamp).
+- `tests/unit/camera/story_010_reduce_motion_gate_test.gd` (NEW 270 L) — 7 tests GdUnit4 pattern Player.tscn instantiation. Couvre AC-CAM-70/71/72 + baselines reduce_motion=false + edge case `wall_jumped` signal → handler chain bloqué.
+
+**Test-Criterion Traceability** : 7/7 COVERED (100%).
+
+| Criterion | Test | Status |
+|-----------|------|--------|
+| AC-CAM-70 (tilt × 0.25) | `test_ac_cam_70_reduce_motion_attenuates_wall_run_tilt_to_quarter` | COVERED |
+| AC-CAM-70 (baseline) | `test_ac_cam_70_reduce_motion_disabled_keeps_full_tilt` | COVERED bonus |
+| AC-CAM-71 (FOV × 0.5) | `test_ac_cam_71_reduce_motion_attenuates_dash_fov_kick_to_half` | COVERED |
+| AC-CAM-71 (baseline) | `test_ac_cam_71_reduce_motion_disabled_keeps_full_fov_kick` | COVERED bonus |
+| AC-CAM-72 (shake direct) | `test_ac_cam_72_reduce_motion_disables_shake_injection` | COVERED |
+| AC-CAM-72 (signal wall_jumped) | `test_ac_cam_72_reduce_motion_blocks_shake_via_wall_jumped_signal` | COVERED edge |
+| AC-CAM-72 (baseline) | `test_ac_cam_72_reduce_motion_disabled_allows_shake_injection` | COVERED bonus |
+
+**Tests** : 7/7 PASSED 156 ms 0 errors 0 failures (`reports/report_151`). Suite camera complète : 0 régression — stories 008+009 toujours 10/10 PASSED, stories 005/006/007 mêmes failures pré-existantes (tech debt setup).
+
+**ADR Compliance** : COMPLIANT
+- ADR-0002 ownership matrice respectée (multipliers AU TARGET avant commit lerp, pas cross-write)
+- ADR-0002 Amendment A-1 signal-driven `_is_dashing` cached flag préservé (pas polling player.is_dashing, Manifest forbidden ligne 161 respecté)
+- ADR-0001 Rule 12 Presentation cosmétique (handlers en `_process` inchangés)
+- Manifest 2026-04-23 Required « apply multiplier BEFORE lerp » ✓ + Forbidden « cache reduce_motion local » non-violé (lecture chaque frame depuis member var, hot-reload OK)
+- Manifest Guardrail ≤ 0.01 ms / frame ✓ (3 lectures bool + 3 multiplications, négligeable)
+
+**Deviations** :
+- ADVISORY-1 : Test filename underscore convention (cohérent stories 005-009 — convention projet).
+- ADVISORY-2 : `InputManager.reduce_motion` absent MVP — fallback `_reduce_motion=false` member var avec TODO documenté. Acted par decision tree explicit dans Implementation Notes story.
+- ADVISORY-3 : Test pattern `_player.set("_wall_normal", ...)` dépend nom interne MovementController. Acceptable, commun projet.
+- SCOPE-FOLLOWUP : Story 009 review S-3 (gate `_animate_respawn_overlay` Phase 1 flash épileptique safety) NON ajouté ici — respect Out of Scope contract. Recommandation : story-010b follow-up ~15 min (1 if + 1 test).
+
+**Code Review** : APPROVED WITH SUGGESTIONS (Solo mode — LP-CODE-REVIEW gate skipped, manual review pass clean).
+- 6/6 standards passing
+- ADR compliance COMPLIANT (3 ADRs verified + 1 Amendment + Manifest 2 rules)
+- Architecture CLEAN, SOLID COMPLIANT, Game-specific CLEAN
+- 3 suggestions cosmétiques non-bloquantes (S-1 setter API future / S-2 test pattern dependency / S-3 follow-up flash gate)
+
+**Camera Epic Progress** : 10/12 stories Complete (001-010). Stories 011 (_exit_tree cleanup), 012 (perf instrumentation) Ready.
+
+**Next Recommended** : `/story-readiness production/epics/camera-system/story-011-exit-tree-cleanup-nan-focus-loss.md` puis `/dev-story`.
+

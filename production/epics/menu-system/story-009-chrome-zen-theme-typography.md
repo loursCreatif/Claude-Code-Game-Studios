@@ -1,7 +1,7 @@
 # Story 009: Chrome Zen Theme — Typography + Palette + Button States
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-23
@@ -121,7 +121,7 @@
 - AC-MNU-53/54 → `production/qa/evidence/menu-typography-[date].png` + `menu-contrast-[date].md` + sign-off ux-designer
 - Walkthrough → `production/qa/evidence/chrome-zen-theme-walkthrough.md` (screenshots Main Menu + Pause Menu rendus à 1920×1080)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/static/menu_theme_lint_test.gd` (8 tests AC-MNU-51/52/55/56/66/67 + extensions theme/font/CanvasLayer scan). **Test runner executed 2026-05-02 via GdUnit4 safe headless pattern — 8/8 PASSED 71 ms (`reports/report_119`).** Suite menu complète régression-free **58/58 PASSED 1s 371ms** (`reports/report_120`). AC-MNU-53/54 manuels (visual evidence) + walkthrough → restent à produire en QA pass post-implementation.
 
 ---
 
@@ -129,3 +129,23 @@
 
 - Depends on : Story 001 + Story 002 (scenes structurelles existantes pour appliquer Theme).
 - Unlocks : Story 010 (lints anti-patterns vérifient absence d'overrides incohérents post-Theme).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-02
+**Criteria**: 8/8 (6 COVERED automatic + 2 DEFERRED-per-spec manual ADVISORY — AC-MNU-53 typo inspector + AC-MNU-54 WCAG contrast measure → sign-off `/team-qa sprint`).
+**Deviations**: NONE blocking. ADVISORY (non-blocker, conscient) :
+1. Tokens K.4 dupliqués `main_menu_controller.gd` + `pause_menu_controller.gd` — **per-spec AC-MNU-51** (déclaration explicite par fichier, grep-ability et autonomie controllers).
+2. `VersionLabel.theme_override_colors/font_color` literal dans `main_menu.tscn` (token équivalent `MENU_VERSION_TEXT` K.4) — coût/bénéfice MVP négligeable, non-loggé tech debt.
+**Test Evidence**: UI — static lint `tests/static/menu_theme_lint_test.gd` (8 tests, 8/8 PASSED 71 ms `reports/report_119`). Manual evidence (typography + contrast + walkthrough) DEFERRED `/team-qa sprint`. Suite menu complète régression-free **58/58 PASSED 1s 371ms** (`reports/report_120`).
+**Code Review**: Skipped — Solo mode (LP-CODE-REVIEW gate not triggered per `production/review-mode.txt`). Manual code-review pass `/code-review` 2026-05-02 → APPROVED (ADR-0003 compliant, SOLID compliant, zero hot-path alloc).
+**Files delivered**:
+- `assets/fonts/JetBrainsMono-Regular.ttf` (NEW 270 KB) — sourced github.com/JetBrains/JetBrainsMono master/fonts/ttf/, OFL 1.1 redistributable.
+- `assets/themes/menu_chrome_zen.tres` (NEW) — Theme Godot avec FontFile + 5 StyleBoxFlat Button states K.5 (Normal transparent, Hover underline cyan bottom, Focus rect cyan complete, Pressed bg #111120 + border, Disabled text #3C3C50) + PanelContainer style #0A0A12 + border #2A2A3A. Zéro `bg_color_2`, zéro gradient, `corner_radius_* = 0`.
+- `src/gameplay/menu/main_menu_controller.gd` (MODIFIED +7 L) — palette tokens K.4 const Color déclarés en tête (MENU_BG_BLACK/PANEL_BG/TEXT_BASE/ACCENT_CYAN + MENU_BG_OVERLAY_ALPHA scalaire). DEBUG_SHOW_VERSION conservé.
+- `src/gameplay/menu/pause_menu_controller.gd` (MODIFIED +7 L) — palette tokens K.4 (cohérent main_menu).
+- `scenes/menus/main_menu.tscn` (MODIFIED) — Theme appliqué root, font_size override TitleLabel=28 + VersionLabel=11 + button custom_minimum_size 220 px (K.5), separation=16.
+- `scenes/menus/pause_overlay.tscn` (MODIFIED) — Theme appliqué PausePanel, font_size override TitleLabel=13 (color secondary #6E6E8A) + buttons 220 px, separation=12. `layer = 80` invariant préservé (AC-MNU-55 re-verified).
+- `tests/static/menu_theme_lint_test.gd` (NEW 175 L) — 8 tests static lint via FileAccess + RegEx (AC-MNU-51/52/55/56/66/67 + extensions theme_resource_exists et CanvasLayer recursive scan).

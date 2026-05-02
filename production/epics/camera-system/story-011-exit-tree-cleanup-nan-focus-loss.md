@@ -1,7 +1,7 @@
 # Story 011: _exit_tree cleanup + NaN safeguard + focus-loss behavior
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
@@ -124,7 +124,7 @@ func _process(delta: float) -> void:
 **Story Type** : Integration
 **Required evidence** : `tests/integration/camera/story-011-exit-tree-nan-focus_test.gd` — AC-CAM-63 (scene reload test) + AC-CAM-64 (focus simulation via enabled) + AC-CAM-NAN-1 (inject NaN)
 
-**Status** : [ ] Not yet created
+**Status** : [x] Created — 12/12 PASSED 265ms (`reports/report_162`)
 
 ---
 
@@ -132,3 +132,18 @@ func _process(delta: float) -> void:
 
 - Depends on : Story 001 (scene tree), Story 002 (mouse_motion connect), Story 005/006/007 (_process + handlers), Story 008 (died/respawned connects)
 - Unlocks : Scene reload robustness (multi-respawn sessions), soak-test readiness
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Criteria** : 3/3 passing (AC-CAM-63 + AC-CAM-64 + AC-CAM-NAN-1) — 12 integration tests PASSED 265ms (`reports/report_162`)
+**Files** :
+- `src/gameplay/camera/camera_system.gd` (MODIFIED) — `_exit_tree()` lifecycle cleanup + `_safeguard_rotation()` NaN detection + `_process()` integration + cosmetic `= null` defaults pour `_canvas_layer`/`_overlay`/`_respawn_tween`
+- `tests/integration/camera/story_011_exit_tree_nan_focus_test.gd` (NEW, 458L) — 12 GdUnit4 integration tests + cleanup défensif InputManager.enabled
+**Deviations** :
+- ADVISORY : Pre-existing tech debt RC-1 — `_update_tilt_wall_run` polls `_player.wall_normal` violant ADR-0002 Amendment A-1 (introduit story-005, hors scope story-011) — logged en tech debt
+- ADVISORY : Pre-existing tech debt — stories 005-007 test harness fragility (13 failures en suite complète, setup sans injection manuelle `_camera_effects`/`_camera3d`) — logged en tech debt
+**Test Evidence** : `tests/integration/camera/story_011_exit_tree_nan_focus_test.gd` (12/12 PASSED, AC-CAM-63 ×4 + AC-CAM-64 ×3 + AC-CAM-NAN-1 ×5)
+**Code Review** : Complete (v1 CHANGES REQUIRED → v2 APPROVED WITH SUGGESTIONS après application RC-2 isolation test + RC-3 cosmétique ; RC-1 hors scope)

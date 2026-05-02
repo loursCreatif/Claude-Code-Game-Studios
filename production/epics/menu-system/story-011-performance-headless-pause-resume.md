@@ -1,7 +1,7 @@
 # Story 011: Performance F-MNU-1 — Pause/Resume Headless P95+P99 < 100 ms
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -159,7 +159,7 @@
 - CI workflow job `perf-menu-pause-resume` ajouté + green run.
 - Evidence : `production/qa/evidence/perf-menu-baseline-[date].md` (latencies P95/P99/max + delta memory bytes).
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/performance/menu_pause_resume_perf_test.gd` (4 tests AC-MNU-40/41/42/43 ; AC-MNU-65 xvfb DÉFÉRÉ post-MVP). **4/4 PASSED 6s 067ms** (`reports/report_128`) ; suite menu complète **72/72 PASSED 7s 510ms** (`reports/report_129`) régression-free. Evidence : `production/qa/evidence/perf-menu-baseline-2026-05-02.md`.
 
 ---
 
@@ -167,3 +167,19 @@
 
 - Depends on : Stories 002, 003, 004, 005, 008 (pipeline pause/resume complet livré pour bench).
 - Unlocks : Story 013 (playtest peut citer perf baseline pour décider Pillar 1 sign-off creative-director).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Criteria** : 4/5 COVERED (AC-MNU-40/41/42/43) + 1 DEFERRED-per-spec ADVISORY (AC-MNU-65 xvfb post-MVP). 80% COVERED, 20% DEFERRED — sous seuil 50% UNTESTED escalation.
+**Deviations** :
+- ADVISORY : Test framework GdUnit4 (project standard) au lieu de GUT (story spec) — aligné `tests/performance/input_to_velocity_latency_test.gd` + `shop_perf_benchmark.gd`.
+- ADVISORY : Reset cycle 2× `await process_frame` au lieu de `OS.delay_msec(1000)` — pragmatique, isolation préservée via state save/restore. Trade-off documenté evidence.
+- TECH DEBT POTENTIEL : `InputManager.release_enable_request` ne déconnecte pas `tree_exited` (CONNECT_ONE_SHOT clean only on signal fire). Workaround test-only `_force_clean_input_blocker_connection` itère `get_signal_connection_list` + disconnect ciblé. Production safety actuelle = single show/hide pattern. Flag pour ADR-0004 amendement si futur système requiert N cycles répétés.
+**Test Evidence** : `tests/performance/menu_pause_resume_perf_test.gd` (4 tests AC-MNU-40/41/42/43) — **4/4 PASSED 6s 067ms** (`reports/report_128`) ; suite menu complète **72/72 PASSED 7s 510ms** (`reports/report_129`) régression-free. Evidence : `production/qa/evidence/perf-menu-baseline-2026-05-02.md`.
+**Code Review** : APPROVED (manual /code-review pass 2026-05-02 — Solo mode QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped).
+**Files livrés** :
+- `tests/performance/menu_pause_resume_perf_test.gd` (NEW 283 L) — 4 tests perf benchmarks F-MNU-1 budget < 100 ms
+- `production/qa/evidence/perf-menu-baseline-2026-05-02.md` (NEW)

@@ -1,7 +1,7 @@
 # Story 013: Bidirectional Integration Playtest + UX Specs Alignment
 
 > **Epic**: Menu System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
@@ -132,3 +132,52 @@
 
 - Depends on : Stories 001-012 (totalité du Menu System livré) ; UX specs `design/ux/main-menu.md` r1 + `design/ux/pause-menu.md` r1 livrées (déjà commit `d6279a7`).
 - Unlocks : `/story-done` epic Menu System ; promotion EPIC.md status Ready → Implemented Sprint A ; flag follow-up cosmetic GSM r1 §Dependencies Downstream amendement éditorial.
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-02
+**Criteria** : 4/6 COVERED automatique + 2 DEFERRED Sprint 1 (boucle manuelle + Pillar 3 RESPAWNING — bloqués par absence `scenes/levels/etage_01.tscn` MVP empty).
+**Deviations** :
+- ADVISORY : 2 ACs DEFERRED Sprint 1 (re-trigger sign-off creative-director quand etage_01 chargeable + WorldBoundsVolume disponible).
+- ADVISORY : D-1 DimRect manquant + D-2 MainMenuButton text → RESOLVED 2026-05-02 (B+B fix appliqué — `scenes/menus/pause_overlay.tscn` ajout `[node DimRect type=ColorRect]` alpha 0.65 mouse_filter=STOP + `src/gameplay/menu/pause_menu_controller.gd` toggle synchrone `_apply_visibility` + hide initial `_ready()`).
+**Test Evidence** :
+- `production/qa/evidence/menu-bidirectional-playtest-2026-05-02.md` (272 L, 9 sections) — UX walkthrough 11/11 AC-UX-MM + 18/18 AC-UX-PM auto-checked post-D-1 + bidirectional 4/4 confirmation.
+- Amendement éditorial `design/gdd/game-state-manager.md:269` — "MenuSystem APPROVED r2 / Implemented Sprint A" + détails 4 verbes + R-MNU-18 lint AC.
+- Tests post-fix : suite menu 85/85 PASSED 8s 181ms 0 régression (`reports/report_135`) + lint static 15/15 PASS (`reports/report_136`).
+**Code Review** : Complete — `/code-review src/gameplay/menu/pause_menu_controller.gd scenes/menus/pause_overlay.tscn` verdict APPROVED 2026-05-02 (Solo mode QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped).
+**Mode review** : Solo.
+
+---
+
+## Bidirectional 4/4 Reciprocity Confirmed (post-impl)
+
+| Sibling GDD | Refs Menu | Status |
+|---|---|---|
+| `design/gdd/game-state-manager.md` r1 | 7+ refs (lignes 111, 269, 378, 417, 418, 424…) | ✅ PASS + amendement r1 ligne 269 landed |
+| `design/gdd/input-system.md` r5+r6 | 8+ refs (R-MNU-12/13 refcount discipline cross-cited) | ✅ PASS |
+| `design/gdd/hud-system.md` r1 | 5+ refs (Pause overlay z-order Layer M convention) | ✅ PASS |
+| `design/gdd/shop-system.md` r2.1 | 3+ refs (CanvasLayer order Shop=60 < Pause=80) | ✅ PASS |
+
+---
+
+## Menu Epic Closure — 13/13 Stories Complete
+
+| # | Story | Status |
+|---|---|---|
+| 001 | Autoload skeleton capability vars | Complete |
+| 002 | Pause overlay scene skeleton | Complete |
+| 003 | UI cancel trigger pause/resume | Complete |
+| 004 | State sync connect deferred | Complete |
+| 005 | Apply visibility recapture mouse | Complete |
+| 006 | Main menu buttons start/quit | Complete |
+| 007 | Pause menu buttons resume/mainmenu/quit | Complete |
+| 008 | Input refcount mouse capture | Complete |
+| 009 | Chrome Zen theme + typography | Complete |
+| 010 | Anti-patterns lint static | Complete |
+| 011 | Performance headless pause/resume | Complete |
+| 012 | Edge cases r2 + Tab wrap | Complete |
+| 013 | Bidirectional integration playtest | **Complete** |
+
+**Epic Menu System : 13/13 Implemented Sprint A.**
