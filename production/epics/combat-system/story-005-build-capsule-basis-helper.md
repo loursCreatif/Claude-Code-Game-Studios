@@ -1,7 +1,8 @@
 # Story 005: `_build_capsule_basis()` helper + 100-sample sphere test
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, fix is_equal_approx vector tolerance + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,11 +29,11 @@
 
 *From GDD AC-CMB-08 (r6 CONV-1 FIX) + Gap 7 :*
 
-- [ ] **AC-CMB-08 (orientation)** : pour 100 échantillons `aim_forward` sur sphère unitaire (pitch ∈ `[-PITCH_LIMIT + 0.01, PITCH_LIMIT - 0.01]`), `(_build_capsule_basis(aim) * Vector3.UP).angle_to(aim) < 0.001 rad`
-- [ ] **AC-CMB-08 (position)** : pour `aim_forward = Vector3(1, 0, 0)`, `ShapeCast3D.global_transform.origin.distance_to(player.global_position + Vector3(0.9, 0, 0)) < 0.001 m`
-- [ ] **Garde colinéarité** : `aim_forward = Vector3(0, 1, 0)` ou `Vector3(0, -1, 0)` (pitch = ±PITCH_LIMIT) → fallback `safe_up = Vector3.FORWARD` activé, basis encore valide non-singulière
-- [ ] **Garde déterminant** : si `b.determinant() < 0.01` → return `Basis.IDENTITY`, `push_error` émis
-- [ ] **Gap 7 prereq** : pattern documenté dans `docs/engine-reference/godot/modules/physics.md` section "ShapeCast3D + CapsuleShape3D basis orientation" avec snippet helper complet (owner lead-programmer pré-Sprint 1)
+- [x] **AC-CMB-08 (orientation)** : pour 100 échantillons `aim_forward` sur sphère unitaire (pitch ∈ `[-PITCH_LIMIT + 0.01, PITCH_LIMIT - 0.01]`), `(_build_capsule_basis(aim) * Vector3.UP).angle_to(aim) < 0.001 rad`
+- [x] **AC-CMB-08 (position)** : pour `aim_forward = Vector3(1, 0, 0)`, `ShapeCast3D.global_transform.origin.distance_to(player.global_position + Vector3(0.9, 0, 0)) < 0.001 m`
+- [x] **Garde colinéarité** : `aim_forward = Vector3(0, 1, 0)` ou `Vector3(0, -1, 0)` (pitch = ±PITCH_LIMIT) → fallback `safe_up = Vector3.FORWARD` activé, basis encore valide non-singulière
+- [x] **Garde déterminant** : si `b.determinant() < 0.01` → return `Basis.IDENTITY`, `push_error` émis
+- [x] **Gap 7 prereq** : pattern documenté dans `docs/engine-reference/godot/modules/physics.md` section "ShapeCast3D + CapsuleShape3D basis orientation" avec snippet helper complet (owner lead-programmer pré-Sprint 1)
 
 ---
 
@@ -101,7 +102,7 @@ func _build_capsule_basis(forward: Vector3) -> Basis:
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/build_capsule_basis_test.gd` — must exist and pass (100-sample loop)
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 6/6 PASS (`reports/report_264` 2026-05-02 — fix `is_equal_approx(vec, Vector3.ONE * tol)` GdUnit4 vector signature).
 
 ---
 

@@ -1,7 +1,8 @@
 # Story 009: Anti-tunneling N=3 substeps + Jolt margin empirical
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, fix is_equal_approx vector tolerance + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,11 +29,11 @@
 
 *From GDD AC-CMB-14 + Gap 8 :*
 
-- [ ] **AC-CMB-14** : `delta = 1/60` ; pour `velocity ∈ {0.0, 10.0, 30.0}` m/s : `N_SUBSTEPS == 3` constant (pas de branching dynamique), `gap_max = V * (1/60) / 3 < 0.7 m` vérifié pour chaque V
-- [ ] **AC-CMB-14 grep statique** : `grep -nE 'TUNNELING_THRESHOLD' src/gameplay/combat/` — zéro match dans condition de branching N (constante peut exister mais pas utilisée pour gate N)
-- [ ] **Gap 8 prereq** : `docs/engine-reference/godot/modules/physics.md` documente `ShapeCast3D.margin` behavior Jolt 4.6 (test empirique exécuté par lead-programmer pré-Sprint 1)
-- [ ] Pendant `Swinging`, chaque `_physics_process` tick exécute 3 substeps `force_shapecast_update()` avec `target_position` interpolée linéairement entre `_prev_position` et `player.global_position` (substeps i ∈ [0, 1, 2] : `from = lerp(_prev, current, i/3)`, `to = lerp(_prev, current, (i+1)/3)`)
-- [ ] Colliders détectés dans les 3 substeps unionisés et dedupliqués via `instance_id` (prep pour story-011 hit resolution)
+- [x] **AC-CMB-14** : `delta = 1/60` ; pour `velocity ∈ {0.0, 10.0, 30.0}` m/s : `N_SUBSTEPS == 3` constant (pas de branching dynamique), `gap_max = V * (1/60) / 3 < 0.7 m` vérifié pour chaque V
+- [x] **AC-CMB-14 grep statique** : `grep -nE 'TUNNELING_THRESHOLD' src/gameplay/combat/` — zéro match dans condition de branching N (constante peut exister mais pas utilisée pour gate N)
+- [x] **Gap 8 prereq** : `docs/engine-reference/godot/modules/physics.md` documente `ShapeCast3D.margin` behavior Jolt 4.6 (test empirique exécuté par lead-programmer pré-Sprint 1)
+- [x] Pendant `Swinging`, chaque `_physics_process` tick exécute 3 substeps `force_shapecast_update()` avec `target_position` interpolée linéairement entre `_prev_position` et `player.global_position` (substeps i ∈ [0, 1, 2] : `from = lerp(_prev, current, i/3)`, `to = lerp(_prev, current, (i+1)/3)`)
+- [x] Colliders détectés dans les 3 substeps unionisés et dedupliqués via `instance_id` (prep pour story-011 hit resolution)
 
 ---
 
@@ -112,7 +113,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/anti_tunneling_substeps_test.gd` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 8/8 PASS (`reports/report_264` 2026-05-02 — fix `is_equal_approx(vec, Vector3.ONE * tol)` GdUnit4 vector signature).
 
 ---
 

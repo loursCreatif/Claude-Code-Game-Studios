@@ -92,7 +92,7 @@ func test_combat_sweep_origin_equals_player_pos_plus_aim_times_half_reach() -> v
 			"AC-2: ShapeCast3D origin doit être player + aim × REACH/2 = %s — reçu %s"
 			% [str(expected_origin), str(sc.global_transform.origin)]
 		) \
-		.is_equal_approx(expected_origin, 0.001)
+		.is_equal_approx(expected_origin, Vector3.ONE * 0.001)
 
 	player.queue_free()
 
@@ -115,7 +115,7 @@ func test_combat_sweep_origin_cardinal_x_aim() -> void:
 			"AC-2 cardinal +X: origin doit être (%.2f, 0, 0) — reçu %s"
 			% [CombatSystem.KATANA_REACH / 2.0, str(sc.global_transform.origin)]
 		) \
-		.is_equal_approx(expected, 0.001)
+		.is_equal_approx(expected, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 

@@ -68,7 +68,7 @@ func test_combat_prev_position_initialized_to_player_position_at_ready() -> void
 			"AC-4: _prev_position doit être initialisé à player.global_position au _ready() — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(5.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(5.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -78,7 +78,7 @@ func test_combat_prev_position_initialized_to_origin_when_player_at_origin() -> 
 	var pair: Array = _make_combat_at(Vector3.ZERO)
 	var combat: CombatSystem = pair[0]
 
-	assert_vector(combat._prev_position).is_equal_approx(Vector3.ZERO, 0.001)
+	assert_vector(combat._prev_position).is_equal_approx(Vector3.ZERO, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -105,7 +105,7 @@ func test_combat_prev_position_captured_end_of_physics_process() -> void:
 			"AC-3: _prev_position doit être capturé à fin _physics_process — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -128,7 +128,7 @@ func test_combat_prev_position_not_updated_when_state_is_dead() -> void:
 			"AC-3 edge: _prev_position doit rester figé en DEAD (early return) — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(2.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(2.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -211,12 +211,12 @@ func test_combat_shapecast_origin_updated_per_tick_during_swinging() -> void:
 			"attendu %s, reçu %s (tick 0 était %s, tick 2 était %s)"
 			% [str(expected_tick_3), str(origin_tick_3), str(origin_tick_0), str(origin_tick_2)]
 		) \
-		.is_equal_approx(expected_tick_3, 0.001)
+		.is_equal_approx(expected_tick_3, Vector3.ONE * 0.001)
 
 	# Sanity check : tick 0 et tick 2 sont identiques (player immobile)
 	assert_vector(origin_tick_2) \
 		.override_failure_message("AC-2 sanity: origin tick 0 == tick 2 si player immobile") \
-		.is_equal_approx(origin_tick_0, 0.001)
+		.is_equal_approx(origin_tick_0, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 

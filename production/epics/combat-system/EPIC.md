@@ -92,11 +92,11 @@ L'epic est complet quand :
 | 002 | State machine + cooldown + active_tick lifecycle | Logic | Ready | ADR-0001 + ADR-0006 |
 | 003 | Death/respawn lifecycle full reset | Logic | ✅ Complete 2026-05-02 | ADR-0005 + ADR-0006 (test 6/6 PASS, doc sync) |
 | 004 | `attacked()` handler + buffer single-slot 80ms | Logic | ✅ Complete 2026-05-02 | ADR-0004 + ADR-0005 + ADR-0006 (test 9/9 PASS, doc sync) |
-| 005 | `_build_capsule_basis()` helper + 100-sample sphere test | Logic | Ready | ADR-0006 D-7 (Gap 7 doc prereq lead-programmer) |
+| 005 | `_build_capsule_basis()` helper + 100-sample sphere test | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-7 (test 6/6 PASS, fix is_equal_approx vector tolerance `report_264`) |
 | 006 | ShapeCast3D node config + collision layers | Logic | ✅ Complete 2026-05-02 | ADR-0008 (test 4/4 PASS, doc sync) |
-| 007 | Sweep position + aim_forward consumption + invalid/NaN guards | Logic | Ready | ADR-0002 + ADR-0006 |
-| 008 | `_prev_position` per-tick update + reach constant | Logic | Ready | ADR-0006 D-3 |
-| 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | Ready | ADR-0001 + ADR-0006 (Gap 8 prereq lead-programmer) |
+| 007 | Sweep position + aim_forward consumption + invalid/NaN guards | Logic | ✅ Complete 2026-05-02 | ADR-0002 + ADR-0006 (test 8/8 PASS, fix is_equal_approx vector tolerance `report_264`) |
+| 008 | `_prev_position` per-tick update + reach constant | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 (test 7/7 PASS, fix is_equal_approx vector tolerance `report_264`) |
+| 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | ✅ Complete 2026-05-02 | ADR-0001 + ADR-0006 (test 8/8 PASS, fix is_equal_approx vector tolerance `report_264`) |
 | 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | **Blocked** | Gap 2 — AC-CMB-47-Prelim lead-programmer pré-Sprint 1 |
 | 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 + Gap 1 résolu (MockEnemy créé) |
 | 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | ✅ Complete 2026-05-02 | ADR-0006 + Formula 6 (distance squared zéro-sqrt) |
@@ -111,8 +111,8 @@ L'epic est complet quand :
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 12 Complete (001/002/003/004/006/011/012/013/014/015/016/022) + 4 Done legacy à auditer (005/007/008/009 — 1-3 failures pré-existants chacune `reports/report_263`) + 2 Ready partiel (017 microbench Tier 1 + 018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
-Doc sync 2026-05-02 : 7 stories ont vu leur Status recadré (Done sans evidence → Complete avec evidence réelle, ou Ready partiel quand evidence partielle).
+**Totaux** : 22 stories — 16 Complete (001/002/003/004/005/006/007/008/009/011/012/013/014/015/016/022) + 2 Ready partiel (017 microbench Tier 1 + 018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
+Doc sync 2026-05-02 : 11 stories ont vu leur Status recadré ; root-cause des 6 failures pré-existants 005/007/008/009 = signature GdUnit4 `assert_vector(...).is_equal_approx(expected: Vector, approx: Vector)` veut un Vector3 comme tolérance, pas un float (`_validate_is_vector_type` rejette float silencieusement). Fix systémique = remplacer `, 0.001)` → `, Vector3.ONE * 0.001)` (4 fichiers test combat + 4 occurrences `test_movement_signals_typed_contract.gd`).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :

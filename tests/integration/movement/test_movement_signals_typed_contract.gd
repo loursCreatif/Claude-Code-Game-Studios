@@ -317,7 +317,7 @@ func test_respawned_signal_emitted_with_checkpoint_position() -> void:
 			"AC-2: respawned payload must be checkpoint %s — got %s"
 			% [str(checkpoint), str(spy.last_args[0])]
 		) \
-		.is_equal_approx(checkpoint, 0.01)
+		.is_equal_approx(checkpoint, Vector3.ONE * 0.01)
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -450,7 +450,7 @@ func test_wall_run_entered_signal_is_connected_and_emittable() -> void:
 
 	assert_vector(spy.last_args[0] as Vector3) \
 		.override_failure_message("AC-2: wall_run_entered payload must be Vector3(1,0,0)") \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -525,7 +525,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 		.override_failure_message(
 			"AC-2: wall_jumped wall_normal payload must be pre-reset (1,0,0) — got %s" % str(received_normal)
 		) \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	# Assert — launch_velocity payload: normal * WALL_JUMP_SIDE + UP * WALL_JUMP_UP
 	var expected_launch: Vector3 = Vector3(1.0, 0.0, 0.0) * MovementController.WALL_JUMP_SIDE + Vector3.UP * MovementController.WALL_JUMP_UP
@@ -535,7 +535,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 			"AC-2: wall_jumped launch_velocity payload must be %s — got %s"
 			% [str(expected_launch), str(received_launch)]
 		) \
-		.is_equal_approx(expected_launch, 0.001)
+		.is_equal_approx(expected_launch, Vector3.ONE * 0.001)
 
 	# Assert — wall_run_exited emitted before wall_jumped (D-6)
 	assert_int(spy_exited.count) \
