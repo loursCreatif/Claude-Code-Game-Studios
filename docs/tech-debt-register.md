@@ -36,45 +36,39 @@ Le 3e write est une nécessité fonctionnelle non anticipée par la rédaction i
 
 ---
 
-## TD-002 — main_menu_controller.gd : version_label.visible redondant
+## TD-002 — main_menu_controller.gd : version_label.visible redondant — RESOLVED 2026-05-02
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-04-28 |
+| **Date** | 2026-04-28 → **Resolved 2026-05-02** |
 | **Origine** | `/code-review` story-001 menu-system |
 | **Sévérité** | TRIVIAL (cosmétique) |
 | **Coût** | XS (5 min) |
-| **Fichier** | `src/gameplay/menu/main_menu_controller.gd` ligne 38 |
+| **Fichier** | `src/gameplay/menu/main_menu_controller.gd` ligne 63 |
 
-**Description** : `version_label.visible = DEBUG_SHOW_VERSION` au runtime alors que `main_menu.tscn` ligne 54 fige déjà `visible = false`. Comportement identique, ligne supprimable.
+**Description** : `version_label.visible = DEBUG_SHOW_VERSION` au runtime alors que `main_menu.tscn` ligne 59 fige déjà `visible = false`. Comportement identique, ligne supprimable.
 
-**Action** : supprimer ligne 38 OU remplacer par commentaire `# visible déjà figé dans .tscn — gate runtime via DEBUG_SHOW_VERSION constant si besoin futur`.
+**Action appliquée 2026-05-02** : commentaire explicatif ajouté pour audit trail (option B du tech debt). Ligne conservée car DEBUG_SHOW_VERSION constant peut servir de gate runtime si futur debug build.
 
-**Trigger re-prio** : aucun — opportuniste lors de prochaine édition du fichier.
+**Trigger re-prio** : aucun — résolu.
 
 ---
 
-## TD-003 — GSM `_ready` : ajouter assert R-3 mitigation autoload order
+## TD-003 — GSM `_ready` : ajouter assert R-3 mitigation autoload order — RESOLVED 2026-05-02
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-04-28 |
+| **Date** | 2026-04-28 → **Resolved 2026-05-02** |
 | **Origine** | `/code-review` story-001 menu-system |
 | **Sévérité** | ADVISORY |
 | **Coût** | XS (5 min) — 1 ligne |
-| **Fichier** | `src/core/game_state_manager.gd` ligne ~40 (avant connect ligne 42) |
+| **Fichier** | `src/core/game_state_manager.gd` ligne 49 |
 
 **Description** : ADR-0007 R-3 ligne 384 mitigation : `assert InputManager != null` en début de GSM `_ready` pour crash explicite si `project.godot` autoload réordonné par erreur. Story-001 n'imposait pas ce guard, mais c'est une mitigation explicite de l'ADR.
 
-**Action** :
-```gdscript
-func _ready() -> void:
-    assert(InputManager != null, "GSM autoload order violation: InputManager must precede GameStateManager (project.godot [autoload])")
-    process_mode = Node.PROCESS_MODE_ALWAYS
-    InputManager.application_focus_lost.connect(_on_application_focus_lost)
-```
+**Action appliquée 2026-05-02** : assert ajouté en première ligne `_ready()` avec message explicite sur l'ordre autoload attendu (InputManager → GSM → SaveLoad → Audio → UpgradeSystem D-1).
 
-**Trigger re-prio** : escalader BLOCKING si un dev modifie `project.godot [autoload]` ordering sans review.
+**Trigger re-prio** : aucun — résolu.
 
 ---
 

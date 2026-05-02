@@ -45,6 +45,9 @@ const _LEGAL_TRANSITIONS: Dictionary = {
 
 
 func _ready() -> void:
+	# ADR-0007 R-3 mitigation : crash explicite si autoload order violé dans project.godot.
+	# Ordre attendu : InputManager → GameStateManager → SaveLoad → Audio → UpgradeSystem (D-1).
+	assert(InputManager != null, "GSM autoload order violation: InputManager must precede GameStateManager (project.godot [autoload])")
 	process_mode = Node.PROCESS_MODE_ALWAYS  # D-4 : GSM doit recevoir request_resume sous pause
 	# D-6 : auto-pause sur perte de focus (uniquement si PLAYING)
 	InputManager.application_focus_lost.connect(_on_application_focus_lost)

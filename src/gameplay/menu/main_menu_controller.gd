@@ -59,7 +59,8 @@ func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	quit_button.pressed.connect(_on_quit_pressed)
 
-	# VersionLabel debug-gated (DEBUG_SHOW_VERSION = false MVP).
+	# VersionLabel : visible figé à false dans main_menu.tscn (DEBUG_SHOW_VERSION = false MVP).
+	# Runtime gate via DEBUG_SHOW_VERSION constant si futur besoin debug build.
 	version_label.visible = DEBUG_SHOW_VERSION
 
 
