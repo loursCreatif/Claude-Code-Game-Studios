@@ -1,10 +1,11 @@
 # Story 013: Slow-mo wall-clock + Callable injection + restore + edge cases
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, doc sync — implémentation déjà livrée stories 011/012/022)
 
 ## Context
 
@@ -28,12 +29,12 @@
 
 *From GDD AC-CMB-19/24/25 + Rule 13 + Formula 7 :*
 
-- [ ] **AC-CMB-19** : injection Callable `_get_time_msec` substituable ; mock retournant `1000` au moment du 1er kill → `Engine.time_scale == 0.3 ± 0.0001`, `_slow_mo_active == true`, `_slow_mo_start_msec == 1000` ; mock retournant `1030`, `1050`, `1067` → à 1030 `time_scale == 0.3` ; à 1050 ou 1067 `time_scale == 1.0 ± 0.0001` AND `_slow_mo_active == false`
-- [ ] **AC-CMB-19 r6 branch C accessibility** : `_reduce_motion_disable_slow_mo == true` → 1er `enemy_killed` ne mute PAS `Engine.time_scale` (5 kills consécutifs vérifiés `time_scale == 1.0` tout au long, `_slow_mo_active == false`)
-- [ ] **AC-CMB-24** : `Engine.time_scale = 0.5` debug externe au moment du 1er kill → écrasé à `0.3 ± 0.0001` ; après 50 ms wall-clock → restauré à `1.0 ± 0.0001` (PAS à `0.5`)
-- [ ] **AC-CMB-25 (slow-mo idempotence)** : 2 MockEnemies tués même tick → 1er kill set `_slow_mo_active = true, time_scale = 0.3` ; 2e kill `_slow_mo_active` déjà true → `time_scale` non ré-assigné ; `multi_kill(2)` émis (couvert story-012)
-- [ ] **AC-CMB-21 ordering (déjà partagé story-003)** : si `Player.died()` reçu pendant slow-mo → `Engine.time_scale = 1.0` AVANT autres transitions Dead
-- [ ] Constants : `SLOW_MO_DURATION_MS = 50.0`, `SLOW_MO_SCALE = 0.3`
+- [x] **AC-CMB-19** : injection Callable `_get_time_msec` substituable ; mock retournant `1000` au moment du 1er kill → `Engine.time_scale == 0.3 ± 0.0001`, `_slow_mo_active == true`, `_slow_mo_start_msec == 1000` ; mock retournant `1030`, `1050`, `1067` → à 1030 `time_scale == 0.3` ; à 1050 ou 1067 `time_scale == 1.0 ± 0.0001` AND `_slow_mo_active == false`
+- [x] **AC-CMB-19 r6 branch C accessibility** : `_reduce_motion_disable_slow_mo == true` → 1er `enemy_killed` ne mute PAS `Engine.time_scale` (5 kills consécutifs vérifiés `time_scale == 1.0` tout au long, `_slow_mo_active == false`)
+- [x] **AC-CMB-24** : `Engine.time_scale = 0.5` debug externe au moment du 1er kill → écrasé à `0.3 ± 0.0001` ; après 50 ms wall-clock → restauré à `1.0 ± 0.0001` (PAS à `0.5`)
+- [x] **AC-CMB-25 (slow-mo idempotence)** : 2 MockEnemies tués même tick → 1er kill set `_slow_mo_active = true, time_scale = 0.3` ; 2e kill `_slow_mo_active` déjà true → `time_scale` non ré-assigné ; `multi_kill(2)` émis (couvert story-012)
+- [x] **AC-CMB-21 ordering (déjà partagé story-003)** : si `Player.died()` reçu pendant slow-mo → `Engine.time_scale = 1.0` AVANT autres transitions Dead (combat_system.gd ligne 700-702 `_on_player_died`)
+- [x] Constants : `SLOW_MO_DURATION_MS = 50.0`, `SLOW_MO_SCALE = 0.3` (combat_system.gd ligne 55, 60)
 
 ---
 
@@ -132,7 +133,25 @@ func _check_slow_mo_restore() -> void:
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/slow_mo_wall_clock_test.gd` — must exist and pass (avec teardown Engine.time_scale=1.0)
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 7/7 PASS (`reports/report_260` 2026-05-02).
+
+**Test plan** :
+| AC | Test function | Status |
+|----|---------------|--------|
+| AC-1 / AC-CMB-19 | `test_combat_trigger_slow_mo_first_kill_sets_engine_time_scale` | ✅ PASS |
+| AC-2 (50 ms gate) | `test_combat_check_slow_mo_restore_at_exact_50ms_threshold` | ✅ PASS |
+| AC-2 edge (49 ms) | `test_combat_check_slow_mo_restore_at_49ms_strict_gate` | ✅ PASS |
+| AC-3 / AC-CMB-25 | `test_combat_trigger_slow_mo_idempotent_across_multiple_kills` | ✅ PASS |
+| AC-4 / AC-CMB-24 | `test_combat_external_time_scale_overridden_by_slow_mo_then_restored_to_one` | ✅ PASS |
+| AC-5 / AC-CMB-19 r6 | `test_combat_reduce_motion_disables_slow_mo_for_all_kills` | ✅ PASS |
+| AC-6 (_physics_process) | `test_combat_physics_process_triggers_slow_mo_restore` | ✅ PASS |
+
+## Completion Notes
+
+- **Implémentation cross-livrée** : `_trigger_slow_mo_if_first_kill` + `_check_slow_mo_restore` câblés dans combat_system.gd lignes 719-735 + 827-836. Appel `_check_slow_mo_restore()` depuis `_physics_process` ligne 276 (autorité ADR-0001). Trigger appelé depuis `_resolve_kills` ligne 527 post-die() (story-011/012).
+- **Accessibility branch C** : `_reduce_motion_disable_slow_mo` câblé via `AccessibilityService.get_disable_slow_mo()` dans `_apply_accessibility()` ligne 806 (livré story-022).
+- **Player died handler** : `_on_player_died` ligne 700-702 restore `Engine.time_scale = 1.0` AVANT transitions Dead (AC-CMB-21).
+- **Story status correction 2026-05-02** : la story était marquée Done sans cocher les ACs ni créer Test Evidence. Audit a révélé implémentation + tests existants — re-cochés sur evidence réelle (`reports/report_260`).
 
 ---
 

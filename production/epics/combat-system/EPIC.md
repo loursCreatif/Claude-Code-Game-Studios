@@ -100,18 +100,19 @@ L'epic est complet quand :
 | 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | **Blocked** | Gap 2 — AC-CMB-47-Prelim lead-programmer pré-Sprint 1 |
 | 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 + Gap 1 résolu (MockEnemy créé) |
 | 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | ✅ Complete 2026-05-02 | ADR-0006 + Formula 6 (distance squared zéro-sqrt) |
-| 013 | Slow-mo wall-clock + Callable injection + restore + edge cases | Logic | Ready | ADR-0001 + ADR-0006 D-5 |
-| 014 | Mutual kill Hybrid M1 Option C `_death_pending` | Integration | Ready | ADR-0005 D-5 amendment r2 + ADR-0006 D-2 |
-| 015 | Mid-swing transitions + race Idle mitigation + pause spam | Integration | Ready | ADR-0006 + ADR-0004 |
-| 016 | Invariants runtime `_validate_invariants()` + smoke check | Logic | Ready | ADR-0006 (DEC-r5-2 Option A) |
-| 017 | ShapeCast microbench p99 ≤5ms | Integration | Ready | ADR-0006 + hardware-spec-testbeds Tier 1 |
-| 018 | Integration soak frametime + memory + OBJECT_COUNT | Integration | Ready | ADR-0001 + ADR-0003 + ADR-0006 |
+| 013 | Slow-mo wall-clock + Callable injection + restore + edge cases | Logic | ✅ Complete 2026-05-02 | ADR-0001 + ADR-0006 D-5 (impl déjà livrée stories 011/012/022, doc sync 2026-05-02) |
+| 014 | Mutual kill Hybrid M1 Option C `_death_pending` | Integration | ✅ Complete 2026-05-02 | ADR-0005 D-5 amendment r2 + ADR-0006 D-2 (impl déjà livrée, test 4/4 PASS, doc sync 2026-05-02) |
+| 015 | Mid-swing transitions + race Idle mitigation + pause spam | Integration | ✅ Complete 2026-05-02 | ADR-0006 + ADR-0004 (test 3/3 PASS, doc sync 2026-05-02) |
+| 016 | Invariants runtime `_validate_invariants()` + smoke check | Logic | ✅ Complete 2026-05-02 | ADR-0006 (DEC-r5-2 Option A) (test 5/5 PASS, doc sync 2026-05-02) |
+| 017 | ShapeCast microbench p99 ≤5ms | Integration | Ready (correction fausse closure 2026-05-02) | ADR-0006 + hardware-spec-testbeds Tier 1 — script créé mais log vide, bench Tier 1 pending |
+| 018 | Integration soak frametime + memory + OBJECT_COUNT | Integration | Ready (partiel 2026-05-02) | ADR-0001 + ADR-0003 + ADR-0006 — AC-CMB-37 covered (`integration_soak_test.gd` 2/2 PASS), AC-CMB-35b (1)+(2) Tier 1 log pending |
 | 019 | Combat feel playtest protocol + Visual/Feel ACs | Visual/Feel | **Blocked** | Gap 5 — protocol qa-lead non créé |
 | 020 | Swoosh fade-out wall-clock + multi-kill clac + ducking | Integration | **Blocked** | Audio System GDD non écrit (#11 backlog) |
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 2 Complete (story-011/012) + 14 Ready (9 Logic + 5 Integration) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
+**Totaux** : 22 stories — 6 Complete (story-011/012/013/014/015/016) + 10 Ready (7 Logic + 3 Integration) + 6 Blocked (2 Logic + 3 Integration + 1 Visual/Feel).
+Stories 017/018 corrigées 2026-05-02 : Done → Ready partiel. AC-CMB-37 covered story-018 GdUnit4 ; AC-CMB-35a/35b Tier 1 hardware bench pending Martin.
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
 **Notes prereqs** :

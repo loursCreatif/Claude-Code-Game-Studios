@@ -1,7 +1,7 @@
 # Story 017: ShapeCast microbench p99 ≤5ms
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Ready (correction fausse closure 2026-05-02 — script `tests/perf/combat_shapecast_microbench.gd` créé mais log `combat-shapecast-microbench-log.md` vide, bench jamais exécuté ; AC-CMB-35a impose run sur Tier 1 hardware testbed avec entry log)
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

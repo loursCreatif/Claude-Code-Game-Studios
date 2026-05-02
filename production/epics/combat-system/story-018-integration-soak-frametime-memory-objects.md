@@ -1,7 +1,7 @@
 # Story 018: Integration soak frametime + memory + OBJECT_COUNT
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Ready (correction fausse closure 2026-05-02 — AC-CMB-37 ✅ couvert par `tests/integration/combat/integration_soak_test.gd` 2/2 PASS `reports/report_262`, mais AC-CMB-35b (1)+(2) frametime p99 + draw_calls Tier 1 hardware run pending : log `combat-integration-frametime-log.md` non créé)
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23

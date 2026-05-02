@@ -1,10 +1,11 @@
 # Story 014: Mutual kill Hybrid M1 Option C `_death_pending`
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, doc sync — implémentation déjà livrée combat_system.gd + test mutual_kill_death_pending_test.gd 4/4 PASS)
 
 ## Context
 
@@ -28,7 +29,7 @@
 
 *From GDD AC-CMB-20/41 + Rule 17 Hybrid + Edge Cases :*
 
-- [ ] **AC-CMB-41** : scene intégrée Player + Combat + MockEnemy1 (0.8 m) + MockEnemyLaser intersectant Player même tick → 7 assertions post-tick :
+- [x] **AC-CMB-41** : scene intégrée Player + Combat + MockEnemy1 (0.8 m) + MockEnemyLaser intersectant Player même tick → 7 assertions post-tick :
   - (1) `_state == Dead`
   - (2) `_death_pending == false`
   - (3) `MockEnemy1.die()` appelé exactement 1 fois
@@ -37,9 +38,9 @@
   - (6) `ShapeCast3D.enabled == false`
   - (7) `Player.state == Dead`
 - [ ] **AC-CMB-41 clause 8 (grep)** : `grep -nE 'player\.died\.connect.*CONNECT_DEFERRED' src/gameplay/combat/combat_system.gd` retourne zéro match
-- [ ] **AC-CMB-20** : Combat `Swinging` à `_active_tick = 3`, **aucun collider** dans le sweep, `Player.died()` reçu → après `_physics_process` complet : `_state == DEAD`, `swing_ended` non émis, `ShapeCast3D.enabled == false`, aucun `enemy_killed`, `Engine.time_scale == 1.0 ± 0.0001`, `_death_pending == false` (consommé)
-- [ ] Handler `_on_player_died()` set UNIQUEMENT `_death_pending = true` — aucune mutation d'autres champs (ni `_state`, ni `ShapeCast3D.enabled`, ni `Engine.time_scale`)
-- [ ] Au END de `_physics_process` (après résolution colliders et update `_prev_position`) : check `_death_pending` → transition Dead complète
+- [x] **AC-CMB-20** : Combat `Swinging` à `_active_tick = 3`, **aucun collider** dans le sweep, `Player.died()` reçu → après `_physics_process` complet : `_state == DEAD`, `swing_ended` non émis, `ShapeCast3D.enabled == false`, aucun `enemy_killed`, `Engine.time_scale == 1.0 ± 0.0001`, `_death_pending == false` (consommé)
+- [x] Handler `_on_player_died()` set UNIQUEMENT `_death_pending = true` — aucune mutation d'autres champs (ni `_state`, ni `ShapeCast3D.enabled`, ni `Engine.time_scale`) — `combat_system.gd:685-689`
+- [x] Au END de `_physics_process` (après résolution colliders et update `_prev_position`) : check `_death_pending` → transition Dead complète — `combat_system.gd:325-326` + `_drain_death_pending` ligne 696
 
 ---
 
@@ -128,7 +129,14 @@ func _physics_process(delta: float) -> void:
 **Story Type**: Integration
 **Required evidence**: `tests/integration/combat/mutual_kill_death_pending_test.gd` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 4/4 PASS (`reports/report_261` 2026-05-02).
+
+## Completion Notes
+
+- **Implémentation cross-livrée** : `_death_pending` flag + `_on_player_died` SYNC handler + `_drain_death_pending` câblés dans combat_system.gd lignes 137 / 685-689 / 696-707. Connexion SYNC ligne 224 (`parent.died.connect(_on_player_died)` flag défaut 0).
+- **End-of-tick drain** : appel `_drain_death_pending()` lignes 325-326 dans `_physics_process` après résolution colliders (Rule 17 Hybrid M1 Option C).
+- **Slow-mo restore symétrie** : `_drain_death_pending` ligne 700-702 restore `Engine.time_scale = 1.0` AVANT transition Dead (cohérent ADR-0006 ordering).
+- **Story status correction 2026-05-02** : la story était marquée Done sans cocher les ACs ni Test Evidence. Audit a révélé implémentation + tests existants — synchronisé sur evidence réelle.
 
 ---
 

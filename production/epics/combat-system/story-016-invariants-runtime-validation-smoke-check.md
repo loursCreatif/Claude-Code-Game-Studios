@@ -1,10 +1,11 @@
 # Story 016: Invariants runtime `_validate_invariants()` + smoke check ranges
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, doc sync — `invariants_runtime_validation_test.gd` 5/5 PASS)
 
 ## Context
 
@@ -28,12 +29,12 @@
 
 *From GDD AC-CMB-12/13/17/18/36 + Section D.8 invariants :*
 
-- [ ] **AC-CMB-12** : `ACTIVE_TICKS = ceili(SWING_DURATION_MS / (delta * 1000.0))` → `ACTIVE_TICKS == 8` ; swing GUT 8 ticks confirme `_state == Idle` au tick 9
-- [ ] **AC-CMB-13** : `_cooldown_timer = 0.25 s` → `cooldown_ratio == clamp(0.25 / 0.4, 0.0, 1.0) == 0.625 ± 0.001` ; à `_cooldown_timer = 0.0` → `cooldown_ratio == 0.0` ; entrée Swinging → `cooldown_ratio == 1.0 ± 0.001`
-- [ ] **AC-CMB-17 (8 invariants)** : `_validate_invariants()` vérifie : (1) `KATANA_REACH > player_capsule_radius + 1.0`, (2) `KATANA_REACH > 0.0`, (3) `ATTACK_COOLDOWN_MS >= SWING_DURATION_MS + (1000.0/60.0)`, (4) `ATTACK_COOLDOWN_MS > SWING_DURATION_MS + SLOW_MO_DURATION_MS`, (5) `V_max * delta / N_SUBSTEPS < 2 * r_enemy_min`, (6) `SLOW_MO_DURATION_MS < ATTACK_COOLDOWN_MS / 2`, (7) `ATTACK_BUFFER_MS <= ATTACK_COOLDOWN_MS / 5`, (8) `SWING_DURATION_MS / (SWING_DURATION_MS + ATTACK_COOLDOWN_MS) < 0.4` (duty cycle staccato r6 D-r4-2)
-- [ ] **AC-CMB-17 live-tuning** (DEC-r5-2 Option A) : `_validate_invariants()` appelé chaque tick debug → muter `ATTACK_BUFFER_MS = 100, ATTACK_COOLDOWN_MS = 300` runtime → `assert_fail` au prochain `_physics_process`
-- [ ] **AC-CMB-18** : invariant croisé Movement DASH_DURATION (100 ms) < SWING_DURATION_MS (120 ms) — vérifié statique GUT inter-système, commentaire test "swing démarré à mi-dash finit en Airborne (Rule 8)"
-- [ ] **AC-CMB-36** : test régression GUT charge `combat_config.tres` → vérifie (a) safe ranges individuels (Section G), (b) sommes invariants #4 et #6 sur valeurs effectives. Fail mode : config `SWING=200 + SLOW_MO=150 + COOLDOWN=300` viole #4 → AC-CMB-36 rejette
+- [x] **AC-CMB-12** : `ACTIVE_TICKS = ceili(SWING_DURATION_MS / (delta * 1000.0))` → `ACTIVE_TICKS == 8` ; swing GUT 8 ticks confirme `_state == Idle` au tick 9
+- [x] **AC-CMB-13** : `_cooldown_timer = 0.25 s` → `cooldown_ratio == clamp(0.25 / 0.4, 0.0, 1.0) == 0.625 ± 0.001` ; à `_cooldown_timer = 0.0` → `cooldown_ratio == 0.0` ; entrée Swinging → `cooldown_ratio == 1.0 ± 0.001`
+- [x] **AC-CMB-17 (8 invariants)** : `_validate_invariants()` vérifie : (1) `KATANA_REACH > player_capsule_radius + 1.0`, (2) `KATANA_REACH > 0.0`, (3) `ATTACK_COOLDOWN_MS >= SWING_DURATION_MS + (1000.0/60.0)`, (4) `ATTACK_COOLDOWN_MS > SWING_DURATION_MS + SLOW_MO_DURATION_MS`, (5) `V_max * delta / N_SUBSTEPS < 2 * r_enemy_min`, (6) `SLOW_MO_DURATION_MS < ATTACK_COOLDOWN_MS / 2`, (7) `ATTACK_BUFFER_MS <= ATTACK_COOLDOWN_MS / 5`, (8) `SWING_DURATION_MS / (SWING_DURATION_MS + ATTACK_COOLDOWN_MS) < 0.4` (duty cycle staccato r6 D-r4-2)
+- [x] **AC-CMB-17 live-tuning** (DEC-r5-2 Option A) : `_validate_invariants()` appelé chaque tick debug → muter `ATTACK_BUFFER_MS = 100, ATTACK_COOLDOWN_MS = 300` runtime → `assert_fail` au prochain `_physics_process`
+- [x] **AC-CMB-18** : invariant croisé Movement DASH_DURATION (100 ms) < SWING_DURATION_MS (120 ms) — vérifié statique GUT inter-système, commentaire test "swing démarré à mi-dash finit en Airborne (Rule 8)"
+- [x] **AC-CMB-36** : test régression GUT charge `combat_config.tres` → vérifie (a) safe ranges individuels (Section G), (b) sommes invariants #4 et #6 sur valeurs effectives. Fail mode : config `SWING=200 + SLOW_MO=150 + COOLDOWN=300` viole #4 → AC-CMB-36 rejette
 
 ---
 
@@ -122,9 +123,14 @@ func _physics_process(delta: float) -> void:
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/combat/invariants_runtime_smoke_check_test.gd` — must exist and pass (avec `assert_fail()` patterns)
+**Required evidence**: `tests/unit/combat/invariants_runtime_validation_test.gd` — must exist and pass (avec `assert_fail()` patterns).
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 5/5 PASS (`reports/report_262` 2026-05-02). Le fichier livré porte le nom `invariants_runtime_validation_test.gd` (vs spec original `invariants_runtime_smoke_check_test.gd` — divergence cosmétique nom de fichier, contenu équivalent).
+
+## Completion Notes
+
+- **Implémentation cross-livrée** : `_validate_invariants()` câblé dans combat_system.gd lignes 753-779 ; appel sous `OS.is_debug_build()` guard ligne ~270. Couvre invariants #1 à #9 par `assert()` panic en debug.
+- **Story status correction 2026-05-02** : la story était marquée Done sans cocher les ACs ni Test Evidence. Audit a révélé tests existants — synchronisé sur evidence réelle.
 
 ---
 
