@@ -248,6 +248,16 @@ var _latency_write_idx: int = 0
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	# Story 012 — pré-allocation ring buffers perf : DOIT précéder l'early-return
+	# pour que _process() n'écrive jamais hors-bounds, même quand le test harness
+	# injecte _camera_effects post-_ready (TD-005 — pattern parity stories 005-008).
+	# .resize() sur PackedArray vide alloue CAPACITY éléments initialisés à 0,
+	# idempotent si rappelé (no-op si déjà sized). ADR-0004 D-8 zero-alloc runtime.
+	if _process_cost_samples.size() == 0:
+		_process_cost_samples.resize(PROCESS_COST_CAPACITY)
+	if _latency_samples.size() == 0:
+		_latency_samples.resize(LATENCY_CAPACITY)
+
 	# Test harness may inject these; only assert if not injected AND not resolved via %
 	if _camera_effects == null:
 		assert(PITCH_LIMIT < PI / 2.0, "CameraSystem: PITCH_LIMIT must stay strictly under PI/2 to avoid gimbal lock")
@@ -296,11 +306,9 @@ func _ready() -> void:
 	_player.died.connect(_on_died)
 	_player.respawned.connect(_on_respawned)
 
-	# Story 012 : pré-allocation ring buffers perf (zero-alloc runtime garanti).
-	# .resize() sur une PackedArray vide alloue CAPACITY éléments initialisés à 0.
+	# Story 012 : pré-allocation ring buffers perf — déjà fait en haut de _ready()
+	# (avant l'early-return du test harness). Idempotent — no-op si déjà sized.
 	# ADR-0004 D-8 pattern : capacité fixe réservée au boot, jamais realloc ensuite.
-	_process_cost_samples.resize(PROCESS_COST_CAPACITY)
-	_latency_samples.resize(LATENCY_CAPACITY)
 
 
 # ---------------------------------------------------------------------------
@@ -351,6 +359,12 @@ func _exit_tree() -> void:
 ## Story 012 : instrumentation ring buffer — 2× Time.get_ticks_usec() + 1 subtract + 1 write.
 ##             Overhead ≤ 0.01 ms/frame (GDD AC-CAM-80 guardrail instrumentation). Zero-alloc.
 func _process(delta: float) -> void:
+	# TD-005 defensive guard : _camera_effects/_camera3d peuvent être null pendant
+	# le tear-down test (queue_free pending) ou le boot intermédiaire avant injection
+	# manuelle dans before_test(). Symétrique de l'early-return _ready() ligne 252.
+	# En production runtime, ces refs sont garanties non-null par le scene owner.
+	if _camera_effects == null or _camera3d == null:
+		return
 	var t_start: int = Time.get_ticks_usec()
 	_safeguard_rotation()       # Story 011 — doit précéder _update_tilt_wall_run
 	_update_tilt_wall_run(delta)

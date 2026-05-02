@@ -43,9 +43,13 @@ const FIXED_DELTA: float = 1.0 / 60.0
 # Variables de test
 # ---------------------------------------------------------------------------
 
-var _mock_player: MockPlayerWithWallNormal = null
+## TD-005 migration 2026-05-02 : MockPlayerWithDashSignals expose tous les signaux
+## ADR-0005 D-2 (dash_started/dash_ended/wall_jumped/died/respawned) + wall_normal,
+## permettant à CameraSystem._ready() de connecter sans crash. Pattern parity story-008.
+var _mock_player: MockPlayerWithDashSignals = null
 var _camera_arm: Node3D = null
 var _camera_effects: Node3D = null
+var _camera3d: Camera3D = null
 var _camera_system: CameraSystem = null
 
 
@@ -54,7 +58,7 @@ var _camera_system: CameraSystem = null
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
-	_mock_player = MockPlayerWithWallNormal.new()
+	_mock_player = MockPlayerWithDashSignals.new()
 	_mock_player.wall_normal = Vector3.ZERO
 
 	_camera_arm = Node3D.new()
@@ -65,21 +69,33 @@ func before_test() -> void:
 	_camera_effects.name = "CameraEffects"
 	_camera_effects.set_unique_name_in_owner(true)
 
-	var camera3d: Camera3D = Camera3D.new()
-	camera3d.name = "Camera3D"
-	camera3d.set_unique_name_in_owner(true)
+	_camera3d = Camera3D.new()
+	_camera3d.name = "Camera3D"
+	_camera3d.set_unique_name_in_owner(true)
 
-	_camera_effects.add_child(camera3d)
+	_camera_effects.add_child(_camera3d)
 	_camera_arm.add_child(_camera_effects)
 	_mock_player.add_child(_camera_arm)
 	add_child(_mock_player)
-	await get_tree().process_frame
 
 	_camera_system = _camera_arm as CameraSystem
 
 	assert_object(_camera_system) \
 		.override_failure_message("Setup error: CameraArm does not have CameraSystem script") \
 		.is_not_null()
+
+	# TD-005 manual injection AVANT le premier process_frame : %CameraEffects/%Camera3D
+	# ne résolvent pas sans scene owner, donc les @onready vars sont null après _ready().
+	# Si on awaitait avant, _process() tournerait avec _camera_effects null → crash.
+	# Pattern parity story-008 : on injecte explicitement et on appelle _setup_overlay()
+	# si nécessaire pour que _safeguard_rotation/_update_tilt_wall_run ne crashent pas.
+	_camera_system._camera_effects = _camera_effects
+	_camera_system._camera3d = _camera3d
+	_camera_system._player = _mock_player
+	if _camera_system._overlay == null:
+		_camera_system._setup_overlay()
+
+	await get_tree().process_frame
 
 	_mock_player.rotation = Vector3.ZERO
 	_camera_arm.rotation = Vector3.ZERO
@@ -90,10 +106,23 @@ func before_test() -> void:
 func after_test() -> void:
 	if InputManager.mouse_motion.is_connected(_camera_system._on_mouse_motion):
 		InputManager.mouse_motion.disconnect(_camera_system._on_mouse_motion)
+	# TD-005 cleanup défensif des signaux player connectés par _ready().
+	if _mock_player != null and is_instance_valid(_mock_player):
+		if _mock_player.dash_started.is_connected(_camera_system._on_dash_started):
+			_mock_player.dash_started.disconnect(_camera_system._on_dash_started)
+		if _mock_player.dash_ended.is_connected(_camera_system._on_dash_ended):
+			_mock_player.dash_ended.disconnect(_camera_system._on_dash_ended)
+		if _mock_player.wall_jumped.is_connected(_camera_system._on_wall_jumped):
+			_mock_player.wall_jumped.disconnect(_camera_system._on_wall_jumped)
+		if _mock_player.died.is_connected(_camera_system._on_died):
+			_mock_player.died.disconnect(_camera_system._on_died)
+		if _mock_player.respawned.is_connected(_camera_system._on_respawned):
+			_mock_player.respawned.disconnect(_camera_system._on_respawned)
 	_mock_player.queue_free()
 	_mock_player = null
 	_camera_arm = null
 	_camera_effects = null
+	_camera3d = null
 	_camera_system = null
 	await get_tree().process_frame
 
@@ -270,9 +299,17 @@ func test_tilt_wall_run_no_crash_when_wall_normal_absent() -> void:
 	bare_arm.add_child(bare_effects)
 	bare_player.add_child(bare_arm)
 	add_child(bare_player)
-	await get_tree().process_frame
 
 	var bare_system: CameraSystem = bare_arm as CameraSystem
+
+	# TD-005 manual injection AVANT process_frame (pattern parity story-008).
+	bare_system._camera_effects = bare_effects
+	bare_system._camera3d = bare_cam
+	bare_system._player = bare_player
+	if bare_system._overlay == null:
+		bare_system._setup_overlay()
+
+	await get_tree().process_frame
 
 	# Act — pas de crash attendu (get("wall_normal") retourne null → Vector3.ZERO)
 	bare_system._update_tilt_wall_run(FIXED_DELTA)

@@ -72,13 +72,30 @@ func before_test() -> void:
 	_camera_arm.add_child(_camera_effects)
 	_mock_player.add_child(_camera_arm)
 	add_child(_mock_player)
-	await get_tree().process_frame
 
 	_camera_system = _camera_arm as CameraSystem
 
 	assert_object(_camera_system) \
 		.override_failure_message("Setup error: CameraArm does not have CameraSystem script") \
 		.is_not_null()
+
+	# TD-005 manual injection AVANT process_frame — pattern parity story-008.
+	_camera_system._camera_effects = _camera_effects
+	_camera_system._camera3d = _camera3d
+	_camera_system._player = _mock_player
+	if _camera_system._overlay == null:
+		_camera_system._setup_overlay()
+
+	# TD-005 connexions signaux que _ready() aurait faites — early-return skip
+	# si _camera_effects == null à l'entrée. Pattern parity story-008.
+	if not _mock_player.dash_started.is_connected(_camera_system._on_dash_started):
+		_mock_player.dash_started.connect(_camera_system._on_dash_started)
+	if not _mock_player.dash_ended.is_connected(_camera_system._on_dash_ended):
+		_mock_player.dash_ended.connect(_camera_system._on_dash_ended)
+	if not _mock_player.wall_jumped.is_connected(_camera_system._on_wall_jumped):
+		_mock_player.wall_jumped.connect(_camera_system._on_wall_jumped)
+
+	await get_tree().process_frame
 
 	# Reset état pour isolation des tests.
 	_camera_system._shake_offset = Vector3.ZERO

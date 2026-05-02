@@ -100,13 +100,13 @@ Le 3e write est une nécessité fonctionnelle non anticipée par la rédaction i
 
 ---
 
-## TD-005 — Camera test harness fragility stories 005-007 : %CameraEffects/%Camera3D ne résolvent pas
+## TD-005 — Camera test harness fragility stories 005-007 : %CameraEffects/%Camera3D ne résolvent pas — RESOLVED 2026-05-02
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-05-02 |
+| **Date** | 2026-05-02 → **Resolved 2026-05-02** |
 | **Origine** | `/code-review` story-011 camera-system (full suite run) |
-| **Sévérité** | ADVISORY (13 failures en suite, 0 quand stories tournées en isolation logique) |
+| **Sévérité** | ADVISORY (13 failures en suite → 0 régressions de harness) |
 | **Coût** | M (3-5h) — adopter pattern story-008 dans tests stories 005, 006, 007 |
 | **Fichier** | `tests/integration/camera/story_005_*.gd`, `story_006_*.gd`, `story_007_*.gd` |
 
@@ -121,11 +121,15 @@ if _camera_system._overlay == null:
     _camera_system._setup_overlay()
 ```
 
-**Action** :
-1. Migrer `before_test()` stories 005-007 pour injection manuelle post-`add_child`
-2. Vérifier `tests/integration/camera/` 53/53 PASSED en suite complète
-3. Optionnel : factoriser le setup dans un helper `CameraTestHarness` partagé
+**Action appliquée 2026-05-02** :
+1. ✅ Migré `before_test()` stories 005/006/007 : injection manuelle (`_camera_effects/_camera3d/_player`) AVANT `process_frame` pour éviter `_process()` avec null refs
+2. ✅ Story-005 : remplacé `MockPlayerWithWallNormal` par `MockPlayerWithDashSignals` (expose tous signaux ADR-0005 D-2 — dash/wall_jumped/died/respawned)
+3. ✅ Story-006/007 : ajouté connect manuel signaux Movement (`dash_started/dash_ended/wall_jumped`) que `_ready()` skippe via early-return
+4. ✅ `_process()` : ajout defensive guard `if _camera_effects == null: return` (symétrique early-return `_ready()`) — protège tear-down test
+5. ✅ Ring buffers `_process_cost_samples/_latency_samples` : `.resize()` déplacé AVANT early-return `_ready()` pour que `_process()` n'écrive jamais hors-bounds
 
-**Trigger re-prio** : escalader BLOCKING avant `/team-qa` épic camera (les 13 failures contaminent le rapport sign-off).
+**Résultat** : suite camera complète **66/67 tests PASSED** (1 fail pré-existant `test_project_godot_contains_rendering_settings` story-001 hors scope TD-005 — c'est un check config rendering qui fail car Godot ne sérialise pas les defaults dans project.godot ; à traiter séparément).
+
+**Trigger re-prio** : aucun — résolu. Le 1 fail story-001 est un test à reprendre indépendamment (vérifier les defaults Godot via API runtime au lieu de grep project.godot).
 
 ---
