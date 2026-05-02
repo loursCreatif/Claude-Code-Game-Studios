@@ -433,7 +433,9 @@ Aucune migration requise — ADR créé avant toute implémentation d'un GameSta
 
 **VC-5 (Logic BLOCKING)** — Zero-alloc hot path : test GUT qui mesure `MEMORY_STATIC` delta sur 1000 emit `state_changed(PLAYING)` consécutifs → delta ≤ 16 KB (budget large, signal dispatch Godot peut avoir allocs internes mais pas GSM lui-même).
 
-**VC-6 (Code Review BLOCKING)** — Lint grep `get_tree\(\).paused\s*=` sur `src/**/*.gd` → exactement 2 matches attendus (dans `game_state_manager.gd`) : `= true` et `= false`. Tout autre fichier matchant = violation à fixer.
+**VC-6 (Code Review BLOCKING)** — Lint grep `get_tree\(\)\.paused\s*=[^=]` sur `src/**/*.gd` (regex précise : exclut `==` lectures + à exécuter avec `grep -v '^[^:]*:[0-9]*:\s*#'` pour exclure commentaires) → exactement **3 matches** attendus (dans `game_state_manager.gd`) : (1) `request_pause` → `= true`, (2) `request_resume` → `= false`, (3) `request_scene_transition` → `= false` (libère pause flag avant Pause→MainMenu, anti-flicker). Tout autre fichier matchant = violation à fixer. Tout 4e write dans GSM = signal d'authority drift à escalader.
+
+**Amendement 2026-05-02** : count passé de 2 à 3 pour refléter le 3e write `request_scene_transition` introduit pendant l'implémentation (nécessité fonctionnelle non anticipée par la rédaction initiale). Regex affinée `=[^=]` pour exclure les lectures (asserts read-only `==` autorisés hors GSM, ex : main_menu sanity check). Autorité unique D-4 respectée — toutes les mutations restent dans GSM.
 
 **VC-7 (Integration advisory)** — Thread safety : appel `GameStateManager.request_pause()` depuis un `Thread.start(func(): GameStateManager.request_pause())` → assert fail en debug (main thread check). En release : comportement non-testé, documenté comme "ne pas faire" (forbidden pattern).
 

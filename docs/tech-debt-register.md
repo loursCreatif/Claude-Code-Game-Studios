@@ -13,26 +13,26 @@
 
 ---
 
-## TD-001 — ADR-0007 VC-6 : amender pour 3 writes `get_tree().paused`
+## TD-001 — ADR-0007 VC-6 : amender pour 3 writes `get_tree().paused` — RESOLVED 2026-05-02
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-04-28 |
+| **Date** | 2026-04-28 → **Resolved 2026-05-02** |
 | **Origine** | `/story-done` story-001 menu-system |
 | **Sévérité** | ADVISORY |
 | **Coût** | XS (1-2h) — amendement texte ADR + bump VC-6 lint expected count à 3 |
 | **Fichier** | `docs/architecture/adr-0007-game-state-manager.md` (VC-6 ligne 436) |
 
-**Description** : VC-6 stipule "exactement 2 matches attendus pour `get_tree().paused =`" dans `game_state_manager.gd`. Implémentation contient **3 writes légitimes** :
-- Ligne 57 : `get_tree().paused = true` (request_pause)
-- Ligne 64 : `get_tree().paused = false` (request_resume)
-- Ligne 72 : `get_tree().paused = false` (request_scene_transition — libère pause flag avant Pause→MainMenu, anti-flicker)
+**Description** : VC-6 stipulait "exactement 2 matches attendus pour `get_tree().paused =`" dans `game_state_manager.gd`. Implémentation contient **3 writes légitimes** :
+- Ligne 70 : `get_tree().paused = true` (request_pause)
+- Ligne 78 : `get_tree().paused = false` (request_resume)
+- Ligne 87 : `get_tree().paused = false` (request_scene_transition — libère pause flag avant Pause→MainMenu, anti-flicker)
 
 Le 3e write est une nécessité fonctionnelle non anticipée par la rédaction initiale de l'ADR. Autorité unique D-4 respectée (tous les writes restent dans GSM).
 
-**Action** : amendement ADR-0007 VC-6 — passer expected count de 2 à 3, documenter le 3e write au D-4. Pourrait être groupé dans le prochain `/architecture-review`.
+**Action appliquée 2026-05-02** : VC-6 amendée — expected count 2 → 3, 3e write documenté avec contexte `request_scene_transition` anti-flicker, trigger d'authority drift escalation explicité (4e write = escalation).
 
-**Trigger re-prio** : si un 4e write apparaît, escalader (signal d'authority drift).
+**Trigger re-prio** : aucun — résolu. Si un 4e write apparaît, escalader BLOCKING (signal d'authority drift).
 
 ---
 
