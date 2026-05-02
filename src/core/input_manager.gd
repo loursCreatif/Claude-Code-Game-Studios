@@ -23,11 +23,13 @@ const ACTION_DEBUG_TOGGLE: StringName = &"debug_toggle"
 ## Source : ADR-0004 D-8, TR-inp-007.
 const LATENCY_SAMPLES_CAPACITY: int = 120
 
-## Fenêtre d'absorption post-FOCUS_IN en microsecondes (50 ms).
+## Fenêtre d'absorption post-FOCUS_IN en microsecondes (50 ms par défaut).
 ## Les InputEventMouseMotion arrivant dans cette fenêtre sont silencieux —
 ## cela évite les sauts de caméra causés par les bursts Wayland/X11 à la
 ## reprise du focus (ADR-0004 D-6, story-005).
-## MVP hard-codé ; rendu tunable post-ADR-0014 via input_settings.tres (story-010).
+## Story-010 (ADR-0014) : la valeur runtime active vit dans `_focus_regain_window_usec`,
+## dérivée au boot depuis `settings.focus_regain_window_ms × 1000`. Cette constante
+## reste la default fallback (= GDD Tuning Knob default).
 const FOCUS_REGAIN_WINDOW_USEC: int = 50_000
 
 ## Fenêtre glissante en microsecondes pour le calcul p99 (1 s).
@@ -133,8 +135,26 @@ var hot_path_prev_frame_usec: int = 0
 
 ## Inversion axe Y de la souris. false = pousser vers le haut → caméra monte.
 ## true = pousser vers le haut → caméra descend (préférence pilote/sim).
-## Persistance scope story-010.
+## Persistance via story-010 (ADR-0014) — chargée dans `_ready()` depuis settings.
 var mouse_y_inverted: bool = false
+
+## Story-010 (ADR-0014) — préférences utilisateur Input persistées (TR-inp-009).
+## Chargées par `_ready()` via `SettingsResource.load_or_default("input", …)`.
+## `null` jusqu'à `_ready()` (ou si `suppress_settings_load` actif en test).
+## Sauvegarde via `save_settings()` (trigger explicite, jamais auto en hot path).
+var settings: InputSettings = null
+
+## Story-010 — fenêtre FOCUS_IN active en µs, dérivée de `settings.focus_regain_window_ms × 1000`.
+## Lue chaque event mouse motion par le gate burst-absorption (cf. _unhandled_input).
+## Default = FOCUS_REGAIN_WINDOW_USEC pour les chemins qui contournent `_ready()` (tests
+## historiques, suppress_settings_load, etc.).
+var _focus_regain_window_usec: int = FOCUS_REGAIN_WINDOW_USEC
+
+## Story-010 — flag de désactivation du chargement settings au boot.
+## Mêmes motivations que `suppress_debug_overlay` : tests d'intégration qui ne veulent
+## pas toucher `user://settings/` doivent setter `true` AVANT `add_child`.
+## Défaut false → chargement silencieux (defaults appliqués si fichier absent, ADR-0014 D-4).
+var suppress_settings_load: bool = false
 
 # ---------------------------------------------------------------------------
 # Signals
@@ -217,6 +237,12 @@ func _ready() -> void:
 		var overlay := overlay_scene.instantiate()
 		get_tree().root.call_deferred(&"add_child", overlay)
 
+	# Story-010 (ADR-0014) — charge `user://settings/input.tres` ou applique defaults
+	# silencieux si first launch (D-4). Tests qui veulent isoler le filesystem
+	# settent `suppress_settings_load = true` AVANT add_child (parité suppress_debug_overlay).
+	if not suppress_settings_load:
+		_load_settings()
+
 ## Gestion du focus OS — implémente le découplage one-way Input → systèmes (ADR-0004 D-5).
 ##
 ## FOCUS_OUT : sauvegarde le mode souris, bascule en MOUSE_MODE_VISIBLE (curseur
@@ -240,7 +266,7 @@ func _notification(what: int) -> void:
 		application_focus_lost.emit()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		Input.mouse_mode = _saved_mouse_mode
-		_focus_regained_until_ticks_usec = Time.get_ticks_usec() + FOCUS_REGAIN_WINDOW_USEC
+		_focus_regained_until_ticks_usec = Time.get_ticks_usec() + _focus_regain_window_usec
 		application_focus_gained.emit()
 
 func _physics_process(_delta: float) -> void:
@@ -516,8 +542,49 @@ func get_latency_p99_ms() -> float:
 	return _latency_scratch[p99_idx]
 
 # ---------------------------------------------------------------------------
+# Public methods (settings persistence — story-010, ADR-0014)
+# ---------------------------------------------------------------------------
+
+## Sauvegarde les `settings` courants vers `user://settings/input.tres` via le
+## helper SettingsResource. Trigger explicite uniquement (Settings menu apply,
+## flush-on-quit) — ADR-0014 D-6 interdit l'auto-save en `_process`.
+## Retourne l'Error de ResourceSaver (OK si succès). No-op safe si `settings == null`
+## (suppress_settings_load actif) — retourne ERR_UNCONFIGURED.
+## Usage : var err := InputManager.save_settings()
+func save_settings() -> Error:
+	if settings == null:
+		return ERR_UNCONFIGURED
+	var err: Error = SettingsResource.save(settings, "input")
+	if err != OK:
+		push_warning("[input-settings] save failed: %d" % err)
+	return err
+
+# ---------------------------------------------------------------------------
 # Private methods
 # ---------------------------------------------------------------------------
+
+## Charge `user://settings/input.tres` (ADR-0014 D-3/D-4) et propage les valeurs
+## persistées aux propriétés runtime InputManager. Appelé une seule fois en fin
+## de `_ready()` quand `suppress_settings_load == false`.
+##
+## Migration automatique forward-only via `InputSettings.migrate_from`.
+## Corruption / first launch → defaults silencieux (D-4) — pas de blocage boot.
+##
+## `mouse_capture_at_boot == true` : applique `Input.MOUSE_MODE_CAPTURED` direct
+## (main thread garanti — _ready() autoload, ADR-0004 D-7).
+func _load_settings() -> void:
+	settings = SettingsResource.load_or_default(
+		"input",
+		Callable(InputSettings, "create_defaults"),
+		Callable(InputSettings, "migrate_from"),
+	) as InputSettings
+	# Propagation des Tuning Knobs aux propriétés runtime consommées par les hot paths.
+	mouse_sensitivity = settings.mouse_sensitivity
+	mouse_y_inverted = settings.mouse_y_inverted
+	_focus_regain_window_usec = settings.focus_regain_window_ms * 1000
+	if settings.mouse_capture_at_boot:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		_saved_mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 ## Enregistre un sample dans le ring buffer (ADR-0004 D-8). Zero-alloc par
 ## construction : 2 indexed writes sur des PackedArrays pré-alloués + 2 ops int.

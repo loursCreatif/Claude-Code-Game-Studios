@@ -1,7 +1,7 @@
 # Story 010: Settings persistence `input_settings.tres`
 
 > **Epic**: input-system
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-23
@@ -178,3 +178,43 @@ func save_settings() -> Error:
 - **Soft depends on** : Story 005 (consommera `focus_regain_window_ms` après cette story livrée).
 - **Coordination** : camera story-013 partage le helper `SettingsResource` — implémenter en parallèle ou séquentiellement (pas de duplication).
 - **Unlocks** : sensitivity slider Settings menu Tier 2+ ; camera story-013 (peut s'appuyer sur le helper si cette story livrée en premier).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-02
+**Criteria**: 6/6 ACs principaux passing + 2/2 bonus passing (zéro DEFERRED)
+**Tests**: 10/10 PASSED dans le subset input-010 (`reports/report_226`) — 4 unit + 6 integration. Suite settings complète 19/19 PASSED en parallèle avec camera-013.
+
+### Test-Criterion Traceability
+
+| Criterion | Test | Status |
+|-----------|------|--------|
+| AC-INP-SAVE-1 (schema 6 props + version + factory + migration) | `tests/unit/settings/input_settings_test.gd::test_input_settings_defaults_has_six_properties_with_correct_values` + `test_input_settings_defaults_version_matches_current_version` | COVERED |
+| AC-INP-SAVE-2 (boot load via _ready propage runtime) | `tests/integration/settings/input_settings_lifecycle_test.gd::test_input_manager_ready_propagates_persisted_settings_to_runtime_properties` | COVERED |
+| AC-INP-SAVE-3 (save explicit delegate à SettingsResource) | `tests/integration/settings/input_settings_lifecycle_test.gd::test_input_manager_save_settings_writes_file_with_runtime_values` + `test_input_manager_save_settings_returns_unconfigured_when_suppressed` | COVERED |
+| AC-P-1 (round-trip identity 6 properties) | `tests/integration/settings/input_settings_lifecycle_test.gd::test_input_settings_round_trip_identity_preserves_six_properties` | COVERED |
+| AC-P-2 (first launch silent defaults) | `tests/integration/settings/input_settings_lifecycle_test.gd::test_input_settings_first_launch_returns_silent_defaults` | COVERED |
+| AC-P-3 (corruption fallback no-rewrite) | `tests/integration/settings/input_settings_lifecycle_test.gd::test_input_settings_corruption_returns_defaults_and_does_not_rewrite` | COVERED |
+| Bonus (migration forward-only v0→v1) | `tests/unit/settings/input_settings_test.gd::test_input_settings_migrate_from_v0_stamps_current_version` + `test_input_settings_migrate_from_current_version_returns_unchanged` | COVERED |
+
+### Deviations
+
+- **ADVISORY-1 (test pollution edge case)** : `test_input_manager_save_settings_writes_file_with_runtime_values` touche le path **prod** `user://settings/input.tres` (par design — teste `save_settings()` avec system="input"). Cleanup before+after en place ; risque pollution uniquement si crash mid-test. Pattern accepté.
+- **ADVISORY-2 (cognitive load doc)** : `mouse_sensitivity` + `mouse_y_inverted` dupliqués entre `InputSettings` et `CameraSettings`. Camera = autorité (last-write-wins via autoload load order). À expliciter dans `docs/architecture/architecture.md §Persistence patterns` au prochain bump documentation. Décision documentée explicitement dans `CameraSystem._load_settings`.
+- **ADVISORY-3 (futur test bump v1→v2)** : `test_input_settings_migrate_from_v0_stamps_current_version` couvre la mécanique forward-only ; au moment du vrai bump v1→v2, ajouter `test_migrate_from_v1_fills_new_field_with_default`.
+- **ADVISORY-4 (NaN edge case ranges)** : `@export_range` n'enforce pas NaN explicitement (mentionné dans Implementation Notes ligne 112). Pas d'NaN guard explicite ajouté (defaults d'export validation Godot suffisent au MVP — Resource sérialise float standard, pas de chemin NaN observable hors corruption manuelle). Si la suite QA détecte un NaN-write empirique, ajouter `if is_nan(...): s = create_defaults()` post-load.
+- **OUT-OF-SCOPE-OK (helper partagé)** : `src/core/settings/settings_resource.gd` partagé avec camera-013 (helper réutilisable D-5). Pas un scope creep — Implementation Notes l'autorise explicitement.
+
+### Test Evidence
+
+- **Logic** : `tests/unit/settings/input_settings_test.gd` (4 tests : schema 6 props + version match + migrate v0/v1) — BLOCKING gate satisfied.
+- **Integration** : `tests/integration/settings/input_settings_lifecycle_test.gd` (6 tests : AC-P-1/2/3 + AC-INP-SAVE-2/3 + ERR_UNCONFIGURED suppress) — BLOCKING gate satisfied.
+- **Config/Data smoke** : N/A pour MVP (settings menu UI = Tier 2+).
+
+### Code Review
+
+**APPROVED** (Solo mode — Phase 5 LP-CODE-REVIEW skipped, code review explicit run via `/code-review` 2026-05-02). 6/6 standards passing, ADR-0014 D-1/D-10 entièrement compliant, zero régression input baseline confirmée (8 failures pré-existantes inchangées vs baseline). Aucun BLOCKING.
+
+**Input epic progress** : **10/10 stories Complete** (toutes Foundation + Polish).

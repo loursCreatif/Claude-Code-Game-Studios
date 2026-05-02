@@ -1,7 +1,7 @@
 # Story 013: camera_settings.tres save/load lifecycle (persist + migration + corruption fallback)
 
 > **Epic**: Camera System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-23
@@ -95,3 +95,41 @@
 ## Notes
 
 Cette story est **Polish P3** (non-MVP, post-Sprint 1). Implémentation peut être programmée après MVP release. SettingsResource helper créé ici est **réutilisable** pour input story-010 (création parallèle ou séquentielle).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-02
+**Criteria**: 4/4 passing + 2/2 bonus passing (zéro DEFERRED)
+**Tests**: 9/9 PASSED dans le subset story-013 (`reports/report_226`) — 4 unit + 5 integration. Suite settings complète 19/19 PASSED en parallèle avec input-010.
+
+### Test-Criterion Traceability
+
+| Criterion | Test | Status |
+|-----------|------|--------|
+| AC-CAM-SAVE-1 (save sérialise 3 valeurs + version) | `tests/integration/settings/camera_settings_lifecycle_test.gd::test_camera_settings_save_serializes_three_values_with_version` | COVERED |
+| AC-CAM-SAVE-2 (migration forward-only v0→v1) | `tests/unit/settings/camera_settings_test.gd::test_camera_settings_migrate_from_v0_stamps_current_version` + `test_camera_settings_migrate_from_current_version_returns_unchanged` | COVERED |
+| AC-CAM-SAVE-3 (corruption fallback no-rewrite) | `tests/integration/settings/camera_settings_lifecycle_test.gd::test_camera_settings_corruption_returns_defaults_and_does_not_rewrite` | COVERED |
+| AC-CAM-SAVE-4 (first launch silent + sub-folder bootstrap) | `tests/integration/settings/camera_settings_lifecycle_test.gd::test_camera_settings_first_launch_returns_defaults_and_creates_subfolder` + `test_settings_resource_ensure_dir_is_idempotent` | COVERED |
+| Bonus (defaults version match) | `tests/unit/settings/camera_settings_test.gd::test_camera_settings_defaults_version_matches_current_version` | COVERED |
+| Bonus (round-trip identity full lifecycle) | `tests/integration/settings/camera_settings_lifecycle_test.gd::test_camera_settings_round_trip_identity_preserves_all_values` | COVERED |
+
+### Deviations
+
+- **ADVISORY-1 (perf marginal)** : `_update_fov_dash` lit `settings.fov_user_offset` chaque frame via property access (pas de cache var membre). Overhead ≤ 0.001 ms (sous le seuil mesurable). À reconsidérer si AC-CAM-80 `_process` p99 approche 0.4 ms.
+- **ADVISORY-2 (cognitive load doc)** : `mouse_sensitivity` + `mouse_y_inverted` dupliqués entre `CameraSettings` et `InputSettings`. Camera = autorité (last-write-wins via autoload load order). À expliciter dans `docs/architecture/architecture.md §Persistence patterns` au prochain bump documentation.
+- **ADVISORY-3 (futur test bump v1→v2)** : `test_migrate_from_v0_stamps_current_version` couvre la mécanique forward-only ; au moment du vrai bump v1→v2 (ajout d'un nouveau champ), ajouter `test_migrate_from_v1_fills_new_field_with_default` pour valider que `@export` defaults remplissent les champs absents du `.tres` v1.
+- **OUT-OF-SCOPE-OK (helper partagé)** : `src/core/settings/settings_resource.gd` créé ici sert également à input-010 (helper réutilisable D-5). Listé dans Implementation Notes — pas un scope creep.
+
+### Test Evidence
+
+- **Logic** : `tests/unit/settings/camera_settings_test.gd` (4 tests : 2 ACs principaux + 2 bonus) — BLOCKING gate satisfied.
+- **Integration** : `tests/integration/settings/camera_settings_lifecycle_test.gd` (5 tests : 3 ACs principaux + ensure_dir idempotent + round-trip identity) — BLOCKING gate satisfied.
+- **Config/Data smoke** : N/A pour MVP (settings menu UI = Tier 2+, pas de smoke check applicable Sprint 1).
+
+### Code Review
+
+**APPROVED** (Solo mode — Phase 5 LP-CODE-REVIEW skipped, code review explicit run via `/code-review` 2026-05-02). 6/6 standards passing, ADR-0014 D-1/D-10 entièrement compliant, zero régression input baseline confirmée. Aucun BLOCKING. 4 suggestions purement cosmétiques/documentation (S-1 cache perf, S-2 test pollution edge, S-3 dual source doc, S-4 futur v2 test).
+
+**Camera epic progress** : **12/13 stories Complete** (001–012 Complete via Sprint 0 + tech-debt sweep + story 013 closure). Reste : aucune Camera story en backlog Polish P3 hors story-013 (clos ici).
