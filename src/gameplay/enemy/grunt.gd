@@ -58,6 +58,38 @@ func _ready() -> void:
 	set_physics_process(false)
 	velocity = Vector3.ZERO
 
+	# Rule 4 : configure collision layers via API 1-idx (ADR-0008 D-6 lint).
+	# Body : layer LAYER_ENEMY=2, mask LAYER_ENVIRONMENT=4 uniquement
+	# (pas de mask LAYER_ENEMY=2 car ennemis ne se collisionnent pas entre eux).
+	_set_layers_safe(self, [CollisionLayers.LAYER_ENEMY], [CollisionLayers.LAYER_ENVIRONMENT])
+
+	# EC-ENM-6 : orthonormalize FacingPivot pour annuler tout scale non-uniforme
+	# du Marker3D EnemySlot (auteur de niveau a un Marker3D scaled différemment).
+	var pivot: Node3D = get_node_or_null("%FacingPivot") as Node3D
+	if pivot != null:
+		pivot.global_basis = pivot.global_basis.orthonormalized()
+
+	# Rule 4 + Rule 8 : LaserCone Area3D layer LAYER_ENEMY_HITBOX=3, mask LAYER_PLAYER=1.
+	# Connect body_entered handler (state-guarded).
+	var cone: Area3D = get_node_or_null("%LaserCone") as Area3D
+	if cone != null:
+		_set_layers_safe(cone, [CollisionLayers.LAYER_ENEMY_HITBOX], [CollisionLayers.LAYER_PLAYER])
+		cone.monitoring = true
+		if not cone.body_entered.is_connected(_on_laser_cone_body_entered):
+			cone.body_entered.connect(_on_laser_cone_body_entered)
+
+
+## Force-clear bits 1-32 puis set les layers/masks demandés via API 1-idx
+## (ADR-0008 D-6). Évite les rémanences éditeur (.tscn aurait pu set des bits).
+func _set_layers_safe(node: CollisionObject3D, layers: Array[int], masks: Array[int]) -> void:
+	for i in range(1, 33):
+		node.set_collision_layer_value(i, false)
+		node.set_collision_mask_value(i, false)
+	for layer: int in layers:
+		node.set_collision_layer_value(layer, true)
+	for mask: int in masks:
+		node.set_collision_mask_value(mask, true)
+
 
 # ---------------------------------------------------------------------------
 # Public API (lue par Combat sweep + Checkpoint System futur)
@@ -70,6 +102,11 @@ func die() -> void:
 	if _state != State.ALIVE:
 		return
 	_state = State.DYING
+	# Rule 11.b : LaserCone monitoring=false IMMÉDIATEMENT à DYING — un grunt en
+	# tween de mort ne tue plus, même pendant les 150 ms de tween (EC-ENM-4 double-sec).
+	var cone: Area3D = get_node_or_null("%LaserCone") as Area3D
+	if cone != null:
+		cone.monitoring = false
 	enemy_killed.emit(self, global_position)
 	_start_death_tween()
 
@@ -140,3 +177,13 @@ func _on_death_tween_finished() -> void:
 ## sans .tscn enfants ; story-002+ utilisera la scène complète avec MeshInstance3D enfant.
 func _get_mesh() -> MeshInstance3D:
 	return get_node_or_null("MeshInstance3D") as MeshInstance3D
+
+
+## Rule 8 : LaserCone body_entered handler. Guarded par `_state != ALIVE` pour
+## éviter qu'un grunt en DYING/DEAD tue encore (EC-ENM-4). `is_in_group("player")`
+## évite le couplage cross-system MovementController (Player owns die()).
+func _on_laser_cone_body_entered(body: Node3D) -> void:
+	if _state != State.ALIVE:
+		return
+	if body.is_in_group("player") and body.has_method("die"):
+		body.die()
