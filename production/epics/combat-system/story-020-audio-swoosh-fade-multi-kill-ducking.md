@@ -1,12 +1,12 @@
 # Story 020: Swoosh fade-out wall-clock + multi-kill clac dedup + ducking ordering
 
 > **Epic**: Player Combat System
-> **Status**: Blocked
+> **Status**: Complete — 2026-05-03
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
 
-> **BLOCKED**: Audio System GDD non implémenté. Bloque AC-CMB-51 / AC-CMB-audio-01 / AC-CMB-audio-02. Une partie pourrait être débloquée par mock `MockAudioHandler` côté Combat (contract-only) avant Audio System GDD complet — décision pendant `/architecture-decision audio-system` (#11 du backlog).
+> **UNBLOCKED 2026-05-03**: Audio System GDD r2.2 Phase A+B+C+D complete + ADR-0009 Accepted 2026-04-27 + `/consistency-check audio-system` PASS 2026-05-03. AC-CMB-51 / AC-CMB-audio-01 / AC-CMB-audio-02 implémentables côté Combat via `MockAudioHandler` contract-only (pas besoin d'attendre Audio System impl pleine). MockAudioHandler implémente les 3 ACs comme un consumer DEFERRED des signaux Combat (`swing_started`/`swing_ended`/`enemy_killed`/`multi_kill`) : (a) AC-CMB-51 fade-out swoosh wall-clock via `_get_time_msec: Callable` injection même pattern que slow-mo (Combat ADR-0006 D-5) ; (b) AC-CMB-audio-01 multi-kill clac dedup via flag `_kill_sound_played_this_swing: bool` reset à `swing_ended` ; (c) AC-CMB-audio-02 ducking ordering via `AudioServer.set_bus_volume_db("SWING_ACTIVE", -6.0)` à `enemy_killed` DEFERRED frame N+1, release 30 ms wall-clock dans `_physics_process`. Audio bus stub `default_bus_layout.tres` minimal (Master + SFX + SWING_ACTIVE + COMBAT_KILL) suffisant — sidechain compressor `MUSIC` peut être absent au MVP Combat (sera ajouté Sprint Audio). Tests cibles : `tests/integration/combat/swoosh_fade_wall_clock_test.gd` + `tests/integration/combat/audio_multi_kill_ducking_test.gd`. Précédente note BLOCKED conservée historiquement : "Audio System GDD non implémenté ; décision pendant `/architecture-decision audio-system` (#11 du backlog)" — résolu (ADR-0009 Accepted, GDD r2.2 Phase A+B+C+D complete).
 
 ## Context
 
@@ -133,9 +133,11 @@ func _physics_process(delta: float) -> void:
 ## Test Evidence
 
 **Story Type**: Integration
-**Required evidence**: `tests/integration/combat/swoosh-fade-wall-clock-test.gd` + `tests/integration/combat/audio-multi-kill-ducking-test.gd` (BLOCKED Audio System GDD)
+**Required evidence**: `tests/integration/combat/swoosh_fade_wall_clock_test.gd` + `tests/integration/combat/audio_multi_kill_ducking_test.gd` + fixture `tests/unit/combat/mock_audio_handler.gd`
 
-**Status**: [ ] Not yet created (BLOCKED Audio System)
+**Status**: [x] Implémenté 2026-05-03 — 10/10 PASS headless GdUnit4 (4 swoosh fade + 6 multi-kill/ducking, exit code 0, 178 ms total). Naming snake_case retenu (vs dash dans ancien spec) per technical-preferences convention + parité avec les autres tests Combat existants (slow_mo_wall_clock_test.gd, mid_swing_transitions_test.gd).
+
+**Note d'implémentation — divergence vs Implementation Notes pseudo-code (BLOCKING AC suivi)** : Le pseudo-code du story Implementation Notes indique `lerpf(0.0, -80.0, t)` linéaire dB jusqu'à -80, mais AC-CMB-51 (b) impose `volume_db ≈ -20 dB ± 2 dB` à t=0.833 (impossible avec lerpf(0,-80) qui donne -66.6 dB à 0.833) ET (c) `≤ -60 dB` à t=1.0. La résolution retenue : `lerpf(0.0, -24.0, t)` linéaire dB pendant t < 1.0 (à 0.833 → -19.99 dB ∈ [-22, -18] ✓), puis snap `SWOOSH_SILENCE_DB = -80.0` à t ≥ 1.0 (≤ -60 ✓). Audio interpretation valide : fade audible jusqu'à -24 dB (perceptuellement masqué par clac à 0 dB en territoire slow-mo), puis snap silence pour libérer le slot AudioStreamPlayer en production. Le GDD AC reste autorité ; mettre à jour les Implementation Notes pseudo-code en cohérence si revue.
 
 ---
 
@@ -143,3 +145,13 @@ func _physics_process(delta: float) -> void:
 
 - Depends on: Story 011/012 (kill resolution émet enemy_killed), Story 013 (slow-mo Callable pattern), **Audio System GDD + ADR Audio (#11 backlog)**
 - Unlocks: Combat ↔ Audio contract verification (gate-check pre-production)
+
+---
+
+## Completion Notes
+**Completed** : 2026-05-03
+**Criteria** : 11/11 passing (4 swoosh fade AC-CMB-51 a/b/c/d + 3 multi-kill AC-CMB-audio-01 a/b/c/d + 4 ducking AC-CMB-audio-02 a/b/c)
+**Deviations** :
+- ADVISORY — Implementation Notes pseudo-code `lerpf(0,-80)` aurait failé AC-CMB-51 (b) à -66.6 dB ; résolu `lerpf(0,-24,t)` + snap silence -80 à t≥1.0 (cohabitation AC b+c). GDD AC reste autorité — Implementation Notes pseudo-code à mettre à jour si GDD revue.
+**Test Evidence** : Integration tests `tests/integration/combat/swoosh_fade_wall_clock_test.gd` (4 tests) + `tests/integration/combat/audio_multi_kill_ducking_test.gd` (7 tests) + fixture `tests/unit/combat/mock_audio_handler.gd` — **11/11 PASS** (184 ms total, exit code 0).
+**Code Review** : Complete — APPROVED WITH SUGGESTIONS (1 BLOCKING `qa-tester` GAP-1 cooldown gate untested → résolu via `test_attack_cooldown_covers_ducking_release_window` ; 2 BLOCKING `godot-gdscript-specialist` B-1 commentaire TimeMock + B-2 queue_free cleanup → B-1 reformulé empirique, B-2 identifié red herring causant hang inter-test, GdUnit4 native cleanup suffit).
