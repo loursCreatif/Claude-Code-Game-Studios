@@ -71,3 +71,27 @@ Hardware testbed reference : `docs/architecture/hardware-spec-testbeds.md`
 - **p99** : 0.003 ms (threshold ≤ 5.0 ms)
 - **max** : 0.003 ms
 - **Verdict** : PASS
+
+## Run 2026-05-04T21:47:26
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 1000 (warmup 60 ignorés)
+- **Enemies** : 10 (seed 12345, volume 5.0m³)
+- **p50** : 0.002 ms
+- **p99** : 0.003 ms (threshold ≤ 5.0 ms)
+- **max** : 0.003 ms
+- **Verdict** : PASS
+
+## Run 2026-05-04T21:48:00
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 1000 (warmup 60 ignorés)
+- **Enemies** : 10 (seed 12345, volume 5.0m³)
+- **p50** : 0.003 ms
+- **p99** : 0.007 ms (threshold ≤ 5.0 ms)
+- **max** : 0.028 ms
+- **Verdict** : PASS
