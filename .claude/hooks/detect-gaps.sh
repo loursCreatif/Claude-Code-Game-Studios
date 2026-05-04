@@ -124,11 +124,15 @@ if [ -d "src/gameplay" ]; then
 
       # If system has 5+ files, check for corresponding design doc
       if [ "$file_count" -ge 5 ]; then
-        # Check for design doc (allow variations: combat-system.md, combat.md)
+        # Check for design doc (allow variations: combat-system.md, combat.md,
+        # player-combat-system.md, player-movement-system.md, etc.)
         design_doc_1="design/gdd/${system_name}-system.md"
         design_doc_2="design/gdd/${system_name}.md"
+        # Fallback: any GDD file containing system_name as substring
+        # (e.g. combat → player-combat-system.md, player → player-movement-system.md)
+        design_doc_glob=$(find design/gdd -maxdepth 1 -type f -name "*${system_name}*.md" 2>/dev/null | head -1)
 
-        if [ ! -f "$design_doc_1" ] && [ ! -f "$design_doc_2" ]; then
+        if [ ! -f "$design_doc_1" ] && [ ! -f "$design_doc_2" ] && [ -z "$design_doc_glob" ]; then
           echo "⚠️  GAP: Gameplay system 'src/gameplay/$system_name/' ($file_count files) has no design doc"
           echo "    Expected: design/gdd/${system_name}-system.md or design/gdd/${system_name}.md"
           echo "    Suggested action: /reverse-document design src/gameplay/$system_name"
