@@ -4,7 +4,7 @@
 > **GDD**: design/gdd/player-combat-system.md
 > **Architecture Module**: PlayerCombat (architecture.md §Feature Layer)
 > **Status**: Ready
-> **Stories**: 22 created (2026-04-27) — 17 Ready + 5 Blocked (Gap 1 MockEnemy / Gap 2 ShapeCast empirical / Gap 5 playtest protocol / Audio System GDD / VFX System GDD) — ADR-0015 Accepted 2026-05-02 a débloqué story-022
+> **Stories**: 22 created (2026-04-27) — **20 Complete + 1 Ready (019 panel Martin pending) + 1 Blocked (021 VFX System GDD)** — Sprint 1 Combat close-out 2026-05-04 (story-001+002 doc sync, stories 003-018+020+022 tests passants, story 019 protocole publié pending recrutement, story 021 attend VFX GDD)
 
 ## Overview
 
@@ -88,8 +88,8 @@ L'epic est complet quand :
 
 | # | Story | Type | Status | ADR / Blocker |
 |---|-------|------|--------|---------------|
-| 001 | Scene skeleton & structural invariants | Logic | Ready | ADR-0006 D-1/D-2 |
-| 002 | State machine + cooldown + active_tick lifecycle | Logic | Ready | ADR-0001 + ADR-0006 |
+| 001 | Scene skeleton & structural invariants | Logic | ✅ Complete (doc sync 2026-05-04 — `tests/unit/combat/scene_skeleton_invariants_test.gd` présent + impl couverte par downstream stories 003-022 Complete) | ADR-0006 D-1/D-2 |
+| 002 | State machine + cooldown + active_tick lifecycle | Logic | ✅ Complete (doc sync 2026-05-04 — `tests/unit/combat/state_machine_lifecycle_test.gd` présent + impl couverte par downstream stories 003-022 Complete) | ADR-0001 + ADR-0006 |
 | 003 | Death/respawn lifecycle full reset | Logic | ✅ Complete 2026-05-02 | ADR-0005 + ADR-0006 (test 6/6 PASS, doc sync) |
 | 004 | `attacked()` handler + buffer single-slot 80ms | Logic | ✅ Complete 2026-05-02 | ADR-0004 + ADR-0005 + ADR-0006 (test 9/9 PASS, doc sync) |
 | 005 | `_build_capsule_basis()` helper + 100-sample sphere test | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-7 (test 6/6 PASS, fix is_equal_approx vector tolerance `report_264`) |
