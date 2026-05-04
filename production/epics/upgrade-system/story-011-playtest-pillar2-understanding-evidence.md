@@ -1,7 +1,7 @@
 # Story 011: Playtest Pillar 2 Understanding Evidence
 
 > **Epic**: upgrade-system
-> **Status**: Ready (AC-UPG-37 (a) (b) ✅ Complete 2026-05-04 — `tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` 2/2 PASS exit 0 ; AC-UPG-37-bis playtest humain ≥10 novices DEFERRED — non-blocker MVP code, evidence doc à produire post-build playable)
+> **Status**: Complete (partial) 2026-05-04 — AC-UPG-37 (a) (b) ✅ automated cover (`tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` 2/2 PASS exit 0, 20 ms) ; AC-UPG-37-bis playtest humain ≥10 novices DEFERRED — non-blocker MVP code, evidence doc à produire post-build playable Shop epic complete
 > **Layer**: Feature
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
