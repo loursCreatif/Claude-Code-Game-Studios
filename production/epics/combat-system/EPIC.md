@@ -97,7 +97,7 @@ L'epic est complet quand :
 | 007 | Sweep position + aim_forward consumption + invalid/NaN guards | Logic | ✅ Complete 2026-05-02 | ADR-0002 + ADR-0006 (test 8/8 PASS, fix is_equal_approx vector tolerance `report_264`) |
 | 008 | `_prev_position` per-tick update + reach constant | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 (test 7/7 PASS, fix is_equal_approx vector tolerance `report_264`) |
 | 009 | Anti-tunneling N=3 substeps + Jolt margin empirical | Logic | ✅ Complete 2026-05-02 | ADR-0001 + ADR-0006 (test 8/8 PASS, fix is_equal_approx vector tolerance `report_264`) |
-| 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | **Blocked** | Gap 2 — AC-CMB-47-Prelim lead-programmer pré-Sprint 1 |
+| 010 | Tick-0 overlap mitigation + Gap 2 prelim test | Logic | ✅ Complete 2026-05-04 (Variante B empirique — Godot 4.6+Jolt détecte natively, 0 prod code) | Gap 2 résolu — empirical test `tests/empirical/shapecast_overlap_origin_test.gd` + régression test 2/2 PASS |
 | 011 | Single-hit kill + dedup `_hit_this_swing` | Logic | ✅ Complete 2026-05-02 | ADR-0006 D-3 + Gap 1 résolu (MockEnemy créé) |
 | 012 | Multi-hit + tri distance + MAX_KILLS + multi_kill signal | Logic | ✅ Complete 2026-05-02 | ADR-0006 + Formula 6 (distance squared zéro-sqrt) |
 | 013 | Slow-mo wall-clock + Callable injection + restore + edge cases | Logic | ✅ Complete 2026-05-02 | ADR-0001 + ADR-0006 D-5 (impl déjà livrée stories 011/012/022, doc sync 2026-05-02) |
@@ -106,12 +106,12 @@ L'epic est complet quand :
 | 016 | Invariants runtime `_validate_invariants()` + smoke check | Logic | ✅ Complete 2026-05-02 | ADR-0006 (DEC-r5-2 Option A) (test 5/5 PASS, doc sync 2026-05-02) |
 | 017 | ShapeCast microbench p99 ≤5ms | Integration | Complete 2026-05-04 (GdUnit4 conversion ; baseline Apple M4 p99=0.005 ms — Tier 1 official sign-off DEFERRED CI) | ADR-0006 + ADR-0001 |
 | 018 | Integration soak frametime + memory + OBJECT_COUNT | Integration | Ready (partiel 2026-05-02) | ADR-0001 + ADR-0003 + ADR-0006 — AC-CMB-37 covered (`integration_soak_test.gd` 2/2 PASS), AC-CMB-35b (1)+(2) Tier 1 log pending |
-| 019 | Combat feel playtest protocol + Visual/Feel ACs | Visual/Feel | **Blocked** | Gap 5 — protocol qa-lead non créé |
+| 019 | Combat feel playtest protocol + Visual/Feel ACs | Visual/Feel | Ready 2026-05-04 (panel Martin pending) | Gap 5 résolu — `production/qa/protocols/combat-feel-interview.md` publié (15 questions × 5 axes) |
 | 020 | Swoosh fade-out wall-clock + multi-kill clac + ducking | Integration | **Blocked** | Audio System GDD non écrit (#11 backlog) |
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 17 Complete (001/002/003/004/005/006/007/008/009/011/012/013/014/015/016/017/022) + 1 Ready partiel (018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
+**Totaux** : 22 stories — 18 Complete (001/002/003/004/005/006/007/008/009/010/011/012/013/014/015/016/017/022) + 2 Ready (018 soak frametime log Tier 1 + 019 Gap 5 panel Martin pending) + 2 Blocked (020 Audio GDD ; 021 VFX GDD). 2026-05-04 P2 unblock : Gap 2 résolu Variante B empirique (story-010 Complete sans code production, mitigation `_tick0_intersect_shape_overlap` redondante) + Gap 5 résolu protocol playtest publié (story-019 Ready, recrutement panel Martin reste).
 Doc sync 2026-05-02 : 11 stories ont vu leur Status recadré ; root-cause des 6 failures pré-existants 005/007/008/009 = signature GdUnit4 `assert_vector(...).is_equal_approx(expected: Vector, approx: Vector)` veut un Vector3 comme tolérance, pas un float (`_validate_is_vector_type` rejette float silencieusement). Fix systémique = remplacer `, 0.001)` → `, Vector3.ONE * 0.001)` (4 fichiers test combat + 4 occurrences `test_movement_signals_typed_contract.gd`).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
