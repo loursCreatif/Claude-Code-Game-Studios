@@ -68,7 +68,7 @@ func _make_combat() -> CombatSystem:
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	assert_object(packed).is_not_null()
 
-	var player: CharacterBody3D = CharacterBody3D.new()
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	add_child(player)
 	var combat: CombatSystem = packed.instantiate() as CombatSystem
 	player.add_child(combat)
@@ -114,7 +114,6 @@ func test_combat_soak_cycles_reset_invariants_after_each_swing() -> void:
 			) \
 			.is_equal(0.0)
 
-	combat.get_parent().queue_free()
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +173,6 @@ func test_combat_soak_cycles_memory_and_object_count_within_tolerance() -> void:
 		) \
 		.is_less_equal(OBJECT_COUNT_DELTA_TOLERANCE)
 
-	combat.get_parent().queue_free()
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +220,6 @@ func test_combat_worst_case_shapecast_p99_under_16_6ms() -> void:
 		) \
 		.is_less_equal(FRAMETIME_P99_THRESHOLD_MS)
 
-	combat.get_parent().queue_free()
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +276,6 @@ func test_combat_soak_global_1000_frames_p50_p99_under_thresholds() -> void:
 		) \
 		.is_less_equal(FRAMETIME_P99_THRESHOLD_MS)
 
-	combat.get_parent().queue_free()
 
 
 # ---------------------------------------------------------------------------
