@@ -4,7 +4,7 @@
 > **GDD**: design/gdd/audio-system.md (Draft r2.3 — Phase A+B+C+D complete + design-review fresh APPROVED 8 BLOCKING fixes 2026-05-03)
 > **Architecture Module**: Audio System (autoload `AudioSystem` + helper static `AudioBuses` — `src/core/audio_system.gd`)
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories audio-system`
+> **Stories**: 12/12 créées 2026-05-04 (`story-001` … `story-012`) — éligibles `/dev-story` séquentiel ou parallèle (story-001 → story-002 → puis 003-012 selon DAG dependencies)
 
 ## Overview
 
@@ -127,8 +127,12 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/create-stories audio-system` to break this epic into ~12 implementable stories cluster C1..C12.
+12/12 stories créées 2026-05-04 — fichiers `story-001-autoload-skeleton-bus-layout-pool-sidechain.md` … `story-012-sidechain-music-peak-meter-verification-headless-fallback.md`. Démarrage Sprint Audio :
+1. `/story-readiness story-001` puis `/dev-story story-001` (autoload + bus layout + pool + sidechain idempotent — débloque toutes les autres)
+2. Story-002 API verbes (architecturalement gated par story-001)
+3. Stories 003-008 handlers consumer (parallélisables selon disponibilité Combat/Movement/Level/GSM/Secret signaux production)
+4. Stories 009 (lints CI) + 010 (listener verification) + 011 (perf budget) + 012 (sidechain peak meter) — close-out epic
 
 ---
 
-**Status** : Ready (Created 2026-05-04, ADR-0009 Accepted, GDD r2.3 APPROVED, MockAudioHandler référence canonique, engine-ref Phase D.5 RESOLVED).
+**Status** : Ready (Created 2026-05-04, ADR-0009 Accepted, GDD r2.3 APPROVED, MockAudioHandler référence canonique, engine-ref Phase D.5 RESOLVED, 12 stories décomposées).

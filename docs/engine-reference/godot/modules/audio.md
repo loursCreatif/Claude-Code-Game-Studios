@@ -165,3 +165,63 @@ assert(compressor.sidechain == &"COMBAT_KILL")
 - Not using audio buses for volume categories (Music, SFX, UI, Voice)
 - Using `_process()` for audio timing instead of signals (`finished`)
 - Confusing `attack_us` (µs) with `release_ms` (ms) on `AudioEffectCompressor`
+
+## Empirical Verifications (R-AUD-9 / AC-AUD-14)
+
+**Last verified** : 2026-05-04 (story-010 — Sprint Audio Foundation)
+**Scene audited** : `src/gameplay/player/Player.tscn`
+
+### Single listener invariant — AC-AUD-14 (c) BLOCKING
+
+Godot 4.6 auto-current behaviour : **if exactly 1 `AudioListener3D` is present in
+the scene tree, it becomes the active listener automatically — no `make_current()`
+call required**. With 2+ listeners, only one can be current at a time (conflict).
+
+`Player.tscn` chain (per ADR-0002 VC-5) :
+
+```
+Player (CharacterBody3D)
+└── CameraArm
+    └── CameraEffects
+        └── Camera3D
+            └── AudioListener3D  ← unique, auto-current
+```
+
+Headless assertion test : `tests/integration/audio/audio_listener3d_single_assertion_test.gd`
+→ `find_children("*", "AudioListener3D", true).size() == 1` + `parent is Camera3D`.
+
+**Code rule** : never call `AudioListener3D.new()` from `src/core/audio_system.gd`
+(enforced by lint `lint-audio-pool` story-009) ; never call `make_current()` from
+camera or audio code (Camera epic note `AC-CAM-TREE-4`).
+
+### Panning + distance attenuation — AC-AUD-14 (a) (b) ADVISORY
+
+Empirical verification status : **DEFERRED to Sprint Audio playtest**
+(sound-designer + casque audio + golden-path scene).
+
+Tracking : `production/qa/evidence/audio-listener3d-verification-2026-05-04.md`.
+
+Expected behaviour (Godot 4.6 default `AudioStreamPlayer3D`) :
+- **Panning** : after `player.rotation.y = PI/2` with sound at `Vector3(10,0,0)`,
+  perceived left-side (3D position relative to rotated listener).
+- **Distance attenuation** : Inverse Distance model — perceptual delta ~ -20 dB
+  between `Vector3(1,0,0)` and `Vector3(10,0,0)` per `unit_size` default.
+
+### SubViewport edge case (R-2 ADR-0009)
+
+**Status** : N/A MVP (no `SubViewport` in `scenes/` or `src/gameplay/` on 2026-05-04).
+
+**If a `SubViewport` is later introduced** (minimap, mirror, picture-in-picture,
+post-process render-target), re-verify that the root viewport listener remains
+unique source-of-truth and no second `AudioListener3D` exists inside the
+`SubViewport` (would conflict with current listener selection).
+
+### Common pitfalls
+
+- Adding a second `AudioListener3D` "for safety" → breaks auto-current selection,
+  one of the two listeners is silently ignored.
+- Calling `make_current()` from `_ready()` → unnecessary with single listener,
+  may also reset incorrectly when scene transitions add/remove listeners.
+- Forgetting that `AudioListener3D` rotation/position **inherits from its parent
+  Camera3D transform** — rotating the camera rotates the listener, which is the
+  intended behaviour (FPS-aligned audio).

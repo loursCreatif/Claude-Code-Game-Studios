@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 InputManager="*res://src/core/input_manager.gd"
 GameStateManager="*res://src/core/game_state_manager.gd"
 SaveLoadSystem="*res://src/core/save_load_system.gd"
+AudioSystem="*res://src/core/audio_system.gd"
 AccessibilityService="*res://src/core/accessibility_service.gd"
 CreditEconomy="*res://src/core/credit_economy.gd"
 Upgrade="*res://src/gameplay/upgrade/upgrade_system.gd"
@@ -99,6 +100,10 @@ ui_confirm={
 common/max_physics_steps_per_frame=4
 3d/physics_engine="JoltPhysics3D"
 3d/default_gravity=0.0
+
+[audio]
+
+buses/default_bus_layout="res://default_bus_layout.tres"
 
 [rendering]
 

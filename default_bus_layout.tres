@@ -1,0 +1,56 @@
+; Bus names follow ADR-0009 D-1 (PascalCase natifs + snake_case enfants).
+; Story-001 AC-AUD-01 spec UPPER_SNAKE_CASE non-aligné avec contrainte engine
+; Godot 4.6 (bus 0 forcé à "Master" silently). Story amendment recommandé.
+[gd_resource type="AudioBusLayout" format=3 uid="uid://b3audio001bus"]
+
+[resource]
+bus_count = 7
+bus/0/name = &"Master"
+bus/0/solo = false
+bus/0/mute = false
+bus/0/bypass_fx = false
+bus/0/volume_db = 0.0
+bus/0/send = &"Master"
+bus/0/effect/0 = null
+bus/1/name = &"Music"
+bus/1/solo = false
+bus/1/mute = false
+bus/1/bypass_fx = false
+bus/1/volume_db = 0.0
+bus/1/send = &"Master"
+bus/1/effect/0 = null
+bus/2/name = &"SFX"
+bus/2/solo = false
+bus/2/mute = false
+bus/2/bypass_fx = false
+bus/2/volume_db = 0.0
+bus/2/send = &"Master"
+bus/2/effect/0 = null
+bus/3/name = &"swing_active"
+bus/3/solo = false
+bus/3/mute = false
+bus/3/bypass_fx = false
+bus/3/volume_db = 0.0
+bus/3/send = &"SFX"
+bus/3/effect/0 = null
+bus/4/name = &"combat_kill"
+bus/4/solo = false
+bus/4/mute = false
+bus/4/bypass_fx = false
+bus/4/volume_db = 0.0
+bus/4/send = &"SFX"
+bus/4/effect/0 = null
+bus/5/name = &"Ambience"
+bus/5/solo = false
+bus/5/mute = false
+bus/5/bypass_fx = false
+bus/5/volume_db = 0.0
+bus/5/send = &"Master"
+bus/5/effect/0 = null
+bus/6/name = &"UI"
+bus/6/solo = false
+bus/6/mute = false
+bus/6/bypass_fx = false
+bus/6/volume_db = 0.0
+bus/6/send = &"Master"
+bus/6/effect/0 = null
