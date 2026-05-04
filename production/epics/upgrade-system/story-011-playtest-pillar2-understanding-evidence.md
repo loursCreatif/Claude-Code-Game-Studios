@@ -1,7 +1,7 @@
 # Story 011: Playtest Pillar 2 Understanding Evidence
 
 > **Epic**: upgrade-system
-> **Status**: Ready
+> **Status**: Ready (AC-UPG-37 (a) (b) ✅ Complete 2026-05-04 — `tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` 2/2 PASS exit 0 ; AC-UPG-37-bis playtest humain ≥10 novices DEFERRED — non-blocker MVP code, evidence doc à produire post-build playable)
 > **Layer**: Feature
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
@@ -25,8 +25,8 @@
 
 ## Acceptance Criteria
 
-- [ ] **AC-UPG-37** [ADVISORY playtest manuel] : pendant achat shop, (a) aucune nouvelle scène instanciée avec root node ownership `src/gameplay/upgrade/` ; (b) aucun nœud Control nouveau contenant substring `"skill"|"tree"|"talent"|"perk"|"respec"` dans son `name`.
-- [ ] **AC-UPG-37-bis** [ADVISORY PLAYTEST] : ≥10 sessions playtest novice ; ≥80% comprennent qu'une nouvelle capacité est débloquée dans les 30s post-shop, sans intervention extérieure.
+- [x] **AC-UPG-37** [ADVISORY automated 2026-05-04] : pendant `apply_upgrade(&"double_jump")` + `apply_upgrade(&"dash_horizontal")`, (a) aucune nouvelle scène instanciée avec root node ownership `src/gameplay/upgrade/` ; (b) aucun nœud Control nouveau contenant substring `"skill"|"tree"|"talent"|"perk"|"respec"` dans son `name`. Test : `tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` 2/2 PASS, 20 ms.
+- [ ] **AC-UPG-37-bis** [ADVISORY PLAYTEST DEFERRED] : ≥10 sessions playtest novice ; ≥80% comprennent qu'une nouvelle capacité est débloquée dans les 30s post-shop, sans intervention extérieure. Pré-requis : build MVP playable (Shop epic complete) ; evidence doc à produire post-vertical-slice.
 
 ---
 
@@ -146,10 +146,10 @@ Pass rate : N/M (XX%)
 
 **Story Type** : Visual/Feel
 **Required evidence** :
-- `tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` (AC-UPG-37 auto).
-- `production/qa/evidence/upgrade-pillar2-playtest-evidence.md` + recordings (AC-UPG-37-bis manual).
+- `tests/integration/upgrade/no_upgrade_scene_during_purchase_test.gd` (AC-UPG-37 auto) — **[x] Created 2026-05-04, 2/2 PASS exit 0, 20 ms**.
+- `production/qa/evidence/upgrade-pillar2-playtest-evidence.md` + recordings (AC-UPG-37-bis manual) — **[ ] DEFERRED post-vertical-slice playable build**.
 - Sign-off : game-designer + creative-director.
-**Status** : [ ] Not yet created
+**Status** : [~] Partial — AC-UPG-37 automated cover ; AC-UPG-37-bis playtest evidence DEFERRED (Shop epic + build MVP pré-requis)
 
 ---
 

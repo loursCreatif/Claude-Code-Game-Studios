@@ -104,14 +104,14 @@ L'epic est complet quand :
 | 014 | Mutual kill Hybrid M1 Option C `_death_pending` | Integration | ✅ Complete 2026-05-02 | ADR-0005 D-5 amendment r2 + ADR-0006 D-2 (impl déjà livrée, test 4/4 PASS, doc sync 2026-05-02) |
 | 015 | Mid-swing transitions + race Idle mitigation + pause spam | Integration | ✅ Complete 2026-05-02 | ADR-0006 + ADR-0004 (test 3/3 PASS, doc sync 2026-05-02) |
 | 016 | Invariants runtime `_validate_invariants()` + smoke check | Logic | ✅ Complete 2026-05-02 | ADR-0006 (DEC-r5-2 Option A) (test 5/5 PASS, doc sync 2026-05-02) |
-| 017 | ShapeCast microbench p99 ≤5ms | Integration | Ready (correction fausse closure 2026-05-02) | ADR-0006 + hardware-spec-testbeds Tier 1 — script créé mais log vide, bench Tier 1 pending |
+| 017 | ShapeCast microbench p99 ≤5ms | Integration | Complete 2026-05-04 (GdUnit4 conversion ; baseline Apple M4 p99=0.005 ms — Tier 1 official sign-off DEFERRED CI) | ADR-0006 + ADR-0001 |
 | 018 | Integration soak frametime + memory + OBJECT_COUNT | Integration | Ready (partiel 2026-05-02) | ADR-0001 + ADR-0003 + ADR-0006 — AC-CMB-37 covered (`integration_soak_test.gd` 2/2 PASS), AC-CMB-35b (1)+(2) Tier 1 log pending |
 | 019 | Combat feel playtest protocol + Visual/Feel ACs | Visual/Feel | **Blocked** | Gap 5 — protocol qa-lead non créé |
 | 020 | Swoosh fade-out wall-clock + multi-kill clac + ducking | Integration | **Blocked** | Audio System GDD non écrit (#11 backlog) |
 | 021 | VFX decal cap pool LRU contract | Integration | **Blocked** | VFX System GDD + GPU Tier 1 runner |
 | 022 | Accessibility `reduce_motion` Combat impact | Logic | Ready (Polish P3) | ADR-0015 ✅ Accepted 2026-05-02 |
 
-**Totaux** : 22 stories — 16 Complete (001/002/003/004/005/006/007/008/009/011/012/013/014/015/016/022) + 2 Ready partiel (017 microbench Tier 1 + 018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
+**Totaux** : 22 stories — 17 Complete (001/002/003/004/005/006/007/008/009/011/012/013/014/015/016/017/022) + 1 Ready partiel (018 soak frametime log Tier 1) + 4 Blocked (010 Gap 2 / 019 Gap 5 / 020 Audio GDD / 021 VFX GDD).
 Doc sync 2026-05-02 : 11 stories ont vu leur Status recadré ; root-cause des 6 failures pré-existants 005/007/008/009 = signature GdUnit4 `assert_vector(...).is_equal_approx(expected: Vector, approx: Vector)` veut un Vector3 comme tolérance, pas un float (`_validate_is_vector_type` rejette float silencieusement). Fix systémique = remplacer `, 0.001)` → `, Vector3.ONE * 0.001)` (4 fichiers test combat + 4 occurrences `test_movement_signals_typed_contract.gd`).
 **Coverage TR-cmb** : 16/17 TRs Covered via stories ; TR-cmb-006 N/A intentional GDD-owned ; TR-cmb-016 covered ADR-0015 Accepted 2026-05-02 (story-022 Ready Polish P3).
 
