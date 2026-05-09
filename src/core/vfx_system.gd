@@ -16,9 +16,16 @@
 ## - Decal raycast PhysicsDirectSpaceState3D + skip silencieux EC-VFX-07
 ## - Flash kill stub WCAG 333 ms guard (story-004 body)
 ##
+## Responsabilités story-005 :
+## - Pull AccessibilityService (ADR-0015 D-1 Option A) au boot + live update via settings_changed
+## - _accessibility_service_ref injectable pour test mock substitution
+## - _pull_accessibility_settings() : guard EC-VFX-08 defaults safe si Service absent
+## - _on_accessibility_settings_changed() : body re-pull + apply live mid-swing (AC-NEW-07)
+##
 ## ADR-0001 (wall-clock timer Callable injection), ADR-0009 D-2 (pool exclusive),
 ## ADR-0009 D-4 (CONNECT_DEFERRED), R-VFX-2 (zero-alloc hot path), R-VFX-14 (outbound-only).
 ## Story-001 : implémentation initiale. Story-002 : combat handlers bodies.
+## Story-005 : accessibility pull live update.
 
 class_name VFXSystemScript
 
@@ -180,6 +187,11 @@ var _last_effective_cone_deg: float = BLOOD_CONE_ANGLE_DEG
 ## `_get_time_msec.call()` → `Time.get_ticks_msec()` (int).
 var _get_time_msec: Callable = Time.get_ticks_msec
 
+## Référence injectable AccessibilityService — set par connect_accessibility_signals
+## ou _connect_upstream_signals (autoload global fallback). Test injection pattern.
+## null = fallback sur `/root/AccessibilityService` en prod.
+var _accessibility_service_ref: Node = null
+
 
 # ---------------------------------------------------------------------------
 # _ready
@@ -193,6 +205,7 @@ func _ready() -> void:
 	_blood_shader_material = _create_blood_shader_material()
 	_setup_vfx_pool()
 	_connect_upstream_signals()
+	_pull_accessibility_settings()  # story-005 — pull initial boot ADR-0015 D-1
 
 	print("[VFXSystem] boot — pool=%d/%d trail=%d flash_layer=%d" % [
 		BLOOD_PARTICLE_POOL_SIZE,
@@ -314,6 +327,7 @@ func _connect_upstream_signals() -> void:
 	# AccessibilityService settings_changed (reduce_flash / reduce_motion story-005)
 	var accessibility: Node = get_node_or_null("/root/AccessibilityService")
 	if accessibility != null:
+		_accessibility_service_ref = accessibility  # story-005 — store ref pour pull
 		if accessibility.has_signal(&"settings_changed") and not accessibility.settings_changed.is_connected(_on_accessibility_settings_changed):
 			accessibility.settings_changed.connect(_on_accessibility_settings_changed, CONNECT_DEFERRED)
 
@@ -363,11 +377,14 @@ func connect_gsm_signals(gsm: Node) -> void:
 
 
 ## Injecte un mock AccessibilityService et connecte son signal.
+## Story-005 : set _accessibility_service_ref pour pull + re-pull immédiat post-injection.
 func connect_accessibility_signals(accessibility: Node) -> void:
 	if accessibility == null:
 		return
+	_accessibility_service_ref = accessibility  # story-005 — store ref pour pull
 	if accessibility.has_signal(&"settings_changed") and not accessibility.settings_changed.is_connected(_on_accessibility_settings_changed):
 		accessibility.settings_changed.connect(_on_accessibility_settings_changed, CONNECT_DEFERRED)
+	_pull_accessibility_settings()  # story-005 — re-pull immédiat post-injection
 
 
 # ---------------------------------------------------------------------------
@@ -487,10 +504,48 @@ func _on_state_changed(_new_state: int = 0) -> void:
 	pass
 
 
-## Handler settings_changed (AccessibilityService) — stub no-op.
-## Body story-005 : pull reduce_flash + reduce_motion depuis AccessibilityService.
+## Handler settings_changed (AccessibilityService) — story-005.
+## Re-pull live + apply update mid-swing si reduce_motion changé (R-VFX-11 + AC-NEW-07).
+## Note : flash en cours non rétroactif (durée 80 ms trop courte) — AC-VFX-20 next flash.
 func _on_accessibility_settings_changed() -> void:
-	pass
+	var prev_reduce_motion: bool = _reduce_motion
+	_pull_accessibility_settings()
+
+	# AC-NEW-07 — apply live update mid-swing si reduce_motion changé
+	if _trail_active and prev_reduce_motion != _reduce_motion:
+		var trail_color: Color = TRAIL_COLOR
+		trail_color.a = KATANA_TRAIL_OPACITY_MAX * (REDUCE_MOTION_TRAIL_MULT if _reduce_motion else 1.0)
+		_set_trail_color(trail_color)
+
+
+# ---------------------------------------------------------------------------
+# Private helpers — story-005
+# ---------------------------------------------------------------------------
+
+## Pull les settings AccessibilityService (R-VFX-5/11/15 + ADR-0015 D-1 Option A).
+## Guard EC-VFX-08 : defaults safe si Service non initialisé OU mock absent.
+## Lit depuis _accessibility_service_ref (test mock) OU autoload global fallback.
+## Utilise les methods canoniques du service (cohérent avec accessibility_service.gd).
+func _pull_accessibility_settings() -> void:
+	var svc: Node = _accessibility_service_ref
+	if svc == null:
+		# Fallback autoload global (prod)
+		svc = get_node_or_null("/root/AccessibilityService")
+	if not is_instance_valid(svc):
+		# Defaults safe — corrigés par settings_changed live dès Service prêt
+		_reduce_flash = false
+		_flash_mult = 1.0
+		_reduce_motion = false
+		push_warning("VFX: AccessibilityService not yet initialized at pull — using defaults")
+		return
+
+	# Pull via methods canoniques (real service + mock délègue properties)
+	if svc.has_method(&"is_reduce_flash_enabled"):
+		_reduce_flash = svc.is_reduce_flash_enabled()
+	if svc.has_method(&"get_flash_mult"):
+		_flash_mult = svc.get_flash_mult()
+	if svc.has_method(&"is_reduce_motion_enabled"):
+		_reduce_motion = svc.is_reduce_motion_enabled()
 
 
 # ---------------------------------------------------------------------------
@@ -587,6 +642,11 @@ func _trigger_flash_kill() -> void:
 ## Applique la couleur flash kill au tick `t` ∈ [0, 1] (0 = début, 1 = fin).
 ## Gère reduce_flash gris substitute via _flash_kill_use_grey (F-VFX-2).
 ## Fade-out linéaire alpha 1.0 → 0.0 sur 80 ms wall-clock.
+##
+## TODO MVP scope : `_flash_mult` continu (pullé story-005) non consommé ici —
+## brightness binaire 0.625 (gris) / 1.0 (blanc) suffit MVP. Si interpolation continue
+## requise post-MVP (F-VFX-2 spec drift), utiliser `_flash_mult` au lieu de
+## REDUCE_FLASH_BRIGHTNESS — story-007 polish ou enhancement future.
 func _apply_flash_kill_color(t: float) -> void:
 	var base_brightness: float = REDUCE_FLASH_BRIGHTNESS if _flash_kill_use_grey else DEFAULT_FLASH_BRIGHTNESS
 	var alpha: float = 1.0 - t

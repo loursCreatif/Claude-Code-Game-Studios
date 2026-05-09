@@ -1,7 +1,7 @@
 # Story 005: Accessibility Pull — reduce_flash + flash_mult + reduce_motion (ADR-0015 D-1 Option A)
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-05-04
@@ -195,3 +195,34 @@ _reduce_flash = AccessibilityService.reduce_flash  # null reference risk
 - **Cross-system** :
   - **AccessibilityService Ready** : ADR-0015 Accepted 2026-05-02 + accessibility-system epic 1/1 Complete ✅. APIs `reduce_flash` / `flash_mult` / `reduce_motion` + signal `settings_changed` disponibles production.
 - **Unlocks** : aucune downstream — close-out ADR-0015 D-1 pattern pull-côté-consumer pour VFX.
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-004 done)
+**Verdict** : COMPLETE
+**Criteria** : 4/4 passing — AC-VFX-12/20/21 + AC-NEW-07
+**Re-confirm tests** : 34/34 PASS cumulé exit 0 / 2.83 s (`reports/report_454/results.xml`) — story-001 7 + story-002 10 + story-003 5 + story-004 8 + story-005 4
+**Deviations** : None — toutes corrigées pendant `/code-review` :
+  - **F-VFX-2 spec drift identifié** : `flash_mult` continu spec vs `_flash_kill_use_grey` boolean MVP impl — `_flash_mult` pullé mais jamais consommé dans `_apply_flash_kill_color`. Acceptable scope MVP (gris discrète 0.625), TODO comment ajouté inline pour story-007 polish ou enhancement future
+  - Dead assignment test ligne 162 supprimé (overwritten ligne 167)
+  - AC-VFX-21 helper duplication intent commenté ("Intentionally does not use _make_vfx — no accessibility mock to test absent-service path")
+  - Manifest version newer non-flagable
+**Test Evidence** : `tests/integration/vfx/vfx_accessibility_pull_test.gd` (4 tests post-fixes)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (5 ADRs/Rules tous PASS : ADR-0015 D-1 + ADR-0009 D-4 + R-VFX-11/14 + EC-VFX-08, `OS.is_reduce_motion_enabled()` direct ABSENT) + qa-tester TESTABLE (4 ACs COVERED 1:1 + flash_mult drift documenté)
+
+**API surface canonique adopted** : VFX consume via methods (`is_reduce_flash_enabled()`, `is_reduce_motion_enabled()`, `get_flash_mult()`) cohérent real `accessibility_service.gd` ; mock délègue properties via methods getter (alignement parfait).
+
+**Pattern injection résolu** : `_accessibility_service_ref: Node = null` membre injectable + fallback autoload `/root/AccessibilityService` (prod). Les 2 paths fonctionnent — mock substitution test + real autoload prod.
+
+**ADR-0015 D-1 Option A pull-pattern close-out** : pull boot `_ready()` + listener live `settings_changed` + apply mid-swing trail si reduce_motion changé (R-VFX-11 + AC-NEW-07). VFX rejoint Camera GDD Rule 14 + Combat story-022 dans le pattern pull-côté-consumer standardisé.
+
+**Files livrés (3)** :
+- `src/core/vfx_system.gd` (MODIF, +40 L) — `_accessibility_service_ref` member + body `_pull_accessibility_settings` + body `_on_accessibility_settings_changed` + `_ready` boot pull + `_connect_upstream_signals` set ref + `connect_accessibility_signals` extended (set ref + re-pull immédiat) + TODO comment `flash_mult` MVP scope binary
+- `tests/unit/vfx/mock_accessibility.gd` (MODIF) — 3 method getters (`is_reduce_flash_enabled`, `is_reduce_motion_enabled`, `get_flash_mult`) délègue aux properties → API surface mock = real service
+- `tests/integration/vfx/vfx_accessibility_pull_test.gd` (NEW, ~310 L post-fixes) — 4 tests AC-VFX-12/20/21 + AC-NEW-07 + helpers
+
+**Out of Scope strict respecté** : zéro touch story-002/004 apply bodies, zéro GSM gating story-006, zéro lints story-007, zéro persistence accessibility-system epic.
+
+**Tech debt** : `flash_mult` binary MVP vs continuous spec → TODO inline `_apply_flash_kill_color`, déférable story-007 polish ou future enhancement (non-bloquant MVP).
