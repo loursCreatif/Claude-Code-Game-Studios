@@ -82,7 +82,7 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 
 ## Tech-debt connue (sprint Production)
 
-1. **Test infra autoload reuse cross-suite GdUnit4 v5** (W-4 smoke-2026-05-05) — full-suite cmdtool unique fail, scope per-epic isolated PASS confirmé. Story tech-debt dédiée à créer.
+1. **Test infra autoload reuse cross-suite GdUnit4 v5** (W-4 smoke-2026-05-05) — **DIAGNOSTIC COMPLETE 2026-05-09 — DEFER FIX**. Mesure cross-suite révélée : 4 / 36 vraies pollutions (11 %), 32 / 36 régressions intrinsèques (89 %). Voir `production/tech-debt/story-w4-test-infra-autoload-reset-between-suites.md` + matrice `production/qa/evidence/cross-suite-pollution-analysis-2026-05-09.md`. Action : prioriser stories régression per-epic (Level 30, Camera 10, Input 11, Movement 6, Lint 5).
 2. **Movement canonical fails 4** (jump_coyote / gravity_airborne / grounded_horizontal / wall_jump) post-commit `b60d809 fix(player): physics_interpolation_mode=2 (OFF) Godot 4.6` — diagnostic requis.
 3. **Camera 8 fails story_001 isolé** (scene_skeleton_project_settings) — à confirmer.
 4. **Tier 1 hardware sign-off DEFERRED** (W-1+W-2 smoke-2026-05-04) — gates draw_calls + 60 fps full-stack baselines à exécuter sur Tier 1 minimum (i3-10100F + GTX 1050) avant Production.
