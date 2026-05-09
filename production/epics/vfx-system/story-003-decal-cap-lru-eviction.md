@@ -1,7 +1,7 @@
 # Story 003: Decal Cap LRU Eviction (MAX_DECALS_PER_ROOM=32) — Migration AC-CMB-42
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -195,3 +195,29 @@ Si D == MAX (cap atteint) :
   - **combat-021 close-out** — Status `Blocked` → `Closed - Migrated to VFX System 2026-05-04`. AC-CMB-42 résolu.
   - **combat EPIC.md totaux** — `Blocked` count -1 (story-021), `Closed - Migrated` count +1.
   - **AC-VFX-30 contract** — 4 obligations Combat-021 résolues : (1) CONNECT_DEFERRED R-VFX-3 + AC-VFX-23 (story-001), (2) zero mutation AC-VFX-24 (story-007 lint), (3) trail R-VFX-7 + AC-VFX-13/14 (story-002), (4) flash + splash AC-VFX-06 + AC-VFX-11 (story-002 + story-004).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-002 done — pure test-only)
+**Verdict** : COMPLETE
+**Criteria** : 5/5 passing (AC-VFX-01/03/30 + AC-NEW-05/06)
+**Re-confirm tests** : 22/22 PASS cumulé exit 0 / 2.64 s (`reports/report_446/results.xml`) — story-001 7 + story-002 10 + story-003 5
+**Deviations** : None — Manifest version newer non-flagable. Story spec ADR N/A justifié ("Aucun ADR VFX-spécifique requis — pure logic ring buffer LRU").
+**Test Evidence** : `tests/unit/vfx/vfx_decal_lru_test.gd` (5 tests post-fixes : LRU recycle 33ème + no surface skip + Combat-021 contract + 64 kills wrap + respawn reset)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (1 GAP cross-ref AC-VFX-30 file_exists fixé) + qa-tester TESTABLE (1 gap sémantique LRU recycling fixé via direct position assert) — 2 fixes ROI élevé appliqués
+**Implementation note critique** : story-003 = **PURE TEST-ONLY** — aucune modif `src/core/vfx_system.gd` (logique LRU `_decal_pool[_decal_write_head % DECAL_POOL_SIZE]` + `mini(_room_decal_count + 1, MAX)` + `_on_respawned` reset déjà correctes depuis story-002 commit `3c48511`). Story-002 a livré l'implémentation complète, story-003 livre tests dédiés + cross-ref doc combat-021.
+
+**Cross-system close-out CRITIQUE** : **AC-VFX-30 contract Combat-021 résolu** :
+- Constants `MAX_DECALS_PER_ROOM = 32` (R-VFX-4) + `DECAL_POOL_SIZE = 64` (R-VFX-2 double-buffer) confirmés runtime
+- `combat-021` story file status `Closed - Migrated to VFX System 2026-05-04` vérifié inline test post-fix file_exists strict
+
+**Files livrés (1)** :
+- `tests/unit/vfx/vfx_decal_lru_test.gd` (NEW, ~290 L post-fixes) — 5 tests AC-VFX-01/03/30 + AC-NEW-05/06 + 2 helpers (`_make_vfx`, `_make_vfx_with_large_floor` 200×200m)
+
+**Out of Scope strict respecté** : zéro touch story-002 body (`_perform_decal_raycast`, `_spawn_decal_on_surface`, `_on_respawned`), zéro touch story-001 pool init, zéro Tier 2+ Level System `room_changed` (OQ-VFX-1 MVP DEFERRED), zéro lints story-007.
+
+**Tech debt** : aucun loggé (4 cosmetic suggestions absorbées + 1 gap cross-ref + 1 gap sémantique fixés inline).
+
+**Test latency** : ~2.64 s cumulé pour 22 tests (story-001+002+003) — acceptable scope CI.
