@@ -1,7 +1,7 @@
 # Story 001: Autoload Skeleton + Pool Pré-Allocation Zero-Alloc
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -286,3 +286,25 @@
   - **GameStateManager autoload Not Started** : ADR-0007 Accepted, GSM GDD APPROVED r1, mais GSM autoload `src/core/game_state_manager.gd` n'est **pas encore implémenté**. **Mitigation Sprint VFX** : utiliser mocks `MockGSM` test fixture pattern. Production VFX attend GSM autoload boot Sprint A multi-epic.
 - **Soft upstream** : Audio System 12/12 Complete (pattern référence pool exclusive + wall-clock fades + CONNECT_DEFERRED — VFX **réutilise architecturalement** le même idiome).
 - **Unlocks** : story-002 (Combat handlers body) + story-003 (decal LRU eviction logic) + story-004 (flash events wall-clock) + story-005 (accessibility pull) + story-006 (GSM visibility) + story-007 (lints CI activated post-impl).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post HUD epic close-out + Pre-Production audit trail commit)
+**Verdict** : COMPLETE
+**Criteria** : 6/6 passing — AC-VFX-04 + AC-VFX-05 + AC-NEW-01 (étendu topology garde-fou) + AC-NEW-02 + AC-NEW-03 + AC-NEW-04
+**Re-confirm tests** : 7/7 PASS exit 0 / 521 ms (`reports/report_440/results.xml`) — independent re-verification post-fixes
+**Deviations** : None — Manifest version newer que control-manifest non-flagable
+**Test Evidence** : `tests/unit/vfx/vfx_system_boot_test.gd` (7 tests) + 5 mock fixtures (`mock_combat.gd` / `mock_enemy.gd` / `mock_camera.gd` / `mock_gsm.gd` / `mock_accessibility.gd`)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (ADRs 0001 + 0007 D-4 + 0009 D-2/D-4 + R-VFX-14/16 PASS) + qa-tester TESTABLE (3 fixes ROI élevé appliqués)
+**Engine note critique** : `CONNECT_DEFERRED = 1` en Godot 4.6 (pas 8 era 4.3) — test utilise constante symbolique version-proof
+**Files livrés** :
+- `src/core/vfx_system.gd` (NEW, 336 L) — `class_name VFXSystemScript extends Node` + pool 74 nodes + 8 stub handlers + `_get_time_msec` Callable injection
+- `tests/unit/vfx/vfx_system_boot_test.gd` (NEW, ~440 L) — 7 tests AC-VFX-04/05 + AC-NEW-01 (×2 sizes + topology) + AC-NEW-02/03/04
+- `tests/unit/vfx/{mock_combat,mock_enemy,mock_camera,mock_gsm,mock_accessibility}.gd` (NEW, 5 fixtures)
+- `project.godot` (MODIF) — autoload `VFXSystem` registration position 6 (Presentation terminal)
+
+**Out of Scope respecté** : 8 stubs handlers no-op (bodies stories 002-006), shader code TODO bound story-002, lints story-007, playtest story-008.
+
+**Tech debt** : aucun loggé (3 suggestions cosmétiques absorbées, 2 ADVISORY (suggestions non-blocking) déférables stories 002+).

@@ -1,7 +1,7 @@
 # Story 002: Combat Handlers — enemy_killed → Splash Sang + Decal + swing_started/ended → Trail Katana
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-05-04
@@ -303,3 +303,27 @@ func _trigger_flash_kill() -> void:
   - **Combat 20/22 Complete** : signals `swing_started(direction)`, `swing_ended()`, `multi_kill(count)`, `enemy_killed(enemy, position)` SYNC disponibles production ✅.
   - **Camera 13/13 Complete** : signal `respawned(position)` disponible production ✅.
 - **Unlocks** : AC-VFX-30 contract Combat-021 résolu (4 obligations partiellement couvertes ici : R-VFX-3 CONNECT_DEFERRED + R-VFX-7 trail + R-VFX-8 splash + AC-VFX-24 zero mutation enemy/player) ; story-003 (decal LRU plein impl) + story-004 (flash wall-clock body) en parallèle.
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-001 done)
+**Verdict** : COMPLETE
+**Criteria** : 9/9 passing (8 BLOCKING ACs + 1 EC) + 1 NEW round-robin wrap edge case test ajouté pendant `/code-review` qa-tester gap fill
+**Re-confirm tests** : 17/17 PASS cumulé exit 0 / 1.04 s (`reports/report_443/results.xml`) — story-001 7 + story-002 10
+**Deviations** : None — BLOCKING R-VFX-2 array literal hot path fixé pendant `/code-review` (const `_RAYCAST_FALLBACK_DIRS` pré-allouée). 2 deviations engine pragmatic acceptables :
+  - `_set_trail_color` (renamed depuis `_set_trail_modulate`) utilise `_trail_material.albedo_color` (StandardMaterial3D pré-alloué dans `_setup_vfx_pool`) — MeshInstance3D est Node3D pas CanvasItem → pas de `.modulate`
+  - `_on_respawned` ordre `restart()` puis `emitting = false` — `GPUParticles3D.restart()` sur node `one_shot=true` remet `emitting=true`, donc on force `false` après
+**Test Evidence** : `tests/integration/vfx/vfx_combat_handlers_test.gd` (10 tests post-fixes incl. round-robin wrap)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (1 BLOCKING fixé : R-VFX-2 array literal hot path → constante de classe pré-allouée + 4 suggestions cosmétiques) + qa-tester GAPS post-fix (4 gaps + 2 blockers — 3 fixes ROI élevé appliqués + 1 NEW test edge case round-robin wrap, EC-VFX-07 push_warning capture deferred story-007 lints CI, AC-VFX-11 partial coverage shader Out of Scope explicit story-007)
+
+**Pattern Audio R-AUD-7 critique respecté** : `_on_enemy_killed(_enemy: Node, position: Vector3)` utilise `position` parameter exclusivement — jamais `enemy.global_position` post-DEFERRED (queue_free risk).
+
+**Files livrés (2)** :
+- `src/core/vfx_system.gd` (MODIF, +200 L) — 8 nouvelles constantes (BLOOD_SPURT_PARTICLE_COUNT/CONE_ANGLE/PARTICLE_LIFETIME/RAYCAST_MAX/TRAIL_OPACITY/TRAIL_FADE/REDUCE_MOTION × 2) + `_RAYCAST_FALLBACK_DIRS` pré-allouée + 8 state vars (reduce_motion/reduce_flash/flash_mult/trail_active/trail_fade_start/swing_aim_forward/last_effective_cone) + handlers bodies (`_on_swing_started/_on_swing_ended/_on_enemy_killed/_on_respawned`) + `_physics_process` trail fade-out exponentiel wall-clock + 5 helpers privés (`_spawn_blood_spurt`, `_spawn_decal_on_surface`, `_perform_decal_raycast`, `_trigger_flash_kill`, `_set_trail_color`) + `_trail_material` StandardMaterial3D pré-alloué
+- `tests/integration/vfx/vfx_combat_handlers_test.gd` (NEW, ~520 L post-fixes) — 10 tests AC-VFX-02/06/11 (×2 cone + round-robin wrap)/12/13/14/22/27 + EC-VFX-07
+
+**Out of Scope strict respecté** : pas de LRU body story-003 (`_decal_write_head` incrémenté brut sans wrap-eviction-room logic), pas de flash wall-clock body story-004 (`_trigger_flash_kill` reste WCAG guard + stub), pas de accessibility pull story-005 (defaults locaux), pas de GSM gating story-006, pas de lints story-007, pas de playtest story-008, pas de shader GLSL flat unshaded code (déféré story-007 polish).
+
+**Tech debt** : aucun loggé.

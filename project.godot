@@ -25,6 +25,7 @@ CreditEconomy="*res://src/core/credit_economy.gd"
 Upgrade="*res://src/gameplay/upgrade/upgrade_system.gd"
 LevelSystem="*res://src/gameplay/level/level_system.gd"
 HUDSystem="*res://src/gameplay/hud/hud_system.gd"
+VFXSystem="*res://src/core/vfx_system.gd"
 
 [display]
 

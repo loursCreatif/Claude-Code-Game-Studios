@@ -3,8 +3,8 @@
 > **Layer**: Presentation
 > **GDD**: `design/gdd/vfx-system.md` (Designed r1 — solo auto-approve 2026-05-04 — 593 lignes, 8 sections required + 16 Rules + 3 Formulas + 10 Edge Cases + 15 Tuning Knobs + 32 ACs + 5 OQ)
 > **Architecture Module**: `VFXSystem` (autoload Godot 4.6 — `src/core/vfx_system.gd` ; pool exclusive `GPUParticles3D` × 8 + `Decal` × 64 + `MeshInstance3D` trail × 1 + `CanvasLayer` flash overlay)
-> **Status**: Ready
-> **Stories**: 8 created 2026-05-04 (5 Logic + 2 Integration + 1 Visual/Feel ADVISORY) — éligibles `/dev-story` séquentiel ou parallèle (story-001 → story-002 + story-003 + story-004 parallèle → story-005 → story-006 → story-007 → story-008 close-out playtest)
+> **Status**: In Progress (2/8 Complete — story-001 autoload skeleton ✅ + story-002 combat handlers splash/decal/trail ✅ — 17/17 PASS cumulé / 1.04 s 2026-05-09)
+> **Stories**: 8 created 2026-05-04 (5 Logic + 2 Integration + 1 Visual/Feel ADVISORY) — 2 Complete + 6 Ready (story-003 next pickup débloque combat-021 AC-CMB-42 → AC-VFX-01/03/30 LRU 32 ring buffer)
 > **Manifest Version**: 2026-05-04
 
 ## Overview
@@ -143,8 +143,8 @@ This epic is complete when :
 
 | # | Cluster | Story | Type | Status | ACs couvertes | Notes |
 |---|---------|-------|------|--------|---------------|-------|
-| C1 | Architecture / Boot | [story-001 autoload-skeleton-pool-preallocation](story-001-autoload-skeleton-pool-preallocation.md) | Logic | Ready | AC-VFX-04/05 (zero-alloc + pool pré-alloué) | Débloque toutes les autres stories. Stub handlers + pool pré-allocation R-VFX-1/2/16. |
-| C2 | Combat handlers kill+decal+spurt | [story-002 combat-handlers-kill-decal-spurt](story-002-combat-handlers-kill-decal-spurt.md) | Integration | Ready | AC-VFX-02/06/11/12/22/27 | Listener Combat `enemy_killed` SYNC → splash + decal raycast + reset respawn. R-VFX-3/8/9. |
+| C1 | Architecture / Boot | [story-001 autoload-skeleton-pool-preallocation](story-001-autoload-skeleton-pool-preallocation.md) | Logic | ✅ Complete 2026-05-09 (7/7 PASS / 521 ms — `vfx_system.gd` 336 L + 5 mocks + project.godot autoload registered ; AC-VFX-04/05 + AC-NEW-01/02/03/04) | AC-VFX-04/05 (zero-alloc + pool pré-alloué) | Débloque toutes les autres stories. Stub handlers + pool pré-allocation R-VFX-1/2/16. |
+| C2 | Combat handlers kill+decal+spurt | [story-002 combat-handlers-kill-decal-spurt](story-002-combat-handlers-kill-decal-spurt.md) | Integration | ✅ Complete 2026-05-09 (10/10 PASS — vfx_system.gd handlers bodies + 5 helpers + _physics_process trail fade-out + _RAYCAST_FALLBACK_DIRS pré-allouée R-VFX-2 + AC-VFX-02/06/11×2/12/13/14/22/27 + EC-VFX-07 ; pattern Audio R-AUD-7 position payload respecté) | AC-VFX-02/06/11/12/22/27 | Listener Combat `enemy_killed` SYNC → splash + decal raycast + reset respawn. R-VFX-3/8/9. |
 | C3 | Decal cap LRU eviction (migration AC-CMB-42) | [story-003 decal-cap-lru-eviction](story-003-decal-cap-lru-eviction.md) | Logic | Ready | AC-VFX-01/03/30 + AC-CMB-42 migration | **Unlocks combat-021 close out**. Ring buffer LRU 32/64 R-VFX-4 + F-VFX-1. |
 | C4 | Flash events kill+death+respawn | [story-004 flash-events-kill-death-respawn](story-004-flash-events-kill-death-respawn.md) | Integration | Ready | AC-VFX-06/07/08/09/13/15/25/26 | Wall-clock 80/50 ms via `Time.get_ticks_msec()` ; reduce_flash gris `#A0A0A0` flash_mult=0.625 ; WCAG 2.3.1 333 ms plancher 3 Hz. R-VFX-5/13/15. |
 | C5 | Accessibility pull reduce_flash + reduce_motion | [story-005 accessibility-pull-reduce-flash-reduce-motion](story-005-accessibility-pull-reduce-flash-reduce-motion.md) | Integration | Ready | AC-VFX-12/20/21 | ADR-0015 D-1 Option A pull-pattern + live `settings_changed`. Trail × 0.5 + cone × 0.5 reduce_motion. R-VFX-11. |
