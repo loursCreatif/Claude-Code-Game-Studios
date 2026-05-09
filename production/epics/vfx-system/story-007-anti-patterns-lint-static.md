@@ -387,14 +387,14 @@ lint-vfx-anti-patterns:
 ## Completion Notes
 
 **Completed** : 2026-05-09 (chain auto post story-006 done — close-out structural epic VFX)
-**Verdict** : COMPLETE WITH NOTES — AC-VFX-04 DEFERRED (acceptable scope MVP — lint structurel AC-VFX-05 enforce invariant) + AC-VFX-24 PARTIAL (mutation property check non couvert)
-**Criteria** : 6/6 BLOCKING + 2 advisory — AC-VFX-05 + AC-VFX-23 + AC-NEW-09/10/11/12 PASS ; AC-VFX-04 deferred + AC-VFX-24 partial
-**Re-confirm tests** : 45/45 PASS cumulé exit 0 / 3.10 s (`reports/report_464/results.xml`) — story-001..007
-**Deviations** : None bloquantes — toutes corrigées pendant `/code-review` ou flaggées tech debt acceptable :
-  - AC-VFX-24 partial coverage : runtime mutation property check non couvert (lint outbound couvre signal emit) — flag tech debt déférable story future ou enhancement story-002 integration test
+**Verdict** : COMPLETE — AC-VFX-04 DEFERRED (acceptable scope MVP — lint structurel AC-VFX-05 enforce invariant) ; AC-VFX-24 RESOLVED 2026-05-09 (chore tech-debt-cleanup — runtime test ajouté `tests/integration/vfx/vfx_outbound_zero_mutation_test.gd` 2 tests PASS)
+**Criteria** : 6/6 BLOCKING + 2 advisory — AC-VFX-05 + AC-VFX-23 + AC-NEW-09/10/11/12 PASS ; AC-VFX-04 deferred ; AC-VFX-24 resolved post-close-out
+**Re-confirm tests** : 47/47 PASS cumulé exit 0 / 3.30 s (`reports/report_466/results.xml`) — story-001..007 + AC-VFX-24 runtime test
+**Deviations** : None bloquantes — toutes corrigées pendant `/code-review` ou drift fixé post-close-out :
+  - AC-VFX-24 → RESOLVED 2026-05-09 chore tech-debt-cleanup : `tests/integration/vfx/vfx_outbound_zero_mutation_test.gd` 2 tests (snapshot pré/post enemy_node Node3D + mock_combat/camera metadata après tous handlers VFX)
   - AC-VFX-04 deferred : explicitly per story spec (lint structurel rendant violation runtime impossible) — acceptable scope MVP
   - 2 ROI fixes appliqués : `on_handler_regex.compile` assertion parité L62 + skip silencieux paths empty → FAIL bruyant (protection régression refactor si vfx_system.gd renamed)
-  - Drift pré-existant noté HORS SCOPE : `lint-audio-anti-patterns` absent du `needs:` ligne 1038 (fix séparé recommandé)
+  - Drift pré-existant `lint-audio-anti-patterns` absent du `needs:` ligne 1038 → RESOLVED 2026-05-09 chore tech-debt-cleanup (commit `ac38691`) : ajout `lint-audio-anti-patterns` + `lint-menu-anti-patterns` au needs: gate test job
   - AC-NEW-08 fantôme dans story spec ligne 87 (cleanup doc — rule MD utilise AC-VFX-05 correct)
 **Test Evidence** : `tests/static/vfx_anti_patterns_lint_test.gd` (4 tests post-fixes)
 **Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (Pattern Audio cohérence parfaite + 4 ACs covered + scope correct, 3 suggestions cosmétiques) + qa-tester GAPS doc-only (2 gaps non-bloquants — AC-VFX-24 + skip silencieux fix appliqué)
@@ -412,4 +412,4 @@ lint-vfx-anti-patterns:
 
 **Out of Scope strict respecté** : zéro touch code prod stories 001-006, zéro playtest story-008.
 
-**Tech debt** : AC-VFX-24 mutation property check runtime non couvert → flag pour story future ou story-002 integration test enhancement.
+**Tech debt** : RESOLVED 2026-05-09 (chore tech-debt-cleanup) — AC-VFX-24 runtime mutation property check couvert via `tests/integration/vfx/vfx_outbound_zero_mutation_test.gd` (2 tests : enemy_node Node3D + cluster 5-kill repeated ; assertions sur global_position / scale / rotation / name / metadata pre==post après enemy_killed + swing_started/ended + died + respawned).
