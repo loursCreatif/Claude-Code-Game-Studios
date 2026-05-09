@@ -23,6 +23,7 @@ const TOLERANCE: float = 0.3
 
 
 var _player: MovementController = null
+var _floor_body: StaticBody3D = null
 
 
 # ---------------------------------------------------------------------------
@@ -30,16 +31,35 @@ var _player: MovementController = null
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
+	# Floor BoxShape3D — garantit is_on_floor()=true en Jolt headless 4.6,
+	# évite que step 3 transitionne GROUNDED→AIRBORNE au tick 1 (sinon air
+	# control lent au lieu de grounded movement → -5m au lieu de -10m).
+	# Pattern cohérent avec gravity_airborne_test::test_airborne_to_grounded_transition.
+	_floor_body = StaticBody3D.new()
+	_floor_body.position = Vector3(0.0, -0.25, 0.0)
+	var floor_shape: CollisionShape3D = CollisionShape3D.new()
+	var box: BoxShape3D = BoxShape3D.new()
+	box.size = Vector3(100.0, 0.5, 100.0)
+	floor_shape.shape = box
+	_floor_body.add_child(floor_shape)
+	add_child(_floor_body)
+
 	var packed: PackedScene = load(PLAYER_SCENE_PATH) as PackedScene
 	_player = packed.instantiate() as MovementController
 	add_child(_player)
 	# Let _ready() execute (asserts ADR-0005 VC-7 invariant inside MovementController).
 	await get_tree().process_frame
 
-	# Ensure a clean baseline: no velocity, no rotation, position at origin.
-	_player.position = Vector3.ZERO
+	# Ensure a clean baseline: capsule juste au-dessus du floor, no velocity.
+	_player.position = Vector3(0.0, 0.92, 0.0)
 	_player.rotation = Vector3.ZERO
 	_player.velocity = Vector3.ZERO
+
+	# Jolt headless 4.6 a besoin de plusieurs physics frames pour register la
+	# StaticBody3D avant que is_on_floor() retourne true.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 
 
 func after_test() -> void:
@@ -47,6 +67,9 @@ func after_test() -> void:
 	if is_instance_valid(_player):
 		_player.queue_free()
 	_player = null
+	if is_instance_valid(_floor_body):
+		_floor_body.queue_free()
+	_floor_body = null
 
 
 # ---------------------------------------------------------------------------

@@ -175,10 +175,22 @@ func test_airborne_to_grounded_transition_when_landing_on_floor() -> void:
 	# Wait one physics frame so the physics server registers the new bodies.
 	await get_tree().physics_frame
 
-	# Act — one physics tick: gravity applied + move_and_slide() resolves collision.
-	_player._physics_process(PHYSICS_DT)
+	# Act — boucle bornée jusqu'à transition GROUNDED. Jolt headless 4.6 ne register
+	# pas systématiquement la collision en 1 tick avec dt=1/60 et vélocité=-1
+	# (descent=0.0166m/tick). Pattern réutilisable cohérent wall_run_detection commit `5c10ad8`.
+	var landed: bool = false
+	for _i: int in 30:
+		_player._physics_process(PHYSICS_DT)
+		if _player.state == MovementController.State.GROUNDED:
+			landed = true
+			break
 
-	# Assert — AC-4: state must have transitioned to GROUNDED.
+	# Assert — AC-4: state must have transitioned to GROUNDED within 30 ticks.
+	assert_bool(landed) \
+		.override_failure_message(
+			"AC-4: AIRBORNE→GROUNDED transition expected within 30 ticks, state=%d" % (_player.state as int)
+		) \
+		.is_true()
 	assert_int(_player.state as int).is_equal(MovementController.State.GROUNDED as int)
 
 	# Cleanup — remove the floor body.
