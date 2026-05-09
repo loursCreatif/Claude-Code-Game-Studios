@@ -1,7 +1,7 @@
 # Story 006: GSM Visibility Gating — state_changed CONNECT_DEFERRED Freeze MENU/PAUSED/BOSS_DEFEATED
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -241,4 +241,40 @@ func _trigger_flash_kill() -> void:
 - **Hard upstream** : story-001 (autoload skeleton + connect `state_changed`) + story-002 (handlers Combat refactorés avec guard `_is_active`) + story-004 (handlers flash refactorés avec guard).
 - **Cross-system** :
   - **GameStateManager autoload Not Started** : ADR-0007 Accepted, GSM GDD APPROVED r1, mais GSM autoload pas implémenté. **Mitigation Sprint VFX** : utiliser mocks `MockGSM` test fixture pattern (référence Combat MockAudioHandler 171 lignes). Production VFX attend GSM autoload boot Sprint A multi-epic.
-- **Unlocks** : aucune downstream — close-out R-VFX-12 + ADR-0007 D-2/D-9/D-10 pattern visibility consumer pour VFX.
+- **Unlocks** : aucune downstream — close-out R-VFX-12 + ADR-0007 D-2/D-9/D-10 pattern visibility consumer pour VFX. **Débloque AC-VFX-15 deferred story-004** (GSM gating criterion strict).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-005 done)
+**Verdict** : COMPLETE
+**Criteria** : 4/4 BLOCKING + 1 EC + 2 NEW edge cases — AC-VFX-15/16/17 + AC-NEW-08 + EC-VFX-05 + BOSS_DEFEATED freeze + RESPAWNING actif
+**Re-confirm tests** : 41/41 PASS cumulé exit 0 / 3.07 s (`reports/report_461/results.xml`) — story-001 7 + story-002 10 + story-003 5 + story-004 8 + story-005 4 + story-006 7
+**Deviations** : None — toutes corrigées pendant `/code-review` :
+  - Cross-stories early-out guards 7/7 handlers `if not _is_active: return`
+  - `_on_respawned` no-guard intentional confirmed (reset cleanup pas spawn)
+  - AC-VFX-16 manque assert `_flash_respawn_active == false` → ajouté
+  - 2 NEW edge cases (BOSS_DEFEATED + RESPAWNING) ajoutés pour protection régression enum GSM
+  - Cross-stories tests fix 4 fichiers legacy `_make_vfx()` inject `mock_gsm`
+  - Manifest 2026-05-04 newer non-flagable
+**Test Evidence** : `tests/unit/vfx/vfx_gsm_visibility_test.gd` (7 tests post-fixes incl. NEW BOSS_DEFEATED + RESPAWNING)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (6 ADRs/Rules tous PASS : ADR-0007 D-2/D-9/D-10 + R-VFX-2/12/14, cross-stories guards 7/7) + qa-tester TESTABLE (4 ACs + EC COVERED + 2 NEW edge cases ajoutés)
+
+**AC-VFX-15 GSM gating criterion strict RÉSOLU** — débloque AC-VFX-15 deferred story-004 (story-004 Completion Notes peut être amendé "AC-VFX-15 covered story-006").
+
+**Pattern HUD R-HUD-4 + Menu R-MNU-4 visibility consumer cross-system standardisé** : VFX rejoint HUD + Menu dans le pattern `state_changed` CONNECT_DEFERRED + freeze/restore.
+
+**Cross-stories tests fix critique** (4 fichiers legacy MODIF) : `vfx_combat_handlers_test.gd` + `vfx_decal_lru_test.gd` + `vfx_flash_events_test.gd` + `vfx_accessibility_pull_test.gd` — `_make_vfx()` helpers updates pour inject `mock_gsm` (overrider autoload réel `/root/GameStateManager` qui retourne STATE_MENU=0 default headless → `_is_active=false` → handlers gated). Fix purement infrastructure test (zéro changement prod).
+
+**Files livrés (6)** :
+- `src/core/vfx_system.gd` (MODIF, +90 L) — STATE_* constants + `_gsm_ref` + body `_on_state_changed` + 4 helpers (`_apply_visibility_for_state`/`_freeze_vfx`/`_restore_vfx`/`_pull_initial_gsm_state`) + `_ready` boot pull + cross-stories early-out guards 7/7 handlers
+- `tests/unit/vfx/vfx_gsm_visibility_test.gd` (NEW, ~470 L post-fixes) — 7 tests
+- `tests/integration/vfx/vfx_combat_handlers_test.gd` (MODIF) — inject mock_gsm
+- `tests/unit/vfx/vfx_decal_lru_test.gd` (MODIF) — inject mock_gsm
+- `tests/integration/vfx/vfx_flash_events_test.gd` (MODIF) — inject mock_gsm
+- `tests/integration/vfx/vfx_accessibility_pull_test.gd` (MODIF) — inject mock_gsm + standalone force `_is_active = true`
+
+**Out of Scope strict respecté** : zéro decal pool reset (story-003), zéro flash respawn body (story-004), zéro accessibility (story-005), zéro lints (story-007), zéro playtest (story-008).
+
+**Tech debt** : aucun loggé (3 documentation suggestions cosmétiques absorbées + 3 ROI fixes appliqués inline + 1 mystère `_on_respawned` no-guard clarifié intentional).

@@ -33,7 +33,7 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 | **shop-system** | Feature | 16 | **15/16** | 1 Deprecated Tier 2+ | Complete | `production/epics/shop-system/EPIC.md` |
 | **upgrade-system** | Feature | 11 | **11/11** ✅ | — | Complete (1 partial AC-UPG-37-bis playtest DEFERRED) | `production/epics/upgrade-system/EPIC.md` |
 | **hud-system** | Feature | 6 | **5/6** | 1 BLOCKED (story-006 playtest manuel Visual/Feel ADVISORY) | In Progress 2026-05-05 — 46/46 PASS cumulé (story-001..005 Complete) | `production/epics/hud-system/EPIC.md` |
-| **vfx-system** | Feature | 8 | **5/8** | 3 Ready (story-008 ADVISORY playtest) | In Progress 2026-05-09 — autoload + combat + LRU + flash events + accessibility pull ✅ **AC-CMB-42 Combat-021 close-out + WCAG 2.3.1 compliance + ADR-0015 D-1 close-out cross-system VFX** ; 34/34 PASS cumulé / 2.83 s | `production/epics/vfx-system/EPIC.md` |
+| **vfx-system** | Feature | 8 | **6/8** | 2 Ready (story-008 ADVISORY playtest) | In Progress 2026-05-09 — autoload + combat + LRU + flash + accessibility + GSM gating ✅ **AC-CMB-42 + WCAG 2.3.1 + ADR-0015 D-1 + AC-VFX-15 GSM gating close-out cross-system VFX** ; 41/41 PASS cumulé / 3.07 s | `production/epics/vfx-system/EPIC.md` |
 
 **Totaux scope sprint Pre-Production** :
 - **Foundation** : 32/32 stories Complete (Input + SaveLoad + Menu + Accessibility) — 0 gap

@@ -16,24 +16,29 @@ var _MockCombat: GDScript = preload("res://tests/unit/vfx/mock_combat.gd")
 var _MockEnemy: GDScript = preload("res://tests/unit/vfx/mock_enemy.gd")
 var _MockCamera: GDScript = preload("res://tests/unit/vfx/mock_camera.gd")
 var _MockAccessibility: GDScript = preload("res://tests/unit/vfx/mock_accessibility.gd")
+var _MockGSM: GDScript = preload("res://tests/unit/vfx/mock_gsm.gd")
 
 
 # =============================================================================
 # Helpers — instanciation hermétique
 # =============================================================================
 
-## Instancie VFXSystem + mocks Combat/Enemy/Camera/Accessibility.
-## Retourne [vfx, mock_combat, mock_enemy, mock_camera, mock_accessibility].
+## Instancie VFXSystem + mocks Combat/Enemy/Camera/Accessibility/GSM.
+## Retourne [vfx, mock_combat, mock_enemy, mock_camera, mock_accessibility, mock_gsm].
+## story-006 fix : mock_gsm en position 5 pour overrider autoload réel (retourne PLAYING=1
+## → _is_active = true au boot). Indices 0-4 inchangés (mock_accessibility reste [4]).
 func _make_vfx() -> Array:
 	var mock_combat: Node = _MockCombat.new() as Node
 	var mock_enemy: Node = _MockEnemy.new() as Node
 	var mock_camera: Node = _MockCamera.new() as Node
 	var mock_accessibility: Node = _MockAccessibility.new() as Node
+	var mock_gsm: Node = _MockGSM.new() as Node
 
 	add_child(mock_combat)
 	add_child(mock_enemy)
 	add_child(mock_camera)
 	add_child(mock_accessibility)
+	add_child(mock_gsm)
 
 	var vfx: Node = _VFXScript.new() as Node
 	add_child(vfx)
@@ -42,8 +47,9 @@ func _make_vfx() -> Array:
 	vfx.connect_enemy_signals(mock_enemy)
 	vfx.connect_camera_signals(mock_camera)
 	vfx.connect_accessibility_signals(mock_accessibility)  # story-005 — inject + re-pull
+	vfx.connect_gsm_signals(mock_gsm)  # story-006 fix — inject + re-pull → _is_active = true
 
-	return [vfx, mock_combat, mock_enemy, mock_camera, mock_accessibility]
+	return [vfx, mock_combat, mock_enemy, mock_camera, mock_accessibility, mock_gsm]
 
 
 func _free_all(nodes: Array) -> void:
@@ -205,6 +211,10 @@ func test_boot_defensive_no_accessibility_service_uses_defaults() -> void:
 	vfx.connect_enemy_signals(mock_enemy)
 	vfx.connect_camera_signals(mock_camera)
 	# PAS de connect_accessibility_signals → _accessibility_service_ref reste null
+	# PAS de connect_gsm_signals — ce test teste l'absence de service.
+	# story-006 fix : forcer _is_active = true pour ne pas gater les handlers post-pull.
+	# (le vrai GSM autoload retourne MENU=0 en headless → _is_active = false sans mock)
+	vfx._is_active = true
 
 	# Forcer état arbitraire pour vérifier reset sur defaults
 	vfx._reduce_flash = true

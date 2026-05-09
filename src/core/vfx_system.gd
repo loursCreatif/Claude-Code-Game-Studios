@@ -22,10 +22,17 @@
 ## - _pull_accessibility_settings() : guard EC-VFX-08 defaults safe si Service absent
 ## - _on_accessibility_settings_changed() : body re-pull + apply live mid-swing (AC-NEW-07)
 ##
+## Responsabilités story-006 :
+## - GSM visibility gating : freeze pool + trail + flash quand MENU/PAUSED/BOSS_DEFEATED
+## - _gsm_ref injectable pour test mock substitution
+## - _on_state_changed() : body complet + _apply_visibility_for_state + _freeze_vfx/_restore_vfx
+## - _pull_initial_gsm_state() : pull boot ADR-0007 D-9
+## - early-out guard if not _is_active dans handlers story-002/004 + _physics_process
+##
 ## ADR-0001 (wall-clock timer Callable injection), ADR-0009 D-2 (pool exclusive),
 ## ADR-0009 D-4 (CONNECT_DEFERRED), R-VFX-2 (zero-alloc hot path), R-VFX-14 (outbound-only).
 ## Story-001 : implémentation initiale. Story-002 : combat handlers bodies.
-## Story-005 : accessibility pull live update.
+## Story-005 : accessibility pull live update. Story-006 : GSM visibility gating.
 
 class_name VFXSystemScript
 
@@ -71,6 +78,14 @@ const BLOOD_CONE_ANGLE_DEG: float = 30.0
 
 ## Durée de vie d'une particule sang en ms.
 const PARTICLE_LIFETIME_MS: int = 400
+
+## GSM enum states (mirror GameStateManager.State — à confirmer post-GSM autoload boot Sprint A multi-epic).
+## MVP : valeurs synchrones avec mock_gsm.gd story-001 (PLAYING = 1).
+const STATE_MENU: int = 0
+const STATE_PLAYING: int = 1
+const STATE_PAUSED: int = 2
+const STATE_RESPAWNING: int = 3
+const STATE_BOSS_DEFEATED: int = 4
 
 ## Distance max du raycast pour projection decal sur surface.
 const DECAL_RAYCAST_MAX_DISTANCE: float = 3.0
@@ -192,6 +207,10 @@ var _get_time_msec: Callable = Time.get_ticks_msec
 ## null = fallback sur `/root/AccessibilityService` en prod.
 var _accessibility_service_ref: Node = null
 
+## Référence injectable GSM — set par connect_gsm_signals ou _connect_upstream_signals.
+## null = fallback sur `/root/GameStateManager` autoload prod.
+var _gsm_ref: Node = null
+
 
 # ---------------------------------------------------------------------------
 # _ready
@@ -206,6 +225,7 @@ func _ready() -> void:
 	_setup_vfx_pool()
 	_connect_upstream_signals()
 	_pull_accessibility_settings()  # story-005 — pull initial boot ADR-0015 D-1
+	_pull_initial_gsm_state()       # story-006 — pull initial GSM state ADR-0007 D-9
 
 	print("[VFXSystem] boot — pool=%d/%d trail=%d flash_layer=%d" % [
 		BLOOD_PARTICLE_POOL_SIZE,
@@ -321,6 +341,7 @@ func _connect_upstream_signals() -> void:
 	# GSM state_changed (visibility gating story-006)
 	var gsm: Node = get_node_or_null("/root/GameStateManager")
 	if gsm != null:
+		_gsm_ref = gsm  # story-006 — store ref pour pull
 		if gsm.has_signal(&"state_changed") and not gsm.state_changed.is_connected(_on_state_changed):
 			gsm.state_changed.connect(_on_state_changed, CONNECT_DEFERRED)
 
@@ -369,11 +390,14 @@ func connect_camera_signals(camera: Node) -> void:
 
 
 ## Injecte un mock GSM et connecte son signal.
+## Story-006 : store _gsm_ref + re-pull immédiat post-injection (ADR-0007 D-9).
 func connect_gsm_signals(gsm: Node) -> void:
 	if gsm == null:
 		return
+	_gsm_ref = gsm  # story-006 — store ref pour pull
 	if gsm.has_signal(&"state_changed") and not gsm.state_changed.is_connected(_on_state_changed):
 		gsm.state_changed.connect(_on_state_changed, CONNECT_DEFERRED)
+	_pull_initial_gsm_state()  # story-006 — re-pull immédiat post-injection
 
 
 ## Injecte un mock AccessibilityService et connecte son signal.
@@ -393,7 +417,11 @@ func connect_accessibility_signals(accessibility: Node) -> void:
 
 ## Trail fade-out exponentiel 100 ms (R-VFX-7 + AC-VFX-14).
 ## Calcul wall-clock via _get_time_msec pour résistance Engine.time_scale.
+## story-006 : early-out guard si frozen (MENU/PAUSED/BOSS_DEFEATED).
 func _physics_process(_delta: float) -> void:
+	if not _is_active:
+		return  # story-006 — skip trail + flash ticks quand frozen
+
 	if _trail_active and _trail_fade_start_msec > 0:
 		var elapsed_ms: int = _get_time_msec.call() - _trail_fade_start_msec
 		if elapsed_ms >= KATANA_TRAIL_FADE_MS:
@@ -447,8 +475,9 @@ func _on_swing_started(direction: Vector3 = Vector3.ZERO) -> void:
 ## Handler swing_ended (Combat) — story-002.
 ## Déclenche le fade-out exponentiel 100 ms du trail (R-VFX-7 + AC-VFX-14).
 ## Le fade est géré dans _physics_process.
+## story-006 : ignoré si frozen — trail déjà cleared par _freeze_vfx.
 func _on_swing_ended() -> void:
-	if not _trail_active:
+	if not _is_active or not _trail_active:
 		return
 	_trail_fade_start_msec = _get_time_msec.call()
 
@@ -498,10 +527,11 @@ func _on_respawned(_position: Vector3 = Vector3.ZERO) -> void:
 	_trigger_flash_respawn()
 
 
-## Handler state_changed (GSM) — stub no-op.
-## Body story-006 : gating visibilité pool VFX selon état GSM (MENU=hide, PLAYING=show).
-func _on_state_changed(_new_state: int = 0) -> void:
-	pass
+## Handler state_changed (GSM) — story-006.
+## R-VFX-12 + ADR-0007 D-2 : freeze pool + trail + flash overlay si MENU/PAUSED/BOSS_DEFEATED ;
+## restore process_mode si retour PLAYING (AC-VFX-17).
+func _on_state_changed(new_state: int = 0) -> void:
+	_apply_visibility_for_state(new_state)
 
 
 ## Handler settings_changed (AccessibilityService) — story-005.
@@ -546,6 +576,74 @@ func _pull_accessibility_settings() -> void:
 		_flash_mult = svc.get_flash_mult()
 	if svc.has_method(&"is_reduce_motion_enabled"):
 		_reduce_motion = svc.is_reduce_motion_enabled()
+
+
+# ---------------------------------------------------------------------------
+# Private helpers — story-006
+# ---------------------------------------------------------------------------
+
+## Applique la matrice visibilité ADR-0007 D-2 :
+## PLAYING + RESPAWNING → VFX actif ; MENU + PAUSED + BOSS_DEFEATED → freeze.
+## Détecte transition (was_active != _is_active) pour appel freeze/restore.
+func _apply_visibility_for_state(state: int) -> void:
+	var was_active: bool = _is_active
+	_is_active = (state == STATE_PLAYING or state == STATE_RESPAWNING)
+	if not _is_active:
+		_freeze_vfx()
+	elif not was_active:  # transition false → true (PLAYING/RESPAWNING return)
+		_restore_vfx()
+
+
+## Freeze pool VFX (R-VFX-12 + AC-VFX-15/16).
+## - GPUParticles3D : emitting=false + process_mode=PROCESS_MODE_DISABLED
+## - Trail : visible=false + _trail_active=false + _trail_fade_start_msec=0
+## - Flash overlay : visible=false + _flash_kill_active=false + _flash_respawn_active=false
+## - Decals : restent visibles (mémoire physique salle Pillar 2 — reset par respawn story-003 only).
+func _freeze_vfx() -> void:
+	for p: GPUParticles3D in _blood_particle_pool:
+		p.emitting = false
+		p.process_mode = Node.PROCESS_MODE_DISABLED
+
+	_trail_mesh.visible = false
+	_trail_active = false
+	_trail_fade_start_msec = 0
+
+	_flash_overlay_rect.visible = false
+	_flash_kill_active = false
+	_flash_respawn_active = false
+	_flash_kill_start_msec = 0
+	_flash_respawn_start_msec = 0
+
+
+## Restore pool VFX au retour PLAYING (R-VFX-12 + AC-VFX-17).
+## process_mode restauré INHERIT ; trail Idle (pas orphelin) ; flash overlay prêt.
+## emitting reste false (sera re-trigger par prochain enemy_killed via handlers).
+func _restore_vfx() -> void:
+	for p: GPUParticles3D in _blood_particle_pool:
+		p.process_mode = Node.PROCESS_MODE_INHERIT
+
+	_trail_mesh.visible = false
+	_trail_active = false
+	_flash_overlay_rect.visible = false
+
+
+## Pull initial GSM state au boot (ADR-0007 D-9 pull pattern).
+## Guard EC : si GSM non initialisé OU pas de get_current_state, default PLAYING.
+func _pull_initial_gsm_state() -> void:
+	var svc: Node = _gsm_ref
+	if svc == null:
+		svc = get_node_or_null("/root/GameStateManager")
+	if not is_instance_valid(svc):
+		# GSM autoload Not Started — default PLAYING (mitigation MVP)
+		_is_active = true
+		push_warning("VFX: GSM not available at pull — defaulting _is_active = true (PLAYING assumption)")
+		return
+
+	if svc.has_method(&"get_current_state"):
+		var initial_state: int = svc.get_current_state()
+		_apply_visibility_for_state(initial_state)
+	else:
+		_is_active = true  # default safe
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +722,10 @@ func _perform_decal_raycast(from_position: Vector3) -> Vector3:
 
 ## Flash kill 80 ms wall-clock + WCAG 333 ms plancher 3 Hz guard (R-VFX-5/13 + AC-VFX-06/08).
 ## reduce_flash → fondu gris #A0A0A0 substitute (R-VFX-5 + AC-VFX-07 + F-VFX-2).
+## story-006 : early-out guard si frozen (MENU/PAUSED/BOSS_DEFEATED).
 func _trigger_flash_kill() -> void:
+	if not _is_active:
+		return
 	var now: int = _get_time_msec.call()
 	if now - _flash_last_msec < FLASH_MIN_INTERVAL_MS:
 		push_warning("VFX: flash rate guard triggered — skip flash kill (last=%d, now=%d, delta=%d ms)" % [
@@ -655,7 +756,10 @@ func _apply_flash_kill_color(t: float) -> void:
 
 ## Flash respawn 50 ms blanc pur (R-VFX-15 + AC-VFX-09).
 ## reduce_flash → flash supprimé entièrement (pas de substitut gris — durée 50 ms trop courte).
+## story-006 : early-out guard si frozen (MENU/PAUSED/BOSS_DEFEATED).
 func _trigger_flash_respawn() -> void:
+	if not _is_active:
+		return
 	if _reduce_flash:
 		return  # AC-VFX-09 — zéro flash respawn si reduce_flash ON
 	var now: int = _get_time_msec.call()

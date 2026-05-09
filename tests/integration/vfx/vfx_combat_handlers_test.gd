@@ -16,22 +16,27 @@ var _VFXScript: GDScript = preload("res://src/core/vfx_system.gd")
 var _MockCombat: GDScript = preload("res://tests/unit/vfx/mock_combat.gd")
 var _MockEnemy: GDScript = preload("res://tests/unit/vfx/mock_enemy.gd")
 var _MockCamera: GDScript = preload("res://tests/unit/vfx/mock_camera.gd")
+var _MockGSM: GDScript = preload("res://tests/unit/vfx/mock_gsm.gd")
 
 
 # =============================================================================
 # Helpers — instanciation hermétique
 # =============================================================================
 
-## Instancie VFXSystem + mocks Combat/Enemy/Camera sans CollisionShape3D.
-## Retourne [vfx, mock_combat, mock_enemy, mock_camera].
+## Instancie VFXSystem + mocks Combat/Enemy/Camera/GSM sans CollisionShape3D.
+## Retourne [vfx, mock_combat, mock_enemy, mock_camera, mock_gsm].
+## story-006 fix : mock_gsm injecté pour overrider autoload réel (retourne PLAYING=1
+## → _is_active = true au boot, évite gating handlers story-002/004).
 func _make_vfx() -> Array:
 	var mock_combat: Node = _MockCombat.new() as Node
 	var mock_enemy: Node = _MockEnemy.new() as Node
 	var mock_camera: Node = _MockCamera.new() as Node
+	var mock_gsm: Node = _MockGSM.new() as Node
 
 	add_child(mock_combat)
 	add_child(mock_enemy)
 	add_child(mock_camera)
+	add_child(mock_gsm)
 
 	var vfx: Node = _VFXScript.new() as Node
 	add_child(vfx)
@@ -39,13 +44,14 @@ func _make_vfx() -> Array:
 	vfx.connect_combat_signals(mock_combat)
 	vfx.connect_enemy_signals(mock_enemy)
 	vfx.connect_camera_signals(mock_camera)
+	vfx.connect_gsm_signals(mock_gsm)  # story-006 fix — inject + re-pull → _is_active = true
 
-	return [vfx, mock_combat, mock_enemy, mock_camera]
+	return [vfx, mock_combat, mock_enemy, mock_camera, mock_gsm]
 
 
 ## Instancie VFXSystem + mocks + StaticBody3D floor à y=0 (4×0.1×4).
 ## Le floor permet au raycast DOWN de toucher une surface sous y=0.
-## Retourne [vfx, mock_combat, mock_enemy, mock_camera, floor_body].
+## Retourne [vfx, mock_combat, mock_enemy, mock_camera, mock_gsm, floor_body].
 func _make_vfx_with_floor() -> Array:
 	# Floor : StaticBody3D + BoxShape3D 4×0.1×4 centré à y=-0.05
 	var floor_body: StaticBody3D = StaticBody3D.new()
