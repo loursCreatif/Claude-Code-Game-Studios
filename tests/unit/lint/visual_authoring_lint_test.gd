@@ -82,15 +82,15 @@ func test_validate_visual_no_imported_mesh_fails() -> void:
 	# Act
 	var errors: Array[String] = LevelLintScript.validate_visual_authoring(root)
 
-	# Assert — doit contenir "uses ArrayMesh — MVP Chrome Zen primitives only"
+	# Assert — doit contenir "imported mesh found at ... MVP Chrome Zen primitives only"
 	var found: bool = false
 	for e: String in errors:
-		if "uses ArrayMesh" in e and "MVP Chrome Zen primitives only" in e:
+		if "imported mesh found" in e and "MVP Chrome Zen primitives only" in e:
 			found = true
 			break
 	assert_bool(found) \
 		.override_failure_message(
-			"TR-lvl-040: violation 'uses ArrayMesh — MVP Chrome Zen primitives only' attendue. Erreurs : %s" % str(errors)
+			"TR-lvl-040: violation 'imported mesh found at <path>: MVP Chrome Zen primitives only' attendue. Erreurs : %s" % str(errors)
 		) \
 		.is_true()
 
@@ -112,15 +112,15 @@ func test_validate_visual_flat_shader_required() -> void:
 	# Act
 	var errors: Array[String] = LevelLintScript.validate_visual_authoring(root)
 
-	# Assert — doit contenir "material must reference chrome_zen_flat"
+	# Assert — doit contenir "must reference chrome_zen_flat"
 	var found: bool = false
 	for e: String in errors:
-		if "material must reference chrome_zen_flat" in e:
+		if "must reference chrome_zen_flat" in e:
 			found = true
 			break
 	assert_bool(found) \
 		.override_failure_message(
-			"TR-lvl-040 shader: violation 'material must reference chrome_zen_flat.tres or chrome_zen_flat.gdshader' attendue. Erreurs : %s" % str(errors)
+			"TR-lvl-040 shader: violation 'material at <path> must reference chrome_zen_flat.gdshader' attendue. Erreurs : %s" % str(errors)
 		) \
 		.is_true()
 

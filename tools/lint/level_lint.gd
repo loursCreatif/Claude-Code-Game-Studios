@@ -638,7 +638,9 @@ static func validate_door_widths(root: Node3D) -> Array[String]:
 			found_box = true
 			var box: BoxShape3D = shape as BoxShape3D
 			var width: float = maxf(box.size.x, box.size.z)
-			if width < MIN_DOOR_WIDTH_M:
+			# Tolérance epsilon — Vector3 stocke en float32 alors que la const est float64,
+			# la conversion lossy peut faire dériver 3.6 → 3.5999998 sur le boundary.
+			if width < MIN_DOOR_WIDTH_M - 0.001:
 				errors.append(
 					"%s door width %.2fm < 3.6m (F1)" % [area_name, width]
 				)
@@ -759,6 +761,72 @@ static func validate_static_body_count_per_room(root: Node3D) -> Array[String]:
 		if count > MAX_STATIC_BODIES_PER_ROOM:
 			errors.append(
 				"%s StaticBody3D count %d > 25 (TR-lvl-013)" % [room.name, count]
+			)
+
+	return errors
+
+
+# ---------------------------------------------------------------------------
+# Public API — checkpoint pair lint (story-021, AC-LVL-19)
+# ---------------------------------------------------------------------------
+
+## Valide la cohérence des paires CheckpointVolume_NN ↔ CheckpointAnchor_NN.
+##
+## **AC-LVL-19** — Pour chaque CheckpointVolume_NN trouvé sous root, un
+## CheckpointAnchor_NN paired (même index NN) doit exister, à distance ≤ 10 m.
+##
+## Violations possibles :
+##   - "CheckpointVolume_NN missing paired CheckpointAnchor_NN"
+##   - "CheckpointAnchor_NN orphan — missing paired CheckpointVolume_NN"
+##   - "Checkpoint pair NN distance X.XXm > 10m"
+##
+## [param root] : Node3D racine de la scène d'étage instanciée.
+## [return] : Array[String] de violations (vide = PASS).
+## Source : TR-lvl-020, story-021 AC-LVL-19, ADR-0011.
+static func validate_checkpoint_pairs(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+
+	var volumes: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true, false)
+	var anchors: Array[Node] = root.find_children("CheckpointAnchor_*", "Marker3D", true, false)
+
+	# Skip si aucun checkpoint authoring : étage encore en construction.
+	if volumes.is_empty() and anchors.is_empty():
+		return errors
+
+	var volume_by_idx: Dictionary = {}
+	for v: Node in volumes:
+		var idx: String = String(v.name).trim_prefix("CheckpointVolume_")
+		volume_by_idx[idx] = v
+
+	var anchor_by_idx: Dictionary = {}
+	for a: Node in anchors:
+		var idx: String = String(a.name).trim_prefix("CheckpointAnchor_")
+		anchor_by_idx[idx] = a
+
+	# Volumes sans anchor paired.
+	for idx: String in volume_by_idx.keys():
+		if not anchor_by_idx.has(idx):
+			errors.append(
+				"CheckpointVolume_%s missing paired CheckpointAnchor_%s" % [idx, idx]
+			)
+
+	# Anchors sans volume paired.
+	for idx: String in anchor_by_idx.keys():
+		if not volume_by_idx.has(idx):
+			errors.append("CheckpointAnchor_%s orphan — missing paired CheckpointVolume_%s" % [idx, idx])
+
+	# Paires complètes : check distance.
+	for idx: String in volume_by_idx.keys():
+		if not anchor_by_idx.has(idx):
+			continue
+		var v: Area3D = volume_by_idx[idx] as Area3D
+		var a: Marker3D = anchor_by_idx[idx] as Marker3D
+		if v == null or a == null:
+			continue
+		var dist: float = v.global_position.distance_to(a.global_position)
+		if dist > 10.0:
+			errors.append(
+				"Checkpoint pair %s distance %.2fm > 10m" % [idx, dist]
 			)
 
 	return errors
@@ -951,18 +1019,21 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 	var errors: Array[String] = []
 
 	# --- AC-LVL-18 : PlayerStart unique ---
-	var starts: Array[Node] = root.find_children("PlayerStart", "Marker3D", true)
+	# owned=false : trouve les markers ajoutés programmatiquement (owner=null en tests
+	# unitaires). En prod scene .tscn, owner auto-set par Godot, find_children fonctionne
+	# de la même manière. Cohérence cross-méthode : level_system.gd commit `299052c` même fix.
+	var starts: Array[Node] = root.find_children("PlayerStart", "Marker3D", true, false)
 	if starts.size() != 1:
 		errors.append("PlayerStart count %d != 1" % starts.size())
 
 	# --- AC-LVL-20 : Room count [8, 10] ---
-	var rooms: Array[Node] = root.find_children("RoomTrigger_*", "Area3D", true)
+	var rooms: Array[Node] = root.find_children("RoomTrigger_*", "Area3D", true, false)
 	var n: int = rooms.size()
 	if n < MIN_ROOM_COUNT or n > MAX_ROOM_COUNT:
 		errors.append("Room count %d outside [8, 10]" % n)
 
 	# --- AC-LVL-47 + AC-LVL-51 : Checkpoint count & spacing F3 ---
-	var checkpoints: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true)
+	var checkpoints: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true, false)
 	var k: int = checkpoints.size()
 	if k == 0:
 		errors.append("checkpoint spacing: K=0 fail")
@@ -978,7 +1049,7 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 			)
 
 	# --- AC-LVL-46 : Secret count [3, 5] ---
-	var secrets: Array[Node] = root.find_children("SecretCollectVolume_*", "Area3D", true)
+	var secrets: Array[Node] = root.find_children("SecretCollectVolume_*", "Area3D", true, false)
 	var s: int = secrets.size()
 	if s < MIN_SECRET_COUNT or s > MAX_SECRET_COUNT:
 		errors.append("Secret count %d outside [3, 5] (F7)" % s)
@@ -1009,8 +1080,8 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 			)
 			var union: AABB = AABB()
 			var first: bool = true
-			for sb: StaticBody3D in root.find_children("*", "StaticBody3D", true):
-				for sc_node: Node in sb.find_children("*", "CollisionShape3D", false):
+			for sb: StaticBody3D in root.find_children("*", "StaticBody3D", true, false):
+				for sc_node: Node in sb.find_children("*", "CollisionShape3D", false, false):
 					var sc: CollisionShape3D = sc_node as CollisionShape3D
 					if sc == null:
 						continue
@@ -1103,7 +1174,7 @@ static func validate_onboarding_anchors(root: Node3D, etage_id: int) -> Array[St
 
 	# --- AC-LVL-54(b) : SafeZoneCenter distances ---
 	if safe != null:
-		var enemy_slots: Array[Node] = root.find_children("EnemySlot_*", "Marker3D", true)
+		var enemy_slots: Array[Node] = root.find_children("EnemySlot_*", "Marker3D", true, false)
 		for e: Node in enemy_slots:
 			var em: Marker3D = e as Marker3D
 			if em == null:
@@ -1113,7 +1184,7 @@ static func validate_onboarding_anchors(root: Node3D, etage_id: int) -> Array[St
 				errors.append(
 					"SafeZoneCenter distance %.2fm < 6m from %s" % [d, em.name]
 				)
-		var hazards: Array[Node] = root.find_children("HazardSlot_*", "Marker3D", true)
+		var hazards: Array[Node] = root.find_children("HazardSlot_*", "Marker3D", true, false)
 		for h: Node in hazards:
 			var hm: Marker3D = h as Marker3D
 			if hm == null:
@@ -1223,13 +1294,31 @@ static func validate_visual_authoring(root: Node3D) -> Array[String]:
 ## [param node_path] : chemin du node pour les messages d'erreur.
 ## [return] : Array[String] de violations (vide = PASS).
 static func _check_texture_sizes(sm: ShaderMaterial, node_path: String) -> Array[String]:
-	var errors: Array[String] = []
 	if sm.shader == null:
-		return errors
+		return [] as Array[String]
 
+	var textures: Array = []
 	var param_list: Array[Dictionary] = sm.shader.get_shader_uniform_list()
 	for param: Dictionary in param_list:
 		var tex: Variant = sm.get_shader_parameter(param["name"])
+		if tex is Texture2D:
+			textures.append(tex)
+	return _check_texture_sizes_from_texture_list(node_path, textures)
+
+
+## Variante testable en isolation : prend une liste de Texture2D directement.
+## Utile pour les tests unitaires qui ne peuvent pas charger un Shader réel
+## (Shader.new() vide → get_shader_uniform_list() retourne []).
+##
+## [param node_path] : chemin du node pour les messages d'erreur.
+## [param textures] : Array de Texture2D à valider.
+## [return] : Array[String] de violations (vide = PASS).
+static func _check_texture_sizes_from_texture_list(
+	node_path: String,
+	textures: Array
+) -> Array[String]:
+	var errors: Array[String] = []
+	for tex: Variant in textures:
 		if not (tex is Texture2D):
 			continue
 		var texture: Texture2D = tex as Texture2D
