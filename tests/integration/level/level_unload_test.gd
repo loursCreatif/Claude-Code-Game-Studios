@@ -57,7 +57,7 @@ func test_load_etage_rejected_when_active() -> void:
 	# Act + Assert — push_error capturé avant halt assert(false)
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=ACTIVE)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=ACTIVE)")
 
 	# Assert post-rejet — état et etage_id inchangés (AC-LVL-4)
 	assert_int(level.get_state()) \
@@ -87,7 +87,7 @@ func test_load_etage_rejected_when_loading() -> void:
 	# Act + Assert — second load_etage pendant LOADING doit être rejeté
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=LOADING)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=LOADING)")
 
 	# Assert post-rejet — état LOADING préservé, etage_id reste celui du load initial (1)
 	assert_int(level.get_state()) \
@@ -119,7 +119,7 @@ func test_load_etage_rejected_when_unloading() -> void:
 	# Act + Assert — load_etage pendant UNLOADING doit être rejeté
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=UNLOADING)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=UNLOADING)")
 
 	# Assert post-rejet — état UNLOADING préservé, etage_id encore 1 (réinitialisé au prochain tick)
 	assert_int(level.get_state()) \

@@ -642,7 +642,7 @@ func _extract_room_index(area: Area3D) -> int:
 ## Cherche le Marker3D "PlayerStart" dans root. Exactement 1 requis.
 ## En debug : push_error → assert(false). En release : push_error + Vector3.ZERO.
 func _discover_player_start(root: Node3D) -> Vector3:
-	var markers: Array[Node] = root.find_children("PlayerStart", "Marker3D", true)
+	var markers: Array[Node] = root.find_children("PlayerStart", "Marker3D", true, false)
 	if markers.size() != 1:
 		push_error("missing PlayerStart marker")
 		assert(false, "missing PlayerStart marker")
