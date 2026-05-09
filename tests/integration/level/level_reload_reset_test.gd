@@ -27,16 +27,23 @@ func _make_level() -> LevelSystemScript:
 	return level
 
 
-## Charge l'étage spécifié et attend level_active — état = ACTIVE au retour.
+## Charge l'étage spécifié et pump explicitement jusqu'à ACTIVE.
+## En headless GdUnit4, await physics_frame ne pump pas systématiquement le
+## `_process` / `_physics_process` du level — on les call directement.
 func _load_and_wait(level: LevelSystemScript, etage_id: int) -> void:
 	level.load_etage(etage_id)
-	await await_signal_on(level, "level_active", [], 2000)
+	for i: int in range(50):
+		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
+			break
+		level._process(0.0)
+		level._physics_process(0.0)
+		await get_tree().physics_frame
 
 
-## Décharge le niveau courant et attend le tick physique UNLOADING → UNLOADED.
+## Décharge le niveau courant et force la transition UNLOADING → UNLOADED.
 func _unload_and_wait(level: LevelSystemScript) -> void:
 	level.unload_current()
-	await get_tree().physics_frame  # confirme transition UNLOADING → UNLOADED
+	level._physics_process(0.0)  # force commit UNLOADING → UNLOADED
 
 # ---------------------------------------------------------------------------
 # AC-LVL-9 — Re-load après unload reset complètement
