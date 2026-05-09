@@ -84,6 +84,12 @@ func before_test() -> void:
 	_player.set_capability(&"air_jump", false)
 	_player.set_capability(&"dash", false)
 	_player.set_capability(&"wall_run", false)
+	# Force GROUNDED baseline : Jolt headless sans floor transitionne state à
+	# AIRBORNE pendant le process_frame du _ready. Pattern b60d809 +
+	# project_settings_and_scene_test (set_physics_process(false)) insuffisant ici
+	# car _state est muté ailleurs. Reflexion via set("_state", ...) bypass
+	# read-only protection (cohérent helper _set_state).
+	_set_state(_player, MovementController.State.GROUNDED)
 
 
 func after_test() -> void:
