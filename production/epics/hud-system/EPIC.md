@@ -3,8 +3,8 @@
 > **Layer**: Presentation
 > **GDD**: `design/gdd/hud-system.md` (In Design r1.1 — solo auto-approve, amendement r2.2 cascade NB-CRD-6 Option A 2026-04-28 — pulse différencié SECRET tween +50% durée)
 > **Architecture Module**: `HUDSystem` (autoload Godot — `src/gameplay/hud/hud_system.gd` ; CanvasLayer enfant `layer = 50` < 100 ; Label `CreditCounterLabel` ancré top-right)
-> **Status**: Ready
-> **Stories**: 6 created 2026-05-04 (4 Logic + 1 Integration + 1 Visual/Feel ADVISORY) — éligibles `/dev-story` séquentiel ou parallèle (story-001 → story-002 → story-003 + story-004 parallèle → story-005 → story-006 close-out playtest)
+> **Status**: In Progress (5/6 Complete 2026-05-05 — story-001 skeleton ✅ + story-002 listener ✅ + story-003 visibility ✅ + story-004 pulse différencié source KILL/SECRET ✅ AC-HUD-36 + OQ-HUD-5 wall-clock + story-005 anti-patterns lint static ✅ 16/16 PASS)
+> **Stories**: 6 created 2026-05-04 (4 Logic + 1 Integration + 1 Visual/Feel ADVISORY) — 5 Complete + 1 Ready (story-006 playtest manuel BLOCKED)
 > **Manifest Version**: 2026-05-04
 
 ## Overview
@@ -140,11 +140,11 @@ This epic is complete when :
 
 | # | Cluster | Story | Type | ACs couvertes |
 |---|---------|-------|------|---------------|
-| C1 | Architecture / Boot | story-001 autoload skeleton + CanvasLayer layer=50 + Label anchor PRESET_TOP_RIGHT + pattern pull GSM/Credit boot | Logic | AC-HUD-01/02/03/04/17/18 |
-| C2 | Pull pattern credits_changed | story-002 listener `_on_credits_changed(total, delta, source)` SYNC same-frame Label.text update + hard set BOOT_HYDRATE / SPEND_SHOP / multi-kill collision tween.kill() | Integration | AC-HUD-05/06/07/08/09/10/11/19/20/21/22/24 |
-| C3 | Visibility State machine | story-003 listener `_on_state_changed` CONNECT_DEFERRED + visibility table PLAYING/RESPAWNING true / MENU/PAUSED/BOSS_DEFEATED false + tween kill PAUSED | Logic | AC-HUD-12/13/14/15/16 |
-| C4 | Pulse différencié source r1.1 | story-004 tween durée KILL=100ms / SECRET=150ms + magnitude 1.05 + easing TRANS_SINE + set_ignore_time_scale(true) wall-clock + invariant balance secret > kill | Logic | AC-HUD-36 (a)(b)(c)(d)(e) |
-| C5 | Anti-patterns lint static | story-005 lint statique zero match outbound refs + zero shader/gradient + layer<100 enforce + zero SFX/Input/SaveLoad + alloc hot path | Logic | AC-HUD-25/26/27/28/31/32/33/34/35 |
+| C1 ✅ | Architecture / Boot | story-001 autoload skeleton + CanvasLayer layer=50 + Label anchor PRESET_TOP_RIGHT + pattern pull GSM/Credit boot **(Complete 2026-05-05 — 6/6 PASS)** | Logic | AC-HUD-01/02/03/04/17/18 |
+| C2 ✅ | Pull pattern credits_changed | story-002 listener `_on_credits_changed(total, delta, source)` SYNC same-frame Label.text update + hard set BOOT_HYDRATE / SPEND_SHOP / multi-kill collision tween.kill() **(Complete 2026-05-05 — 12/12 PASS — AC-CRD-46 unblocked)** | Integration | AC-HUD-05/06/07/08/09/10/11/19/20/21/22/24 |
+| C3 ✅ | Visibility State machine | story-003 listener `_on_state_changed` CONNECT_DEFERRED + visibility table PLAYING/RESPAWNING true / MENU/PAUSED/BOSS_DEFEATED false + tween kill PAUSED **(Complete 2026-05-05 — 6/6 PASS)** | Logic | AC-HUD-12/13/14/15/16 |
+| C4 ✅ | Pulse différencié source r1.1 | story-004 tween durée KILL=100ms / SECRET=150ms + magnitude 1.05 + easing TRANS_SINE + set_ignore_time_scale(true) wall-clock + invariant balance secret > kill **(Complete 2026-05-05 — 6/6 PASS — AC-HUD-36 a/b/c/d/e + OQ-HUD-5)** | Logic | AC-HUD-36 (a)(b)(c)(d)(e) |
+| C5 ✅ | Anti-patterns lint static | story-005 lint statique zero match outbound refs + zero shader/gradient + layer<100 enforce + zero SFX/Input/SaveLoad + alloc hot path **(Complete 2026-05-05 — 16/16 PASS — 7 lint static + 9 runtime AC-HUD-25/26/27/28/31/32/33/34/35 ; CI job `lint-hud-anti-patterns` actif ; rule file `.claude/rules/hud-anti-patterns.md` créé ; `no-alloc-hot-paths.md` étendu scope HUD)** | Logic | AC-HUD-25/26/27/28/31/32/33/34/35 + AC-HUD-LINT-1..7 |
 | C6 | Visual/Feel frame-perfect playtest | story-006 evidence frame-by-frame screencap ADVISORY — close-out cross-reference credit-008 OR subsume | Visual/Feel ADVISORY | AC-HUD-23 PLAYTEST + AC-HUD-30 MANUAL + AC-CRD-46 cross-reference |
 
 **Pickup order recommandé** : 001 (autoload skeleton — débloque toutes les autres) → 002 (listener credits_changed SYNC — débloque AC-CRD-46 cross-reference credit-008) → 003 + 004 parallèles (visibility state machine + pulse différencié indépendants) → 005 (lints CI activated post-impl) → 006 (playtest evidence — bloquée par recrutement panel Martin OU evidence frame-by-frame screencap autonome).

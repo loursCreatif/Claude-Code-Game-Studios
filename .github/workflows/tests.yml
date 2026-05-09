@@ -385,6 +385,138 @@ jobs:
           name: menu-anti-patterns-lint-log
           path: production/qa/evidence/menu-anti-patterns-lint-*.log
 
+  lint-hud-anti-patterns:
+    # story-005 — anti-pattern static lints hud-system.
+    # Source : .claude/rules/hud-anti-patterns.md.
+    # Couvre AC-HUD-LINT-1 (outbound-only) + AC-HUD-LINT-2 (zero Input) +
+    # AC-HUD-LINT-3 (zero SaveLoad) + AC-HUD-LINT-4 (anti-Animation/Parallax) +
+    # AC-HUD-LINT-5 (anti-gradient/material) + AC-HUD-LINT-6 (corner_radius zero) +
+    # AC-HUD-LINT-7 (layer < 100 strict).
+    # scenes/hud/ absent au MVP (HUD instancié 100% par code) → lints tscn passent gracieusement.
+    # Exception comments : `# lint-hud-ok: <raison>` accepté ligne par ligne.
+    name: Lint — HUD Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run hud anti-patterns lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/hud-anti-patterns-lint-$(date +%Y-%m-%d).log"
+          echo "# HUD anti-patterns lint — $(date -Iseconds)" > "$log"
+
+          violations=0
+
+          # Helper grep négatif : exit 1 si match (lignes commentaires # + lint-hud-ok exclus).
+          run_negative() {
+            local label="$1"
+            local pattern="$2"
+            shift 2
+            local paths=("$@")
+            local missing=0
+            for p in "${paths[@]}"; do
+              if [ ! -e "$p" ]; then
+                missing=$((missing + 1))
+              fi
+            done
+            if [ "$missing" -eq "${#paths[@]}" ]; then
+              echo "## $label — SKIP (paths absent)" >> "$log"
+              return 0
+            fi
+            local matches
+            matches=$(grep -rnE "$pattern" "${paths[@]}" 2>/dev/null \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              | grep -v 'lint-hud-ok' \
+              || true)
+            if [ -n "$matches" ]; then
+              echo "## $label — FAIL" >> "$log"
+              echo "$matches" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## $label — PASS (0 match)" >> "$log"
+            fi
+          }
+
+          # ---- AC-HUD-LINT-1 — outbound-only zero cross-system (BLOCKING) ----
+          run_negative "AC-HUD-LINT-1 outbound-only zero cross-system" \
+            'CombatSystem|LevelSystem|MovementController|EnemySystem|Player\.|AudioSystem|AudioServer|AudioStreamPlayer' \
+            src/gameplay/hud/
+
+          # ---- AC-HUD-LINT-2 — zero Input HUD MVP (BLOCKING) ----
+          run_negative "AC-HUD-LINT-2 zero Input HUD MVP" \
+            '\bInputManager\b|\bInput\.' \
+            src/gameplay/hud/
+
+          # ---- AC-HUD-LINT-3 — zero SaveLoad ref (BLOCKING) ----
+          run_negative "AC-HUD-LINT-3 zero SaveLoad ref" \
+            'SaveLoad|\bsave_int\b|\bsave_string_array\b|save_now' \
+            src/gameplay/hud/
+
+          # ---- AC-HUD-LINT-4 — anti-Animation/Parallax (BLOCKING) ----
+          # scenes/hud/ peut ne pas exister — handle gracefully via run_negative SKIP.
+          run_negative "AC-HUD-LINT-4 anti-Animation/Parallax" \
+            'AnimationPlayer|AnimationTree|ParallaxBackground|ParallaxLayer' \
+            src/gameplay/hud/ scenes/hud/
+
+          # ---- AC-HUD-LINT-5 — anti-gradient/material (ADVISORY) ----
+          # Note : ADVISORY — avertissement sans incrément violations (pas BLOCKING).
+          advisory_matches=$(grep -rnE 'Gradient|GradientTexture|CanvasItemMaterial|ShaderMaterial' \
+            src/gameplay/hud/ 2>/dev/null \
+            | grep -v '^[^:]*:[0-9]*:\s*#' \
+            | grep -v 'lint-hud-ok' \
+            || true)
+          if [ -n "$advisory_matches" ]; then
+            echo "## AC-HUD-LINT-5 anti-gradient/material — ADVISORY (Chrome Zen K.8)" >> "$log"
+            echo "$advisory_matches" >> "$log"
+            echo "::warning::AC-HUD-LINT-5: gradient/material detected in src/gameplay/hud/ — review for Chrome Zen compliance"
+          else
+            echo "## AC-HUD-LINT-5 anti-gradient/material — PASS (0 match)" >> "$log"
+          fi
+
+          # ---- AC-HUD-LINT-6 — corner_radius zero (BLOCKING) ----
+          # scenes/hud/ absent au MVP → SKIP gracieux.
+          if [ -d scenes/hud ]; then
+            non_zero_corner=$(grep -rnE 'corner_radius' scenes/hud/ 2>/dev/null \
+              | grep -vE '=\s*0\b' \
+              | grep -v '^[^:]*:[0-9]*:\s*#' \
+              || true)
+            if [ -n "$non_zero_corner" ]; then
+              echo "## AC-HUD-LINT-6 corner_radius zero — FAIL (non-zero values found)" >> "$log"
+              echo "$non_zero_corner" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## AC-HUD-LINT-6 corner_radius zero — PASS" >> "$log"
+            fi
+          else
+            echo "## AC-HUD-LINT-6 corner_radius zero — SKIP (scenes/hud absent)" >> "$log"
+          fi
+
+          # ---- AC-HUD-LINT-7 — layer < 100 strict (BLOCKING) ----
+          # Refuse : .layer = 100 / 101-199 / 200-999. Autorise : .layer = 50 (HUD_CANVAS_LAYER).
+          run_negative "AC-HUD-LINT-7 layer < 100 strict" \
+            '\.layer\s*=\s*(100|10[1-9]|1[1-9][0-9]|[2-9][0-9][0-9])' \
+            src/gameplay/hud/
+
+          # ---- Verdict ----
+          echo "" >> "$log"
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          cat "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::lint-hud-anti-patterns FAIL — $violations violation(s) (hud-anti-patterns.md)"
+            exit 1
+          fi
+          echo "lint-hud-anti-patterns PASS"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hud-anti-patterns-lint-log
+          path: production/qa/evidence/hud-anti-patterns-lint-*.log
+
   lint-audio-anti-patterns:
     # story-009 — anti-pattern static lints audio-system.
     # Source : .claude/rules/audio-anti-patterns.md.
@@ -773,7 +905,7 @@ jobs:
   test:
     name: Run GdUnit4 Tests
     runs-on: ubuntu-latest
-    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-level-invariants, perf-level-ccd, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-level-invariants, lint-hud-anti-patterns, perf-level-ccd, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
 
     steps:
       - name: Checkout

@@ -1,7 +1,7 @@
 # Story 001: Autoload Skeleton + CanvasLayer + Pattern Pull Boot
 
 > **Epic**: HUD System
-> **Status**: Ready
+> **Status**: Complete 2026-05-05 (6/6 GdUnit4 PASS — AC-HUD-01/02/03/04/17/18)
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -31,12 +31,31 @@
 
 *From GDD §Acceptance Criteria r1.1, scoped à cette story (Logic) :*
 
-- [ ] **AC-HUD-01** [BLOCKING][AUTO] **GIVEN** HUD instancié comme autoload, **WHEN** `_ready()` s'exécute et `GameStateManager.get_current_state() == State.MENU`, **THEN** `Label.visible == false` et aucune erreur loggée.
-- [ ] **AC-HUD-02** [BLOCKING][AUTO] **GIVEN** HUD instancié et `CreditEconomy.get_total()` retourne `N >= 0`, **WHEN** `_ready()` s'exécute, **THEN** `Label.text == str(N)` avant tout signal `credits_changed` reçu (boot pull, hard set).
-- [ ] **AC-HUD-03** [BLOCKING][AUTO] **GIVEN** HUD possède un `CanvasLayer`, **WHEN** le node est prêt, **THEN** `CanvasLayer.layer < HUD_LAYER_MAX` (`< 100`) — assertion sur la propriété directe (`HUD_CANVAS_LAYER = 50`).
-- [ ] **AC-HUD-04** [BLOCKING][AUTO] **GIVEN** HUD instancié, **WHEN** `_ready()` s'exécute, **THEN** HUD connecté au signal `CreditEconomy.credits_changed` ET `GameStateManager.state_changed` (vérifiable via `Signal.get_connections()`), avant tout tick `_physics_process`.
-- [ ] **AC-HUD-17** [BLOCKING][AUTO] **GIVEN** processus vient de démarrer (1ère frame), **WHEN** `HUDSystem._ready()` s'exécute, **THEN** `GameStateManager.get_current_state()` appelé exactement 1× (spy/mock vérifiable) ET `CreditEconomy.get_total()` appelé exactement 1× ; HUD n'attend pas de signal `game_booted`.
-- [ ] **AC-HUD-18** [BLOCKING][AUTO] **GIVEN** `CreditEconomy` émet `credits_changed(N, 0, SourceKind.BOOT_HYDRATE)` au démarrage (post-`_ready()`), **WHEN** HUD reçoit ce signal, **THEN** counter hard-set à `str(N)` (delta == 0 → pas de tween) ; `Tween.is_running() == false` après traitement. *(Note : story-002 implémente le handler ; cette story s'assure que la connexion est en place.)*
+- [x] **AC-HUD-01** [BLOCKING][AUTO] **GIVEN** HUD instancié comme autoload, **WHEN** `_ready()` s'exécute et `GameStateManager.get_current_state() == State.MENU`, **THEN** `Label.visible == false` et aucune erreur loggée.
+- [x] **AC-HUD-02** [BLOCKING][AUTO] **GIVEN** HUD instancié et `CreditEconomy.get_total()` retourne `N >= 0`, **WHEN** `_ready()` s'exécute, **THEN** `Label.text == str(N)` avant tout signal `credits_changed` reçu (boot pull, hard set).
+- [x] **AC-HUD-03** [BLOCKING][AUTO] **GIVEN** HUD possède un `CanvasLayer`, **WHEN** le node est prêt, **THEN** `CanvasLayer.layer < HUD_LAYER_MAX` (`< 100`) — assertion sur la propriété directe (`HUD_CANVAS_LAYER = 50`).
+- [x] **AC-HUD-04** [BLOCKING][AUTO] **GIVEN** HUD instancié, **WHEN** `_ready()` s'exécute, **THEN** HUD connecté au signal `CreditEconomy.credits_changed` ET `GameStateManager.state_changed` (vérifiable via `Signal.get_connections()`), avant tout tick `_physics_process`.
+- [x] **AC-HUD-17** [BLOCKING][AUTO] **GIVEN** processus vient de démarrer (1ère frame), **WHEN** `HUDSystem._ready()` s'exécute, **THEN** `GameStateManager.get_current_state()` appelé exactement 1× (spy/mock vérifiable) ET `CreditEconomy.get_total()` appelé exactement 1× ; HUD n'attend pas de signal `game_booted`.
+- [x] **AC-HUD-18** [BLOCKING][AUTO] **GIVEN** `CreditEconomy` émet `credits_changed(N, 0, SourceKind.BOOT_HYDRATE)` au démarrage (post-`_ready()`), **WHEN** HUD reçoit ce signal, **THEN** counter hard-set à `str(N)` (delta == 0 → pas de tween) ; `Tween.is_running() == false` après traitement. *(Story-001 vérifie que la connexion stub no-op ne crash pas et que `Label.text` reste à `"0"`. Story-002 implémente le hard-set à `str(N)`.)*
+
+## Completion Notes (2026-05-05)
+
+- **Tests** : 6/6 PASS exit 0 (58 ms total) — `tests/unit/hud/hud_system_boot_test.gd`.
+- **Files livrés** :
+  - `src/gameplay/hud/hud_system.gd` (autoload skeleton, ~90 lignes, `class_name HUDSystemScript`)
+  - `tests/unit/hud/mock_gsm.gd` + `tests/unit/hud/mock_credit_economy.gd` (DI fixtures)
+  - `tests/unit/hud/hud_system_boot_test.gd` (6 tests, mapping 1:1 avec ACs)
+  - `project.godot` modifié — `HUDSystem` registered en fin de `[autoload]` (position 9, après LevelSystem) — outbound-only Presentation layer.
+- **DI pattern** : `_inject_dependencies(gsm, credit)` setter avant `add_child` ; fallback autoload (`GameStateManager`/`CreditEconomy`) en production. Identique pattern Combat MockAudioHandler.
+- **Stubs `_on_credits_changed` / `_on_state_changed`** : `pass` — bodies implémentés story-002/003.
+- **Visibility stub** : `_canvas_layer.visible = (state == State.PLAYING)` — table complète story-003.
+- **Mapping AC → test** :
+  - AC-HUD-01 → `test_hud_boot_menu_state_canvas_hidden`
+  - AC-HUD-02 → `test_hud_boot_pull_total_hard_sets_label_text`
+  - AC-HUD-03 → `test_hud_canvas_layer_equals_50_under_max_100`
+  - AC-HUD-04 → `test_hud_boot_connects_credits_changed_and_state_changed_deferred`
+  - AC-HUD-17 → `test_hud_boot_pull_calls_each_dependency_exactly_once`
+  - AC-HUD-18 → `test_hud_boot_hydrate_signal_no_crash`
 
 ---
 

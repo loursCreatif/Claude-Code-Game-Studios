@@ -1,7 +1,7 @@
 # Story 003: Visibility State Changed Gating — CONNECT_DEFERRED + State Machine
 
 > **Epic**: HUD System
-> **Status**: Ready
+> **Status**: Complete 2026-05-05 (6/6 GdUnit4 PASS — AC-HUD-12/13/14/15/16 + EC-HUD-04 ; cumulé HUD 24/24 PASS — story-001 6 + story-002 12 + story-003 6)
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -31,11 +31,11 @@
 
 *From GDD §Acceptance Criteria r1.1, scoped à cette story (Logic) :*
 
-- [ ] **AC-HUD-12** [BLOCKING][AUTO] **GIVEN** HUD initialized, **WHEN** `state_changed(State.MENU)` reçu, **THEN** `Label.visible == false` dans le même tick de traitement du signal (CONNECT_DEFERRED → idle frame N+1).
-- [ ] **AC-HUD-13** [BLOCKING][AUTO] **GIVEN** counter hidden (State.MENU), **WHEN** `state_changed(State.PLAYING)` reçu, **THEN** `Label.visible == true` avant le prochain `_physics_process` tick.
-- [ ] **AC-HUD-14** [BLOCKING][AUTO] **GIVEN** counter visible (State.PLAYING), **WHEN** `state_changed(State.PAUSED)` reçu, **THEN** `Label.visible == false` ; le pause overlay (Menu System) reste seul élément UI visible de sa couche.
-- [ ] **AC-HUD-15** [BLOCKING][AUTO] **GIVEN** State.RESPAWNING actif (durée ≤ `RESPAWN_DELAY_S = 50 ms`), **WHEN** `state_changed(State.RESPAWNING)` reçu, **THEN** `Label.visible == true` ; aucun freeze, aucun hide pendant la fenêtre respawn (Pillar 3 — transition invisible).
-- [ ] **AC-HUD-16** [BLOCKING][AUTO] **GIVEN** State.PLAYING, **WHEN** `state_changed(State.BOSS_DEFEATED)` reçu, **THEN** `Label.visible == false`.
+- [x] **AC-HUD-12** [BLOCKING][AUTO] **GIVEN** HUD initialized, **WHEN** `state_changed(State.MENU)` reçu, **THEN** `Label.visible == false` dans le même tick de traitement du signal (CONNECT_DEFERRED → idle frame N+1).
+- [x] **AC-HUD-13** [BLOCKING][AUTO] **GIVEN** counter hidden (State.MENU), **WHEN** `state_changed(State.PLAYING)` reçu, **THEN** `Label.visible == true` avant le prochain `_physics_process` tick.
+- [x] **AC-HUD-14** [BLOCKING][AUTO] **GIVEN** counter visible (State.PLAYING), **WHEN** `state_changed(State.PAUSED)` reçu, **THEN** `Label.visible == false` ; le pause overlay (Menu System) reste seul élément UI visible de sa couche.
+- [x] **AC-HUD-15** [BLOCKING][AUTO] **GIVEN** State.RESPAWNING actif (durée ≤ `RESPAWN_DELAY_S = 50 ms`), **WHEN** `state_changed(State.RESPAWNING)` reçu, **THEN** `Label.visible == true` ; aucun freeze, aucun hide pendant la fenêtre respawn (Pillar 3 — transition invisible).
+- [x] **AC-HUD-16** [BLOCKING][AUTO] **GIVEN** State.PLAYING, **WHEN** `state_changed(State.BOSS_DEFEATED)` reçu, **THEN** `Label.visible == false`.
 
 ---
 
@@ -128,7 +128,7 @@
 - `tests/unit/hud/hud_visibility_state_test.gd` (NEW, ~150 lignes) couvrant AC-HUD-12/13/14/15/16 + EC-HUD-04 cross-validation.
 - Smoke check : test suite green run via GdUnit4 headless.
 
-**Status**: [ ] Not yet created.
+**Status**: [x] Created — `tests/unit/hud/hud_visibility_state_test.gd` (253 lignes, 6 functions, 6/6 PASS exit 0 — `reports/report_*` 2026-05-05).
 
 ---
 
@@ -137,3 +137,13 @@
 - **Hard upstream** : story-001 Complete (autoload skeleton + connexion `_on_state_changed` stub + `_canvas_layer` instancié + connect `CONNECT_DEFERRED` flag).
 - **Soft upstream** : GSM autoload Not Started — utiliser `MockGSM` test fixture pour Sprint HUD. Production HUD attend GSM autoload boot Sprint A.
 - **Unlocks** : story-005 (lints peuvent vérifier visibility table cohérente avec layer convention).
+
+---
+
+## Completion Notes
+**Completed**: 2026-05-05
+**Criteria**: 6/6 passing (AC-HUD-12/13/14/15/16 + EC-HUD-04 cross-validation — auto-verified via test functions with `override_failure_message` AC-ID traceability)
+**Deviations**: None. Manifest version story=2026-05-04 newer than control-manifest=2026-04-23 — non-flagable per skill rule.
+**Test Evidence**: `tests/unit/hud/hud_visibility_state_test.gd` (253 lignes, 6 functions). Cumulé HUD : 24/24 PASS (story-001 6 + story-002 12 + story-003 6).
+**Code Review**: Complete — APPROVED. Suggestion non-bloquante : `_VISIBLE_STATES` Array vs Dictionary lookup — Array.has() sur 2 éléments trivial, non-actionnable.
+**Implementation note**: `_apply_visibility(state)` factorisé boot pull (story-001 ligne 73) + state_changed handler (story-003) — DRY. Const `_STATE_PAUSED = 2` nommée plutôt que magic number inline. `_VISIBLE_STATES = [1, 3]` (PLAYING + RESPAWNING) reflète Pillar 3 (transition invisible).

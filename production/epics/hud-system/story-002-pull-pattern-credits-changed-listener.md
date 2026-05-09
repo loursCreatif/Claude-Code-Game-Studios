@@ -1,7 +1,7 @@
 # Story 002: Pull Pattern Credits Changed Listener — SYNC Same-Frame Update
 
 > **Epic**: HUD System
-> **Status**: Ready
+> **Status**: Complete 2026-05-05 (12/12 GdUnit4 PASS — AC-HUD-05/06/07/08/09/10/11/19/20/21/22/24 ; story-001 regression 6/6 PASS)
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-05-04
@@ -32,18 +32,18 @@
 
 *From GDD §Acceptance Criteria r1.1, scoped à cette story (Integration) :*
 
-- [ ] **AC-HUD-05** [BLOCKING][AUTO] **GIVEN** State.PLAYING actif et counter affiche `N`, **WHEN** `credits_changed(N+1, +1, SourceKind.KILL)` émis SYNC, **THEN** tween de pulse démarre dans le **même tick `_physics_process`** ; valeur finale `Label.text == str(N+1)` dans `≤ CREDIT_COUNTER_TWEEN_KILL_MS = 100 ms` wall-clock. *(Tween durée différenciée enforcée story-004 ; ici on vérifie le hard set + démarrage tween.)*
-- [ ] **AC-HUD-06** [BLOCKING][AUTO] **GIVEN** State.PLAYING et counter `N`, **WHEN** `credits_changed(N+5, +5, SourceKind.SECRET)` émis, **THEN** `Label.text == str(N+5)` instantanément (Rule 5 — hard set du chiffre, pulse parallèle) ; aucune frame intermédiaire avec `Label.text == str(N+1)..str(N+4)`.
-- [ ] **AC-HUD-07** [BLOCKING][AUTO] **GIVEN** counter `N` et tween d'incrément en cours (delta > 0), **WHEN** second `credits_changed(N+2, +1, KILL)` arrive pendant le tween actif, **THEN** tween précédent tué (`tween.kill()`) + nouveau démarre à scale courante ; valeur finale `Label.text == str(N+2)` après `≤ 2 × CREDIT_COUNTER_TWEEN_KILL_MS = 200 ms` sans rester bloquée sur valeur intermédiaire.
-- [ ] **AC-HUD-08** [BLOCKING][AUTO] **GIVEN** counter `N` et `try_spend(cost)` réussit (`N >= cost`), **WHEN** `credits_changed(N-cost, -cost, SourceKind.SPEND_SHOP)` émis SYNC, **THEN** `Label.text` hard-set à `str(N-cost)` immédiatement (pas de tween descendant) ; aucune animation roll-up ; `Label.scale == Vector2.ONE`.
-- [ ] **AC-HUD-09** [BLOCKING][AUTO] **GIVEN** counter `N`, **WHEN** `credits_changed(_, delta, SPEND_SHOP)` reçu avec `delta < 0`, **THEN** `Label.text` mis à jour dans le **même `_physics_process` tick** (frame-synchronous, pas DEFERRED).
-- [ ] **AC-HUD-10** [BLOCKING][AUTO] **GIVEN** counter `N` et `try_spend(cost)` échoue (`N < cost`), **WHEN** aucun signal `credits_changed` émis (Credit Rule 4 atomicité), **THEN** counter reste `str(N)` ; aucun tween déclenché ; aucune mutation `Label.text` observée dans 200 ms suivant l'appel.
-- [ ] **AC-HUD-11** [BLOCKING][AUTO] **GIVEN** HUD connecté à `credits_changed` via spy, **WHEN** spy capture les connexions, **THEN** spy ne reçoit aucun appel suite à `try_spend` échoué — HUD ne réagit pas à un événement non émis (test intégration : real CreditEconomy + real HUD).
-- [ ] **AC-HUD-19** [BLOCKING][AUTO] **GIVEN** State.PLAYING et counter `N`, **WHEN** 3 signals `credits_changed` séquentiels (delta=+1, KILL) arrivent dans le **même tick `_physics_process`** (`MAX_KILLS_PER_SWING = 3`), **THEN** valeur finale après `≤ 3 × CREDIT_COUNTER_TWEEN_KILL_MS = 300 ms` est `str(N+3)` ; valeur intermédiaire jamais > `N+3` ni < `N`.
-- [ ] **AC-HUD-20** [BLOCKING][AUTO] **GIVEN** 3 signals `credits_changed` séquentiels même tick, **WHEN** chaque signal reçu, **THEN** HUD ne produit pas 3 tweens superposés causant overshoot — `Label.text` ne dépasse jamais `str(N+3)` à aucune frame.
-- [ ] **AC-HUD-21** [BLOCKING][AUTO] **GIVEN** joueur meurt et `Checkpoint._restore_from_snapshot()` s'exécute, **WHEN** `_restore_from_snapshot` ne réémet pas `credits_changed` (Credit Rule 2 irréversibilité mort), **THEN** counter HUD reste à valeur pré-mort `N` ; aucune variation observée dans 200 ms post-State.RESPAWNING.
-- [ ] **AC-HUD-22** [BLOCKING][AUTO] **GIVEN** State passe `PLAYING → RESPAWNING → PLAYING`, **WHEN** State.PLAYING restauré, **THEN** counter affiche toujours `str(N)` (valeur pré-mort) — HUD ne re-pull pas `get_total()` au retour PLAYING (pas de double-hydration).
-- [ ] **AC-HUD-24** [BLOCKING][AUTO] **GIVEN** `credits_changed(total, 0, SourceKind.BOOT_HYDRATE)` reçu, **WHEN** HUD traite le signal, **THEN** aucun tween lancé (delta == 0 → hard set uniquement) ; `Tween.is_running() == false` après traitement.
+- [x] **AC-HUD-05** [BLOCKING][AUTO] **GIVEN** State.PLAYING actif et counter affiche `N`, **WHEN** `credits_changed(N+1, +1, SourceKind.KILL)` émis SYNC, **THEN** tween de pulse démarre dans le **même tick `_physics_process`** ; valeur finale `Label.text == str(N+1)` dans `≤ CREDIT_COUNTER_TWEEN_KILL_MS = 100 ms` wall-clock. *(Tween durée différenciée enforcée story-004 ; ici on vérifie le hard set + démarrage tween.)*
+- [x] **AC-HUD-06** [BLOCKING][AUTO] **GIVEN** State.PLAYING et counter `N`, **WHEN** `credits_changed(N+5, +5, SourceKind.SECRET)` émis, **THEN** `Label.text == str(N+5)` instantanément (Rule 5 — hard set du chiffre, pulse parallèle) ; aucune frame intermédiaire avec `Label.text == str(N+1)..str(N+4)`.
+- [x] **AC-HUD-07** [BLOCKING][AUTO] **GIVEN** counter `N` et tween d'incrément en cours (delta > 0), **WHEN** second `credits_changed(N+2, +1, KILL)` arrive pendant le tween actif, **THEN** tween précédent tué (`tween.kill()`) + nouveau démarre à scale courante ; valeur finale `Label.text == str(N+2)` après `≤ 2 × CREDIT_COUNTER_TWEEN_KILL_MS = 200 ms` sans rester bloquée sur valeur intermédiaire.
+- [x] **AC-HUD-08** [BLOCKING][AUTO] **GIVEN** counter `N` et `try_spend(cost)` réussit (`N >= cost`), **WHEN** `credits_changed(N-cost, -cost, SourceKind.SPEND_SHOP)` émis SYNC, **THEN** `Label.text` hard-set à `str(N-cost)` immédiatement (pas de tween descendant) ; aucune animation roll-up ; `Label.scale == Vector2.ONE`.
+- [x] **AC-HUD-09** [BLOCKING][AUTO] **GIVEN** counter `N`, **WHEN** `credits_changed(_, delta, SPEND_SHOP)` reçu avec `delta < 0`, **THEN** `Label.text` mis à jour dans le **même `_physics_process` tick** (frame-synchronous, pas DEFERRED).
+- [x] **AC-HUD-10** [BLOCKING][AUTO] **GIVEN** counter `N` et `try_spend(cost)` échoue (`N < cost`), **WHEN** aucun signal `credits_changed` émis (Credit Rule 4 atomicité), **THEN** counter reste `str(N)` ; aucun tween déclenché ; aucune mutation `Label.text` observée dans 200 ms suivant l'appel.
+- [x] **AC-HUD-11** [BLOCKING][AUTO] **GIVEN** HUD connecté à `credits_changed` via spy, **WHEN** spy capture les connexions, **THEN** spy ne reçoit aucun appel suite à `try_spend` échoué — HUD ne réagit pas à un événement non émis (test intégration : real CreditEconomy + real HUD).
+- [x] **AC-HUD-19** [BLOCKING][AUTO] **GIVEN** State.PLAYING et counter `N`, **WHEN** 3 signals `credits_changed` séquentiels (delta=+1, KILL) arrivent dans le **même tick `_physics_process`** (`MAX_KILLS_PER_SWING = 3`), **THEN** valeur finale après `≤ 3 × CREDIT_COUNTER_TWEEN_KILL_MS = 300 ms` est `str(N+3)` ; valeur intermédiaire jamais > `N+3` ni < `N`.
+- [x] **AC-HUD-20** [BLOCKING][AUTO] **GIVEN** 3 signals `credits_changed` séquentiels même tick, **WHEN** chaque signal reçu, **THEN** HUD ne produit pas 3 tweens superposés causant overshoot — `Label.text` ne dépasse jamais `str(N+3)` à aucune frame.
+- [x] **AC-HUD-21** [BLOCKING][AUTO] **GIVEN** joueur meurt et `Checkpoint._restore_from_snapshot()` s'exécute, **WHEN** `_restore_from_snapshot` ne réémet pas `credits_changed` (Credit Rule 2 irréversibilité mort), **THEN** counter HUD reste à valeur pré-mort `N` ; aucune variation observée dans 200 ms post-State.RESPAWNING.
+- [x] **AC-HUD-22** [BLOCKING][AUTO] **GIVEN** State passe `PLAYING → RESPAWNING → PLAYING`, **WHEN** State.PLAYING restauré, **THEN** counter affiche toujours `str(N)` (valeur pré-mort) — HUD ne re-pull pas `get_total()` au retour PLAYING (pas de double-hydration).
+- [x] **AC-HUD-24** [BLOCKING][AUTO] **GIVEN** `credits_changed(total, 0, SourceKind.BOOT_HYDRATE)` reçu, **WHEN** HUD traite le signal, **THEN** aucun tween lancé (delta == 0 → hard set uniquement) ; `Tween.is_running() == false` après traitement.
 
 ---
 
@@ -176,3 +176,13 @@
 - **Hard upstream** : story-001 Complete (autoload skeleton + connexion `_on_credits_changed` stub déjà en place + `_credit_counter_label` instancié).
 - **Soft upstream** : CreditEconomy stories 001-007 Complete (signal `credits_changed` émis SYNC + enum SourceKind défini + `try_spend` atomicité Rule 4).
 - **Unlocks** : `production/epics/credit-economy-system/story-008-visual-feel-hud-frame-perfect.md` AC-CRD-46 (cross-reference convergence story-006). story-004 (pulse différencié source — réutilise `_start_pulse_tween()` helper).
+
+---
+
+## Completion Notes
+**Completed**: 2026-05-05
+**Criteria**: 12/12 passing (AC-HUD-05/06/07/08/09/10/11/19/20/21/22/24 — auto-verified via test functions with `override_failure_message` AC-ID traceability)
+**Deviations**: None. Manifest version story=2026-05-04 newer than control-manifest=2026-04-23 — non-flagable per skill rule.
+**Test Evidence**: `tests/integration/hud/credit_counter_listener_test.gd` (411 lignes, 12 functions, 12/12 PASS exit 0 / 1.5s — `reports/report_405/results.xml` initial + re-confirm `reports/report_407/results.xml`).
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (3 advisory non-blocking absorbed by story-004 : refactor `test_hud_multi_kill_collision` sans timer 50ms fragile CI, ajouter assertion `Label.scale != Vector2.ONE` pendant tween KILL, edge case source enum invalide à ajouter avant story-004 branche par source).
+**Implementation note**: Body `_on_credits_changed` + `_start_pulse_tween` helper étaient déjà présents dans `src/gameplay/hud/hud_system.gd` (livrés ensemble avec story-001 par session voisine — dépassement scope story-001 absorbé). Aucune nouvelle ligne source écrite ce `/dev-story`.

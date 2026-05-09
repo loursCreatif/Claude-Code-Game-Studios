@@ -1,7 +1,7 @@
 # Story 004: Credit Counter Tween Pulse Source-Differentiated (r1.1 amendement)
 
 > **Epic**: HUD System
-> **Status**: Ready
+> **Status**: Complete 2026-05-05 (6/6 GdUnit4 PASS — AC-HUD-36 (a)(b)(c)(d)(e) + Wall-clock OQ-HUD-5 ; cumulé HUD 30/30 PASS — story-001 6 + story-002 12 + story-003 6 + story-004 6)
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -30,13 +30,13 @@
 
 *From GDD §Acceptance Criteria r1.1, scoped à cette story (Logic) :*
 
-- [ ] **AC-HUD-36** [BLOCKING][AUTO] (r1.1 — pulse durée différenciée par source) **GIVEN** HUD initialisé en `State.PLAYING`, spy injecté sur `Tween.tween_property(Label, "scale", ...)`. **WHEN** deux signals `credits_changed` séquentiels émis : (1) `credits_changed(N+1, +1, SourceKind.KILL)` puis (2) `credits_changed(N+6, +5, SourceKind.SECRET)` 500 ms plus tard (pas de chevauchement). **THEN** :
+- [x] **AC-HUD-36** [BLOCKING][AUTO] (r1.1 — pulse durée différenciée par source) **GIVEN** HUD initialisé en `State.PLAYING`, spy injecté sur `Tween.tween_property(Label, "scale", ...)`. **WHEN** deux signals `credits_changed` séquentiels émis : (1) `credits_changed(N+1, +1, SourceKind.KILL)` puis (2) `credits_changed(N+6, +5, SourceKind.SECRET)` 500 ms plus tard (pas de chevauchement). **THEN** :
     - **(a)** Le tween du 1er signal (KILL) a `duration ≈ 0.100 s ± 0.005 s` (`CREDIT_COUNTER_TWEEN_KILL_MS / 1000`).
     - **(b)** Le tween du 2e signal (SECRET) a `duration ≈ 0.150 s ± 0.005 s` (`CREDIT_COUNTER_TWEEN_SECRET_MS / 1000`).
     - **(c)** **Invariant balance** : `tween_secret.duration > tween_kill.duration` strictement. Pas d'égalité, pas d'inversion. Si invariant violé : FAIL avec message "Pillar 4 différenciation perceptive cassée — secret pulse durée doit dépasser kill pulse durée".
     - **(d)** Magnitude pic de scale `(1.05, 1.05)` identique pour les deux tweens (différenciation magnitude réservée Tier 2+).
     - **(e)** **Edge case `tween.kill()` collision** : si un 3e signal `credits_changed(... KILL)` arrive pendant que le tween (b) SECRET est encore en cours, le tween SECRET est `kill()` et un nouveau tween KILL démarre avec `duration ≈ 0.100 s`. La durée du tween courant reflète toujours le `source` du dernier signal reçu.
-- [ ] **Wall-clock invariance OQ-HUD-5** : durée 100ms (KILL) ou 150ms (SECRET) reste wall-clock indépendant de `Engine.time_scale` — vérifié via test simulant `Engine.time_scale = 0.3` au même tick que kill ; pulse atteint pic à `~50ms` (KILL) ou `~75ms` (SECRET) wall-clock measured via `Time.get_ticks_msec()`.
+- [x] **Wall-clock invariance OQ-HUD-5** : durée 100ms (KILL) ou 150ms (SECRET) reste wall-clock indépendant de `Engine.time_scale` — vérifié via test simulant `Engine.time_scale = 0.3` au même tick que kill ; pulse atteint pic à `~50ms` (KILL) ou `~75ms` (SECRET) wall-clock measured via `Time.get_ticks_msec()`.
 
 ---
 
@@ -144,7 +144,7 @@
 - `tests/integration/hud/credit_counter_pulse_source_diff_test.gd` (NEW, ~200 lignes) — chemin référencé GDD AC-HUD-36 ligne 581. Couvre AC-HUD-36 (a)(b)(c)(d)(e) + wall-clock invariance.
 - Smoke check : test suite green run via GdUnit4 headless.
 
-**Status**: [ ] Not yet created.
+**Status**: [x] Created — `tests/integration/hud/credit_counter_pulse_source_diff_test.gd` (332 lignes, 6 functions, 6/6 PASS exit 0 — `reports/report_422/results.xml` 2026-05-05).
 
 ---
 
@@ -154,3 +154,13 @@
 - **Soft upstream** : Credit Economy Rule 13 enum SourceKind défini.
 - **Cross-reference Audio** : cohérent Audio Rule 17 r2.2 (clac aigu pitch +5 semitones bus `SFX` pour `secret_collected`) — la **durée plus longue** du pulse HUD est l'extension visuelle du **timbre plus long perçu** côté audio. Cascade NB-CRD-6 Option A creative-director adjudication 2026-04-28.
 - **Unlocks** : story-005 (lints peuvent vérifier constantes nommées present + magnitude ≤ 1.05) ; story-006 (playtest evidence frame-perfect cumule kill + secret).
+
+---
+
+## Completion Notes
+**Completed**: 2026-05-05
+**Criteria**: 6/6 passing (AC-HUD-36 (a)(b)(c)(d)(e) + Wall-clock invariance OQ-HUD-5 — auto-verified via `Time.get_ticks_msec()` mesures + `Tween.finished` await + `override_failure_message` AC-ID traceability)
+**Deviations**: None.
+**Test Evidence**: `tests/integration/hud/credit_counter_pulse_source_diff_test.gd` (332 lignes, 6 functions). Cumulé HUD : 30/30 PASS exit 0 / 2.93s (6 boot + 12 listener + 6 visibility + 6 pulse).
+**Code Review**: Complete — APPROVED. Suggestion non-bloquante : `if source == 1` → const `_SOURCE_KIND_SECRET = 1` (cosmétique, parité `_STATE_PAUSED`).
+**Implementation note**: 3 constantes module-level ajoutées (`CREDIT_COUNTER_TWEEN_KILL_MS=100`, `CREDIT_COUNTER_TWEEN_SECRET_MS=150`, `PULSE_SCALE_MAGNITUDE=1.05`). Param `_source` → `source` (utilisé). `assert(SECRET_MS > KILL_MS)` debug-only invariant Pillar 4 anti-régression numérique. Test `Engine.time_scale=0.3` slow-mo confirme wall-clock invariance OQ-HUD-5.

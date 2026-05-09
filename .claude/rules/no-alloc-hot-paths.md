@@ -2,10 +2,13 @@
 name: no-alloc-hot-paths
 scope_files:
   - src/core/input_manager.gd
+  - src/gameplay/hud/hud_system.gd
 scope_functions:
   - _unhandled_input
   - _physics_process
   - _record_latency_sample
+  - _on_credits_changed
+  - _start_pulse_tween
 registry_forbidden_pattern: allocating_input_hot_path
 source:
   - ADR-0004 D-8
@@ -26,16 +29,25 @@ reviews de code quand le stress test lui-même n'est pas relancé.
 
 ## Scope
 
-**Fichier** : `src/core/input_manager.gd` uniquement.
+**Fichiers** :
+- `src/core/input_manager.gd`
+- `src/gameplay/hud/hud_system.gd`
 
 **Fonctions gardées** (substring match) :
+
+### InputManager
 - `_unhandled_input` — ~1000 Hz sur flick souris, saturation hot path
 - `_physics_process` — 60 Hz, chemin principal polling/swap
 - `_record_latency_sample` — appelé depuis `_physics_process`, inclus par association
 
-Les autres fonctions (`_ready`, `get_latency_p99_ms`, helpers `simulate_*`,
-API publique) sont autorisées à allouer — elles ne tournent pas en hot path
-(boot one-shot, lecture rare HUD, fixtures test debug-only).
+### HUDSystem
+- `_on_credits_changed` — handler signal SYNC appelé à chaque kill/secret/dépense,
+  potentiellement plusieurs fois par frame (burst multi-kill)
+- `_start_pulse_tween` — appelé depuis `_on_credits_changed`, inclus par association
+
+Les autres fonctions (`_ready`, `_apply_visibility`, `_on_state_changed`,
+`_inject_dependencies`) sont autorisées à allouer — elles sont des callbacks
+one-shot ou de rares transitions d'état, pas des hot paths.
 
 ## Forbidden Patterns
 
@@ -76,7 +88,8 @@ Un match non-commenté dans une fonction hot path = violation.
 ### CI (GitHub Actions)
 
 Intégré dans `.github/workflows/tests.yml` — job `lint-input-hot-paths`.
-Le job échoue si un pattern forbidden apparaît dans une fonction scope.
+Le job échoue si un pattern forbidden apparaît dans une fonction scope
+(InputManager ou HUDSystem).
 
 ### Fallback si AC-PF-4 échoue
 
@@ -89,7 +102,15 @@ assignation `arr[oob] = x`). Plan de repli documenté : replier le swap
 ## Exceptions
 
 Aucune au MVP. Tout ajout d'exception doit être justifié dans un ADR
-(amendement ADR-0004) et documenté ici avec régression test GUT associé.
+(amendement ADR-0004 ou ADR HUD) et documenté ici avec régression test GUT
+associé.
+
+**Note HUDSystem** : `_start_pulse_tween` appelle `create_tween()` et
+`tween_property()` — ces appels Tween Godot sont des allocs intentionnelles
+couvertes par l'implémentation Tween standard du moteur. L'invariant mesuré
+est le delta `MEMORY_STATIC` total sur burst 1000 emits (AC-HUD-28 < 64 KB),
+pas l'absence absolue d'alloc Tween (qui est une alloc engine, pas GDScript
+heap growth).
 
 ## Source
 
@@ -97,3 +118,4 @@ Aucune au MVP. Tout ajout d'exception doit être justifié dans un ADR
 - ADR-0004 VC-3 (gate 64 KB / 60 s)
 - design/gdd/input-system.md AC-PF-2 / AC-PF-4
 - TR-inp-007 (tr-registry.yaml)
+- Story-005 AC-HUD-28 (delta MEMORY_STATIC < 64 KB / 1000 emits HUD)
