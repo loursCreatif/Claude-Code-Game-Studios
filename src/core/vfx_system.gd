@@ -68,6 +68,12 @@ const PARTICLE_LIFETIME_MS: int = 400
 ## Distance max du raycast pour projection decal sur surface.
 const DECAL_RAYCAST_MAX_DISTANCE: float = 3.0
 
+## Brightness flash blanc nominal (R-VFX-5).
+const DEFAULT_FLASH_BRIGHTNESS: float = 1.0
+
+## Brightness flash gris substitute reduce_flash (#A0A0A0 = 0.625) — F-VFX-2.
+const REDUCE_FLASH_BRIGHTNESS: float = 0.625
+
 ## Opacité max du trail katana (R-VFX-7).
 const KATANA_TRAIL_OPACITY_MAX: float = 0.7
 
@@ -137,6 +143,21 @@ var _reduce_flash: bool = false
 
 ## Multiplicateur flash brightness (story-005 — défaut 1.0).
 var _flash_mult: float = 1.0
+
+## True quand flash kill actif (wall-clock timer en cours dans _physics_process).
+var _flash_kill_active: bool = false
+
+## Timestamp démarrage flash kill (0 = pas de flash en cours).
+var _flash_kill_start_msec: int = 0
+
+## True si reduce_flash actif au moment du trigger (gris substitute pour la durée du flash).
+var _flash_kill_use_grey: bool = false
+
+## True quand flash respawn actif (wall-clock timer en cours).
+var _flash_respawn_active: bool = false
+
+## Timestamp démarrage flash respawn (0 = pas de flash en cours).
+var _flash_respawn_start_msec: int = 0
 
 ## True quand le trail katana est actif (swing en cours OU fade-out).
 var _trail_active: bool = false
@@ -369,6 +390,24 @@ func _physics_process(_delta: float) -> void:
 			color.a = opacity
 			_set_trail_color(color)
 
+	# NEW story-004 — Flash kill wall-clock 80 ms (R-VFX-5 + AC-VFX-06/25)
+	if _flash_kill_active:
+		var elapsed_kill_ms: int = _get_time_msec.call() - _flash_kill_start_msec
+		if elapsed_kill_ms >= FLASH_KILL_DURATION_MS:
+			_flash_kill_active = false
+			_flash_overlay_rect.visible = _flash_respawn_active  # garde si respawn en cours
+		else:
+			var t_kill: float = float(elapsed_kill_ms) / float(FLASH_KILL_DURATION_MS)
+			_apply_flash_kill_color(t_kill)
+
+	# NEW story-004 — Flash respawn wall-clock 50 ms binaire pop (R-VFX-15 + AC-VFX-09/15)
+	if _flash_respawn_active:
+		var elapsed_respawn_ms: int = _get_time_msec.call() - _flash_respawn_start_msec
+		if elapsed_respawn_ms >= FLASH_RESPAWN_DURATION_MS:
+			_flash_respawn_active = false
+			_flash_overlay_rect.visible = _flash_kill_active  # garde si kill en cours
+		# 50 ms = pop binaire, pas de fade interpolé MVP (R-VFX-15)
+
 
 # ---------------------------------------------------------------------------
 # Signal handlers — stories 002-006
@@ -414,14 +453,17 @@ func _on_enemy_killed(_enemy: Node = null, position: Vector3 = Vector3.ZERO) -> 
 	_trigger_flash_kill()
 
 
-## Handler died (Camera) — stub no-op.
-## Body story-004 : flash kill FLASH_KILL_DURATION_MS wall-clock + WCAG 333 ms guard.
+## Handler died (Camera) — story-004.
+## Déclenche le flash kill 80 ms wall-clock + WCAG 333 ms guard (R-VFX-5 + AC-VFX-06).
 func _on_died() -> void:
-	pass
+	if not _is_active:
+		return
+	_trigger_flash_kill()
 
 
-## Handler respawned (Camera) — story-002.
+## Handler respawned (Camera) — story-002+004.
 ## AC-VFX-22 : reset complet pool blood + trail + decals dans le même frame.
+## Story-004 : ajoute trigger flash respawn 50 ms (R-VFX-15 + AC-VFX-09).
 ## Note ordre : restart() en GPUParticles3D one_shot remet emitting=true → on force false après.
 func _on_respawned(_position: Vector3 = Vector3.ZERO) -> void:
 	for p: GPUParticles3D in _blood_particle_pool:
@@ -434,6 +476,9 @@ func _on_respawned(_position: Vector3 = Vector3.ZERO) -> void:
 		d.visible = false
 	_room_decal_count = 0
 	_decal_write_head = 0
+
+	# NEW story-004 — Trigger flash respawn (skip si reduce_flash via R-VFX-15 guard)
+	_trigger_flash_respawn()
 
 
 ## Handler state_changed (GSM) — stub no-op.
@@ -522,15 +567,42 @@ func _perform_decal_raycast(from_position: Vector3) -> Vector3:
 	return result["position"] as Vector3
 
 
-## Flash kill stub — WCAG 333 ms guard (story-002).
-## Body complet (wall-clock timer 80 ms + reduce_flash gris substitute) = story-004.
+## Flash kill 80 ms wall-clock + WCAG 333 ms plancher 3 Hz guard (R-VFX-5/13 + AC-VFX-06/08).
+## reduce_flash → fondu gris #A0A0A0 substitute (R-VFX-5 + AC-VFX-07 + F-VFX-2).
 func _trigger_flash_kill() -> void:
 	var now: int = _get_time_msec.call()
 	if now - _flash_last_msec < FLASH_MIN_INTERVAL_MS:
-		push_warning("VFX: flash rate guard triggered — skip flash kill")
+		push_warning("VFX: flash rate guard triggered — skip flash kill (last=%d, now=%d, delta=%d ms)" % [
+			_flash_last_msec, now, now - _flash_last_msec
+		])
 		return
 	_flash_last_msec = now
-	# story-004 : implémenter body wall-clock timer FLASH_KILL_DURATION_MS
+	_flash_kill_active = true
+	_flash_kill_start_msec = now
+	_flash_kill_use_grey = _reduce_flash
+	_flash_overlay_rect.visible = true
+	_apply_flash_kill_color(0.0)  # t = 0 → opacity max
+
+
+## Applique la couleur flash kill au tick `t` ∈ [0, 1] (0 = début, 1 = fin).
+## Gère reduce_flash gris substitute via _flash_kill_use_grey (F-VFX-2).
+## Fade-out linéaire alpha 1.0 → 0.0 sur 80 ms wall-clock.
+func _apply_flash_kill_color(t: float) -> void:
+	var base_brightness: float = REDUCE_FLASH_BRIGHTNESS if _flash_kill_use_grey else DEFAULT_FLASH_BRIGHTNESS
+	var alpha: float = 1.0 - t
+	_flash_overlay_rect.color = Color(base_brightness, base_brightness, base_brightness, alpha)
+
+
+## Flash respawn 50 ms blanc pur (R-VFX-15 + AC-VFX-09).
+## reduce_flash → flash supprimé entièrement (pas de substitut gris — durée 50 ms trop courte).
+func _trigger_flash_respawn() -> void:
+	if _reduce_flash:
+		return  # AC-VFX-09 — zéro flash respawn si reduce_flash ON
+	var now: int = _get_time_msec.call()
+	_flash_respawn_active = true
+	_flash_respawn_start_msec = now
+	_flash_overlay_rect.visible = true
+	_flash_overlay_rect.color = Color(DEFAULT_FLASH_BRIGHTNESS, DEFAULT_FLASH_BRIGHTNESS, DEFAULT_FLASH_BRIGHTNESS, 1.0)
 
 
 ## Applique une couleur (avec alpha) sur le trail mesh via le material pré-alloué.

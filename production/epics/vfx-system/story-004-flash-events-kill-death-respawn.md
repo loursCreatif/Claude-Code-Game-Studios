@@ -1,7 +1,7 @@
 # Story 004: Flash Events Wall-Clock — Kill 80 ms / Respawn 50 ms / WCAG 2.3.1 333 ms 3 Hz Plancher
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Integration
 > **Manifest Version**: 2026-05-04
@@ -244,3 +244,32 @@ tween.tween_property(_flash_overlay_rect, "color:a", 0.0, 0.08)  # VIOLATION lin
   - **AccessibilityService Ready** : `reduce_flash` getter + `settings_changed` signal disponibles ✅. Pull body story-005, mais cette story-004 utilise `_reduce_flash` interne flag (initialisé `false` defaut + muté par story-005 listener).
   - **Camera 13/13 Complete** : signal `respawned(position)` consommé via DEFERRED ✅ — Camera owns rouge mort overlay (R-VFX-6).
 - **Unlocks** : story-005 (accessibility pull body — listener `_on_accessibility_settings_changed` mute `_reduce_flash` flag) + story-006 (GSM visibility — `_is_active = false` force flash overlay hidden).
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-003 done)
+**Verdict** : COMPLETE WITH NOTES — AC-VFX-15 (GSM gating criterion strict) DEFERRED bound story-006 (body GSM gating) explicitement par story spec. Tests AC-VFX-15 viendront story-006 pickup.
+**Criteria** : 7/7 + 1 EC + 1 R-VFX-15 partial — AC-VFX-06/07/08/09/25/26 + EC-VFX-02 + R-VFX-15 ; AC-VFX-15 DEFERRED story-006
+**Re-confirm tests** : 30/30 PASS cumulé exit 0 / 2.69 s (`reports/report_449/results.xml`) — story-001 7 + story-002 10 + story-003 5 + story-004 8
+**Deviations** : None — toutes corrigées pendant `/code-review` :
+  - Label MISMATCH AC-VFX-15 → R-VFX-15 fixé (test labels + header docstring + footnote AC-VFX-15 deferred)
+  - Commentaire contradictoire `t=333/t=666` burst test fixé (calcul `t=0/400/800` clarifié inline)
+  - Coverage gap AC-VFX-06 alpha intermédiaire t=40 fixé (assert ≈ 0.5 ajouté)
+  - Convention `_flash_last_msec = -333` documentée header file
+  - Manifest 2026-05-04 newer non-flagable
+**Test Evidence** : `tests/integration/vfx/vfx_flash_events_test.gd` (8 tests post-fixes)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (8 ADRs/Rules tous PASS : ADR-0001 + ADR-0009 D-3/D-4 + R-VFX-2/5/13/14/15) + qa-tester GAPS doc-only (label mismatch + commentaire contradictoire + alpha t=40 — 4 fixes appliqués)
+
+**Pattern Audio R-AUD-4 wall-clock canonique respecté** : `_get_time_msec.call()` injection exclusivement (pas de `Time.get_ticks_msec()` direct dans hot paths) + `_physics_process` flash ticks + cleanup `Engine.time_scale = 1.0` systématique tests slow-mo
+
+**WCAG 2.3.1 compliance verified empiriquement** : burst 10 events / 1 s → ≤ 3 flashs autorisés (t=0/400/800 — guard 333 ms structurel)
+
+**Files livrés (2)** :
+- `src/core/vfx_system.gd` (MODIF, +60 L) — +2 constants (DEFAULT_FLASH_BRIGHTNESS, REDUCE_FLASH_BRIGHTNESS) + 5 state vars (`_flash_kill_active/start_msec/use_grey`, `_flash_respawn_active/start_msec`) + body `_trigger_flash_kill` (remplace stub story-002) + helper `_apply_flash_kill_color(t)` + helper `_trigger_flash_respawn` + `_physics_process` étendu (3 if blocks modulaires : trail + kill + respawn) + `_on_respawned` ajout call `_trigger_flash_respawn` + `_on_died` body (was stub)
+- `tests/integration/vfx/vfx_flash_events_test.gd` (NEW, ~450 L post-fixes) — 8 tests + helpers `_make_vfx` + `_free_all`
+
+**Out of Scope strict respecté** : zéro pull AccessibilityService (story-005), zéro body GSM gating (story-006), zéro lint anti-Tween (story-007), zéro overlay rouge mort Camera (R-VFX-6 owns Camera).
+
+**Tech debt** : aucun loggé (4 documentation suggestions absorbées + 4 ROI fixes appliqués inline).
