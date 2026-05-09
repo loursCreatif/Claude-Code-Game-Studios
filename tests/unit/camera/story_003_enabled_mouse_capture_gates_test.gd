@@ -32,6 +32,10 @@ func before_test() -> void:
 	# mouse captured = true, enabled = true. Chaque test désactive
 	# ce qu'il veut tester via l'API publique.
 	InputManager.set_mouse_captured(true)
+	# Godot 4.6 headless : Input.mouse_mode = MOUSE_MODE_CAPTURED est no-op,
+	# donc set_mouse_captured() ci-dessus seul ne suffit pas en headless. Back-door
+	# debug-only (no-op release) garantit `is_mouse_captured()` retourne true.
+	InputManager.force_mouse_captured_for_test(true)
 
 	# Instancier Player (déclenche _ready de CameraSystem → connect signal).
 	var packed: PackedScene = load(PLAYER_SCENE_PATH) as PackedScene
@@ -65,6 +69,8 @@ func after_test() -> void:
 	# Restaurer l'état Input global.
 	InputManager.mouse_sensitivity = _saved_sensitivity
 	Input.mouse_mode = _saved_mouse_mode
+	# Restaurer back-door capture (no-op si non-debug build).
+	InputManager.force_mouse_captured_for_test(false)
 
 	_player.queue_free()
 	_player = null
@@ -185,6 +191,8 @@ func test_gate_mouse_captured_false_skips_motion_silently() -> void:
 	_player.rotation.y = 0.4
 	_camera_arm.rotation.x = -0.2
 	InputManager.set_mouse_captured(false)
+	# Désactiver back-door : le test vérifie le gate path "captured=false".
+	InputManager.force_mouse_captured_for_test(false)
 
 	# Sanity check : is_mouse_captured() == false.
 	assert_bool(InputManager.is_mouse_captured()) \
@@ -210,16 +218,19 @@ func test_gate_mouse_captured_transition_mid_sequence_gates_each_event_independe
 
 	# Act #1 — 1 event avec captured=true → appliqué.
 	InputManager.set_mouse_captured(true)
+	InputManager.force_mouse_captured_for_test(true)
 	InputManager.mouse_motion.emit(Vector2(50.0, 0.0))
 	var yaw_after_first: float = _player.rotation.y
 
 	# Act #2 — libérer capture, émettre 1 event → non appliqué.
 	InputManager.set_mouse_captured(false)
+	InputManager.force_mouse_captured_for_test(false)
 	InputManager.mouse_motion.emit(Vector2(50.0, 0.0))
 	var yaw_after_gated: float = _player.rotation.y
 
 	# Act #3 — ré-armer capture, émettre 1 event → appliqué à nouveau.
 	InputManager.set_mouse_captured(true)
+	InputManager.force_mouse_captured_for_test(true)
 	InputManager.mouse_motion.emit(Vector2(50.0, 0.0))
 	var yaw_after_third: float = _player.rotation.y
 
@@ -247,6 +258,8 @@ func test_both_gates_failing_simultaneously_does_nothing_silently() -> void:
 	_camera_arm.rotation.x = 0.3
 	InputManager.request_disable(self)
 	InputManager.set_mouse_captured(false)
+	# Désactiver back-door : test du path "deux gates fermés" — captured=false attendu.
+	InputManager.force_mouse_captured_for_test(false)
 
 	# Act — spammer 100 events ; aucun ne doit passer.
 	for _i: int in range(100):

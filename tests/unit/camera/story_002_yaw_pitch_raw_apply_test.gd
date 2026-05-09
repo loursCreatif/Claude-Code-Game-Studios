@@ -26,6 +26,11 @@ func before_test() -> void:
 	_saved_sensitivity = InputManager.mouse_sensitivity
 	_saved_y_inverted = InputManager.mouse_y_inverted
 
+	# Godot 4.6 headless : Input.mouse_mode = MOUSE_MODE_CAPTURED est no-op,
+	# donc CameraSystem._on_mouse_motion gate `is_mouse_captured()` block le path.
+	# Test back-door cohérent avec inject_pressed_for_test (debug-only).
+	InputManager.force_mouse_captured_for_test(true)
+
 	# Instancier Player (déclenche _ready de CameraSystem → connect signal).
 	var packed: PackedScene = load(PLAYER_SCENE_PATH) as PackedScene
 	_player = packed.instantiate() as CharacterBody3D
@@ -51,6 +56,9 @@ func after_test() -> void:
 	# (story-011 ajoutera le _exit_tree symétrique dans CameraSystem).
 	if InputManager.mouse_motion.is_connected(_camera_system._on_mouse_motion):
 		InputManager.mouse_motion.disconnect(_camera_system._on_mouse_motion)
+
+	# Restaurer back-door capture (no-op si non-debug build).
+	InputManager.force_mouse_captured_for_test(false)
 
 	_player.queue_free()
 	_player = null

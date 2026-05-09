@@ -108,6 +108,11 @@ var _focus_regained_until_ticks_usec: int = 0
 ## Main-thread only (ADR-0004 D-7).
 var _saved_mouse_mode: int = Input.MOUSE_MODE_VISIBLE
 
+## Test back-door — force [method is_mouse_captured] à retourner true en headless
+## (Godot 4.6 : `Input.mouse_mode = MOUSE_MODE_CAPTURED` est no-op en headless).
+## Activé uniquement via [method force_mouse_captured_for_test] qui no-op en release.
+var _test_force_captured: bool = false
+
 ## Sensibilité souris MVP en rad/pixel. Lue chaque frame par CameraSystem
 ## (hot-reload runtime). Plage safe : 0.0005 (très lent) – 0.012 (très rapide).
 ## Persistance via user://input_settings.tres = scope story-010.
@@ -476,7 +481,20 @@ func set_mouse_captured(captured: bool) -> void:
 ## modifie le mode, le prochain appel reflète la nouvelle valeur.
 ## Usage : if InputManager.is_mouse_captured(): ...
 func is_mouse_captured() -> bool:
+	if _test_force_captured:
+		return true
 	return Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
+
+
+## Test back-door — force [method is_mouse_captured] à retourner true.
+## Godot 4.6 : `Input.mouse_mode = MOUSE_MODE_CAPTURED` est no-op en headless,
+## donc les tests qui dépendent de la capture (CameraSystem._on_mouse_motion gates)
+## ne peuvent pas activer le path normalement. Pattern cohérent avec
+## [method inject_pressed_for_test] : debug-only, no-op en release export.
+func force_mouse_captured_for_test(captured: bool) -> void:
+	if not OS.has_feature("debug"):
+		return
+	_test_force_captured = captured
 
 # ---------------------------------------------------------------------------
 # Public methods (refcount enable/disable — ADR-0004 D-4, TR-inp-005)
