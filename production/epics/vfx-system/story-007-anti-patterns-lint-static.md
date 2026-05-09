@@ -1,7 +1,7 @@
 # Story 007: Anti-Patterns Lint Static — `lint-vfx-pool` + `lint-vfx-tween` + `lint-vfx-deferred` + `lint-vfx-outbound` (4 Grep Gates BLOCKING CI)
 
 > **Epic**: VFX System
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-05-04
@@ -381,3 +381,35 @@ lint-vfx-anti-patterns:
 - Depends on: Stories 001-006 (lints scannent code production écrit par stories handlers)
 - Cross-system : aucun (lint statique pur, 0 dépendance runtime)
 - Unlocks: AC-VFX-04/05/23 BLOCKING — Definition of Done epic VFX item "4 lint CI gates BLOCKING activés et zero match"
+
+---
+
+## Completion Notes
+
+**Completed** : 2026-05-09 (chain auto post story-006 done — close-out structural epic VFX)
+**Verdict** : COMPLETE WITH NOTES — AC-VFX-04 DEFERRED (acceptable scope MVP — lint structurel AC-VFX-05 enforce invariant) + AC-VFX-24 PARTIAL (mutation property check non couvert)
+**Criteria** : 6/6 BLOCKING + 2 advisory — AC-VFX-05 + AC-VFX-23 + AC-NEW-09/10/11/12 PASS ; AC-VFX-04 deferred + AC-VFX-24 partial
+**Re-confirm tests** : 45/45 PASS cumulé exit 0 / 3.10 s (`reports/report_464/results.xml`) — story-001..007
+**Deviations** : None bloquantes — toutes corrigées pendant `/code-review` ou flaggées tech debt acceptable :
+  - AC-VFX-24 partial coverage : runtime mutation property check non couvert (lint outbound couvre signal emit) — flag tech debt déférable story future ou enhancement story-002 integration test
+  - AC-VFX-04 deferred : explicitly per story spec (lint structurel rendant violation runtime impossible) — acceptable scope MVP
+  - 2 ROI fixes appliqués : `on_handler_regex.compile` assertion parité L62 + skip silencieux paths empty → FAIL bruyant (protection régression refactor si vfx_system.gd renamed)
+  - Drift pré-existant noté HORS SCOPE : `lint-audio-anti-patterns` absent du `needs:` ligne 1038 (fix séparé recommandé)
+  - AC-NEW-08 fantôme dans story spec ligne 87 (cleanup doc — rule MD utilise AC-VFX-05 correct)
+**Test Evidence** : `tests/static/vfx_anti_patterns_lint_test.gd` (4 tests post-fixes)
+**Code Review** : Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS (Pattern Audio cohérence parfaite + 4 ACs covered + scope correct, 3 suggestions cosmétiques) + qa-tester GAPS doc-only (2 gaps non-bloquants — AC-VFX-24 + skip silencieux fix appliqué)
+
+**0 violation détectée dans code prod stories 001-006** : pattern Audio R-AUD-* parfaitement transposé. Confirme respect strict ADR-0009 D-2/D-3/D-4 patterns + R-VFX-1/3/5/14/15 invariants depuis le boot du Sprint VFX.
+
+**Pattern référence parfait** : calque exact `audio-anti-patterns.md` / `audio_anti_patterns_lint_test.gd` / `lint-audio-anti-patterns` CI job (Audio System story-009).
+
+**Definition of Done VFX item "4 lint CI gates BLOCKING activés et zero match" SATISFAIT.**
+
+**Files livrés (3)** :
+- `.claude/rules/vfx-anti-patterns.md` (NEW, 208 L)
+- `tests/static/vfx_anti_patterns_lint_test.gd` (NEW, ~200 L post-fixes)
+- `.github/workflows/tests.yml` (MODIF) — job `lint-vfx-anti-patterns` ligne 629-757 + `needs:` ligne 1038
+
+**Out of Scope strict respecté** : zéro touch code prod stories 001-006, zéro playtest story-008.
+
+**Tech debt** : AC-VFX-24 mutation property check runtime non couvert → flag pour story future ou story-002 integration test enhancement.
