@@ -27,6 +27,15 @@ const TIME_SCALE_TOLERANCE: float = 0.0001
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+## Reset Engine.time_scale AVANT chaque test (defensif cross-suite pollution).
+## Cas d'usage : une suite précédente (audio formula4, enemy grunt_death_tween, combat
+## slow_mo_wall_clock) qui mute time_scale=0.3/0.5 et ne reset pas correctement (crash mid-test
+## ou after_test absent en cas de runtime error GdUnit4) leak l'état vers cette suite.
+## Pattern miroir commit e2a5e12 (`main_menu_boot reset GSM state à MENU dans before_test`).
+func before_test() -> void:
+	Engine.time_scale = 1.0
+
+
 ## Reset Engine.time_scale après chaque test.
 ## AC-3 mute time_scale à 0.3 ; un test qui plante avant restore contaminerait les suivants.
 func after_test() -> void:
