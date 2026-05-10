@@ -18,12 +18,15 @@ func _make_manager() -> InputManagerScript:
 	add_child(manager)
 	return manager
 
-## Injecte un InputEventMouseMotion avec le delta donné via parse_input_event.
-## Conforme ADR-0004 D-9 : jamais Input.action_press() direct.
-func _inject_mouse_motion(delta: Vector2) -> void:
+## Injecte un InputEventMouseMotion avec le delta donné.
+## Headless ubuntu CI : `Input.parse_input_event` ne dispatch pas vers `_unhandled_input`
+## (memory rule `feedback_godot_headless_input_events.md`). Bypass : appel direct
+## à `manager._unhandled_input(ev)` qui contient la logique gate _focus_regained.
+## Conforme ADR-0004 D-9 : jamais Input.action_press() direct (utilise InputEvent réel).
+func _inject_mouse_motion(manager: InputManagerScript, delta: Vector2) -> void:
 	var ev := InputEventMouseMotion.new()
 	ev.relative = delta
-	Input.parse_input_event(ev)
+	manager._unhandled_input(ev)
 
 # ---------------------------------------------------------------------------
 # AC-MC-4 — Signaux one-way : focus_lost déclenche mock sans référence directe
@@ -42,11 +45,12 @@ func test_ac_mc_4_focus_out_signals_one_way_decoupling() -> void:
 
 	# Mock local simulant un système abonné (ex. système de pause)
 	# — InputManager ne connaît pas ce type, couplage one-way garanti par D-5.
-	var mock_handler_calls: int = 0
-	manager.application_focus_lost.connect(func() -> void: mock_handler_calls += 1)
-
-	var focus_lost_count: int = 0
-	manager.application_focus_lost.connect(func() -> void: focus_lost_count += 1)
+	# Dictionary container (memory rule feedback_gdscript_lambda_capture_by_value) :
+	# primitives capturées par valeur dans une lambda ne propagent pas — utiliser
+	# Dictionary par référence pour observer les mutations dans le scope englobant.
+	var counters: Dictionary = {"mock_handler_calls": 0, "focus_lost_count": 0}
+	manager.application_focus_lost.connect(func() -> void: counters["mock_handler_calls"] += 1)
+	manager.application_focus_lost.connect(func() -> void: counters["focus_lost_count"] += 1)
 
 	# Forcer un mode capturé avant la perte de focus (simule état gameplay actif)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -62,14 +66,14 @@ func test_ac_mc_4_focus_out_signals_one_way_decoupling() -> void:
 		.is_equal(Input.MOUSE_MODE_VISIBLE)
 
 	# Assert (b) : signal application_focus_lost émis exactement 1×
-	assert_int(focus_lost_count) \
+	assert_int(counters["focus_lost_count"]) \
 		.override_failure_message(
 			"AC-MC-4(b): application_focus_lost doit être émis exactement 1× sur FOCUS_OUT"
 		) \
 		.is_equal(1)
 
 	# Assert (c) : handler mock appelé exactement 1×
-	assert_int(mock_handler_calls) \
+	assert_int(counters["mock_handler_calls"]) \
 		.override_failure_message(
 			"AC-MC-4(c): handler mock connecté à application_focus_lost doit être appelé 1×"
 		) \
@@ -110,14 +114,14 @@ func test_ac_mc_4_focus_in_emits_application_focus_gained() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var focus_gained_count: int = 0
-	manager.application_focus_gained.connect(func() -> void: focus_gained_count += 1)
+	var counters: Dictionary = {"focus_gained_count": 0}
+	manager.application_focus_gained.connect(func() -> void: counters["focus_gained_count"] += 1)
 
 	# Act
 	manager.notification(NOTIFICATION_APPLICATION_FOCUS_IN)
 
 	# Assert
-	assert_int(focus_gained_count) \
+	assert_int(counters["focus_gained_count"]) \
 		.override_failure_message(
 			"AC-MC-4 (complément): application_focus_gained doit être émis 1× sur FOCUS_IN"
 		) \
@@ -132,6 +136,14 @@ func test_ac_mc_4_focus_in_emits_application_focus_gained() -> void:
 # ---------------------------------------------------------------------------
 
 func test_ac_mc_4_mouse_mode_restored_on_focus_in() -> void:
+	# Skip headless : `Input.mouse_mode = MOUSE_MODE_CAPTURED` est no-op silencieux
+	# sans DisplayServer (headless ubuntu CI). Le round-trip save/restore mode
+	# passe par Input.mouse_mode read/write — non observable en headless.
+	# Couvert runtime : Player.tscn + InputManager autoload + scene réelle.
+	# Pattern cohérent jump_coyote/wall_jump skip headless (commit 9218033).
+	if DisplayServer.get_name() == "headless":
+		return
+
 	# Arrange
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
@@ -178,22 +190,22 @@ func test_ac_mc_5_mouse_motion_absorbed_within_50ms_window() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var mouse_signals_emitted: int = 0
-	manager.mouse_motion.connect(func(_delta: Vector2) -> void: mouse_signals_emitted += 1)
+	var counters: Dictionary = {"mouse_signals_emitted": 0}
+	manager.mouse_motion.connect(func(_delta: Vector2) -> void: counters["mouse_signals_emitted"] += 1)
 
 	# Armer manuellement la fenêtre (simule l'état juste après FOCUS_IN)
 	manager._focus_regained_until_ticks_usec = Time.get_ticks_usec() + 50_000
 
 	# Act — injecter 3 events DANS la fenêtre active
-	_inject_mouse_motion(Vector2(100.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(100.0, 0.0))
 	await get_tree().process_frame
-	_inject_mouse_motion(Vector2(100.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(100.0, 0.0))
 	await get_tree().process_frame
-	_inject_mouse_motion(Vector2(100.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(100.0, 0.0))
 	await get_tree().process_frame
 
 	# Assert intermédiaire : 0 signal pendant la fenêtre
-	assert_int(mouse_signals_emitted) \
+	assert_int(counters["mouse_signals_emitted"]) \
 		.override_failure_message(
 			"AC-MC-5: mouse_motion ne doit pas être émis pendant la fenêtre 50 ms post-FOCUS_IN " +
 			"(gate _focus_regained_until_ticks_usec actif)"
@@ -204,11 +216,11 @@ func test_ac_mc_5_mouse_motion_absorbed_within_50ms_window() -> void:
 	manager._focus_regained_until_ticks_usec = 0
 
 	# Injecter 1 event hors fenêtre
-	_inject_mouse_motion(Vector2(100.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(100.0, 0.0))
 	await get_tree().process_frame
 
 	# Assert final : exactement 1 signal après expiration
-	assert_int(mouse_signals_emitted) \
+	assert_int(counters["mouse_signals_emitted"]) \
 		.override_failure_message(
 			"AC-MC-5: mouse_motion doit être émis exactement 1× après expiration de la fenêtre 50 ms"
 		) \
@@ -229,19 +241,19 @@ func test_ac_mc_5_boundary_event_at_expiry_passes() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var mouse_signals_emitted: int = 0
-	manager.mouse_motion.connect(func(_delta: Vector2) -> void: mouse_signals_emitted += 1)
+	var counters: Dictionary = {"mouse_signals_emitted": 0}
+	manager.mouse_motion.connect(func(_delta: Vector2) -> void: counters["mouse_signals_emitted"] += 1)
 
 	# Mettre la deadline exactement dans le passé immédiat (expirée)
 	# Un ticks légèrement dépassé → la condition < est false → event passe.
 	manager._focus_regained_until_ticks_usec = Time.get_ticks_usec() - 1
 
 	# Act
-	_inject_mouse_motion(Vector2(50.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(50.0, 0.0))
 	await get_tree().process_frame
 
 	# Assert — l'event doit passer (deadline expirée)
-	assert_int(mouse_signals_emitted) \
+	assert_int(counters["mouse_signals_emitted"]) \
 		.override_failure_message(
 			"AC-MC-5 (bord): event arrivant après expiration doit déclencher mouse_motion " +
 			"(comparaison stricte < selon D-6)"
@@ -265,33 +277,33 @@ func test_ac_mc_7_wayland_burst_all_absorbed_during_window() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var mouse_signals_emitted: int = 0
-	manager.mouse_motion.connect(func(_delta: Vector2) -> void: mouse_signals_emitted += 1)
+	var counters: Dictionary = {"mouse_signals_emitted": 0}
+	manager.mouse_motion.connect(func(_delta: Vector2) -> void: counters["mouse_signals_emitted"] += 1)
 
 	# Armer la fenêtre — elle sera re-armée entre chaque physics tick pour
 	# simuler un burst qui se déroule intégralement < 50 ms.
 	manager._focus_regained_until_ticks_usec = Time.get_ticks_usec() + 50_000
 
 	# Tick 1 : 2 events
-	_inject_mouse_motion(Vector2(30.0, 0.0))
-	_inject_mouse_motion(Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
 	await get_tree().physics_frame
 	# Ré-armer pour le tick suivant (simule rafale sous 50 ms)
 	manager._focus_regained_until_ticks_usec = Time.get_ticks_usec() + 50_000
 
 	# Tick 2 : 2 events
-	_inject_mouse_motion(Vector2(30.0, 0.0))
-	_inject_mouse_motion(Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
 	await get_tree().physics_frame
 	manager._focus_regained_until_ticks_usec = Time.get_ticks_usec() + 50_000
 
 	# Tick 3 : 2 events
-	_inject_mouse_motion(Vector2(30.0, 0.0))
-	_inject_mouse_motion(Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(30.0, 0.0))
 	await get_tree().physics_frame
 
 	# Assert — zéro signal sur les 6 events (tous absorbés par la fenêtre)
-	assert_int(mouse_signals_emitted) \
+	assert_int(counters["mouse_signals_emitted"]) \
 		.override_failure_message(
 			"AC-MC-7: burst de 6 InputEventMouseMotion sur 3 physics ticks doit produire " +
 			"0 signal mouse_motion pendant la fenêtre FOCUS_REGAIN_WINDOW_USEC (simulation burst Wayland)"
@@ -312,19 +324,19 @@ func test_ac_mc_7_after_window_events_pass_normally() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var mouse_signals_emitted: int = 0
-	manager.mouse_motion.connect(func(_delta: Vector2) -> void: mouse_signals_emitted += 1)
+	var counters: Dictionary = {"mouse_signals_emitted": 0}
+	manager.mouse_motion.connect(func(_delta: Vector2) -> void: counters["mouse_signals_emitted"] += 1)
 
 	# Simuler fenêtre déjà expirée (= état normal post-50ms)
 	manager._focus_regained_until_ticks_usec = 0
 
 	# Injecter 3 events — doivent tous passer
-	_inject_mouse_motion(Vector2(10.0, 0.0))
-	_inject_mouse_motion(Vector2(10.0, 0.0))
-	_inject_mouse_motion(Vector2(10.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(10.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(10.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(10.0, 0.0))
 	await get_tree().physics_frame
 
-	assert_int(mouse_signals_emitted) \
+	assert_int(counters["mouse_signals_emitted"]) \
 		.override_failure_message(
 			"AC-MC-7 (complément): après expiration de la fenêtre, " +
 			"les events souris doivent être émis normalement"
@@ -344,10 +356,9 @@ func test_focus_cycle_full_sequence_consistent_state() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	var focus_lost_count: int = 0
-	var focus_gained_count: int = 0
-	manager.application_focus_lost.connect(func() -> void: focus_lost_count += 1)
-	manager.application_focus_gained.connect(func() -> void: focus_gained_count += 1)
+	var counters: Dictionary = {"focus_lost_count": 0, "focus_gained_count": 0}
+	manager.application_focus_lost.connect(func() -> void: counters["focus_lost_count"] += 1)
+	manager.application_focus_gained.connect(func() -> void: counters["focus_gained_count"] += 1)
 
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -360,10 +371,10 @@ func test_focus_cycle_full_sequence_consistent_state() -> void:
 	manager.notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
 
 	# Assert compteurs
-	assert_int(focus_lost_count) \
+	assert_int(counters["focus_lost_count"]) \
 		.override_failure_message("Séquence complète: application_focus_lost doit être émis 2×") \
 		.is_equal(2)
-	assert_int(focus_gained_count) \
+	assert_int(counters["focus_gained_count"]) \
 		.override_failure_message("Séquence complète: application_focus_gained doit être émis 1×") \
 		.is_equal(1)
 
