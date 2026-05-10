@@ -566,6 +566,12 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 	if combat != null and player.attacked.is_connected(combat._on_player_attacked):
 		player.attacked.disconnect(combat._on_player_attacked)
 
+	# Force état GROUNDED : Jolt headless ubuntu CI transitionne GROUNDED→AIRBORNE
+	# au _ready faute de floor explicite. Pattern miroir project_settings_and_scene
+	# (commit 731c8cb).
+	if player._state != MovementController.State.GROUNDED:
+		player.set("_state", MovementController.State.GROUNDED)
+
 	assert_int(player._state) \
 		.override_failure_message("Precondition: player must start GROUNDED") \
 		.is_equal(MovementController.State.GROUNDED)
