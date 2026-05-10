@@ -135,7 +135,7 @@ func test_simulate_action_press_debug_injects_event_and_flips_flag() -> void:
 	# `feedback_godot_headless_input_events.md`). Test reste valide en mode debug
 	# Editor / Player.tscn runtime — la chaîne complète parse_input_event →
 	# _unhandled_input → flag est testée par AC-AG-1 via inject_pressed_for_test.
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_screen_count() == 0:
 		return
 
 	# Arrange

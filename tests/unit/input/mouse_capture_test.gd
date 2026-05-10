@@ -38,7 +38,7 @@ func test_set_mouse_captured_true_locks_cursor() -> void:
 	# Les tests _releases_cursor / _reflects_external / _toggle_sequence_idempotent
 	# couvrent l'autre direction (CAPTURED→VISIBLE) qui est déterministe en headless.
 	# Cohérent avec memory `feedback_godot_headless_input_events.md` (Input headless flaky).
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_screen_count() == 0:
 		return
 
 	# Arrange — partir d'un état visible
@@ -94,7 +94,7 @@ func test_is_mouse_captured_reflects_external_mode_change() -> void:
 	# `src/core/input_manager.gd` L483-486). Ce test vérifie le side-effect
 	# engine API plutôt qu'une logique applicative.
 	# Cohérent avec memory `feedback_godot_headless_input_events.md`.
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_screen_count() == 0:
 		return
 
 	# Arrange — capturer via le manager
@@ -120,7 +120,7 @@ func test_set_mouse_captured_toggle_sequence_idempotent() -> void:
 	# Couvert par run interactif manuel (éditeur/desktop) — ce test devient redondant
 	# avec test_set_mouse_captured_false_releases_cursor qui valide la transition.
 	# Cohérent avec memory `feedback_godot_headless_input_events.md`.
-	if DisplayServer.get_name() == "headless":
+	if DisplayServer.get_screen_count() == 0:
 		return
 
 	# Arrange / Act — toggle plusieurs fois, vérifier état stable à chaque palier
