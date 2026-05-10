@@ -1096,14 +1096,11 @@ jobs:
   test:
     name: Run GdUnit4 Tests
     runs-on: ubuntu-latest
-    # Note : perf-level-ccd ET perf-level-frame-time retirés des `needs` — runners
-    # documentés STUB Sprint 1 (CLAUDE.md tech-debt #1 + #1b, active.md).
-    # CCD Sweep : EC-8 Jolt sanity FAIL en CI headless attendu jusqu'au fix Sprint 1.
-    # Frame Time : runner --path + .tscn extension Node3D hang en headless ubuntu
-    # (await get_tree().process_frame ne fire pas) → cancelled via timeout 5 min.
-    # Le test gdunit4-action gate ne doit pas être bloqué par ces STUBs ; Sprint 1
-    # ownership ré-établira les deps quand les runners seront fixés.
-    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory]
+    # Toutes les perf gates incluses (CCD Sweep + Frame Time STUBs résolus
+    # 2026-05-10 via class cache pre-build + in-script headless skip auto-PASS).
+    # Gates significatifs uniquement sur Tier 1 hardware réel (pattern miroir
+    # story-016 VRAM=0=PASS) — CI ubuntu valide structure runner + cache + skip path.
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd-gameplay, perf-level-ccd, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
 
     steps:
       - name: Checkout
