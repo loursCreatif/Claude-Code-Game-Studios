@@ -179,12 +179,14 @@ func test_dash_during_wall_run_emits_wall_run_exited_before_dash_started() -> vo
 		.is_less(log.first_index("dash_started"))
 
 	# Reset wall_normal vérifié post-transition (GDD line 288 explicite).
+	# Note : is_equal_approx 2e arg = Vector3 tolerance (memory rule
+	# feedback_gdunit4_assert_vector_tolerance.md) — pas un float scalaire.
 	assert_vector(player.wall_normal) \
 		.override_failure_message(
 			"GDD line 288 : _wall_normal doit être reset à ZERO post dash-from-wall-run — reçu %s"
 			% str(player.wall_normal)
 		) \
-		.is_equal_approx(Vector3.ZERO, 0.001)
+		.is_equal_approx(Vector3.ZERO, Vector3(0.001, 0.001, 0.001))
 
 	# (edge auto-consumed — &"dash" no release needed)
 	player.queue_free()
@@ -278,7 +280,7 @@ func test_wall_jump_emits_wall_run_exited_before_wall_jumped() -> void:
 			"D-6 wall-jump: payload wall_normal doit être (1,0,0) pré-reset — reçu %s"
 			% str(received_normal)
 		) \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3(0.001, 0.001, 0.001))
 
 	# (edge auto-consumed — &"jump" no release needed)
 	player.queue_free()

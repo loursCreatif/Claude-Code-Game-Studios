@@ -171,6 +171,13 @@ func test_attacked_emitted_after_dash_started_in_same_tick() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
+	# Disconnect CombatSystem._on_player_attacked : assert is_in_physics_frame()
+	# fail sous direct `_tick(player)` (combat_system.gd:663). Test SUT = signal
+	# order Movement, pas production combat.
+	var combat: Node = player.get_node_or_null("CombatSystem")
+	if combat != null and player.attacked.is_connected(combat._on_player_attacked):
+		player.attacked.disconnect(combat._on_player_attacked)
+
 	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
