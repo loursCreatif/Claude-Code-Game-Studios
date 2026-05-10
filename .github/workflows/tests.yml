@@ -1041,7 +1041,11 @@ jobs:
   test:
     name: Run GdUnit4 Tests
     runs-on: ubuntu-latest
-    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
+    # Note : perf-level-ccd retiré des `needs` — runner documenté STUB Sprint 1
+    # (CLAUDE.md tech-debt #1, active.md). EC-8 Jolt sanity FAIL en CI headless
+    # est attendu jusqu'au fix Sprint 1. Le test gdunit4-action gate ne doit pas
+    # être bloqué par ce STUB.
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd-gameplay, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
 
     steps:
       - name: Checkout
