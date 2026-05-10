@@ -774,6 +774,21 @@ jobs:
           version: 4.6.2
           use-dotnet: false
 
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          # Force-build .godot/global_script_class_cache.cfg : sans ce fichier, le
+          # parser ne résout pas les class_name référencés depuis les autoload chain
+          # (e.g. level_system.gd:238 EnemySpawner, :802 CollisionLayers), et reporte
+          # un misleading "does not inherit from 'Node'" en cascade sur tous les
+          # autoloads (input_manager → accessibility_service → upgrade → level → GSM).
+          # Memory rule godot_tests_headless_safe_pattern documente le prérequis.
+          # CI ubuntu-latest = pas de risque GUI alert (CLAUDE.md warning macOS only).
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
+
       - name: Run level hierarchy lint
         shell: bash
         run: |
@@ -800,6 +815,14 @@ jobs:
         with:
           version: 4.6.2
           use-dotnet: false
+
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
 
       - name: Run CCD sweep benchmark
         shell: bash
@@ -867,6 +890,14 @@ jobs:
           version: 4.6.2
           use-dotnet: false
 
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
+
       - name: Run CCD gameplay scenarios
         shell: bash
         run: |
@@ -918,6 +949,14 @@ jobs:
           version: 4.6.2
           use-dotnet: false
 
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
+
       - name: Run draw call budget benchmark
         shell: bash
         run: |
@@ -961,6 +1000,14 @@ jobs:
         with:
           version: 4.6.2
           use-dotnet: false
+
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
 
       - name: Run memory budget benchmark
         shell: bash
@@ -1014,6 +1061,14 @@ jobs:
         with:
           version: 4.6.2
           use-dotnet: false
+
+      - name: Build class cache (resolve class_name for autoloads)
+        shell: bash
+        run: |
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg \
+            || { echo "FAIL: class cache not built"; exit 1; }
+          echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)"
 
       - name: Run frame time budget benchmark
         shell: bash
