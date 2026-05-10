@@ -1076,29 +1076,15 @@ jobs:
           set -euo pipefail
           mkdir -p production/qa
           log="production/qa/perf-level-frame-time-$(date +%Y-%m-%d).log"
-          # Bash-level headless CI bypass — pattern miroir story-016 VRAM=0=PASS.
-          # Le runner level_frame_time_runner.gd (extends Node3D + --path + .tscn)
-          # hang silencieux en headless ubuntu CI : Phase 1 LevelSystemScript.new()
-          # + add_child fixture + _connect_room_triggers crash silencieux à cause
-          # des autoload errors (level_system.gd "does not inherit from Node" en
-          # autoload + GSM order violation + level_active on Nil). Le skip in-script
-          # GDScript (commit 0209851 : OS.has_environment("CI") or not
-          # window_can_draw()) ne suffit pas — _ready() peut ne jamais être appelé
-          # si autoloads broken empêchent SceneTree boot complet.
-          # Bypass total au niveau bash : génère le JSON_RESULT skip directement,
-          # bypass godot entièrement. Gate significative uniquement Tier 1 hardware
-          # réel (Mac M4 / dev kits / Steam Deck) où Martin lance manuellement.
-          # Tech-debt #1b Sprint 1 ré-investiguera autoload setup pour résoudre
-          # à la fois le hang Frame Time ET les autoload errors observed across CI.
-          echo "# Frame time budget run — $(date -Iseconds)" > "$log"
-          echo "# story-017 AC-LVL-3 + AC-LVL-34 + AC-LVL-35a — TR-lvl-035 + TR-lvl-036" >> "$log"
-          echo "# HEADLESS CI BYPASS — gate significative uniquement Tier 1 hardware réel" >> "$log"
-          echo "" >> "$log"
-          echo "JSON_RESULT:" >> "$log"
-          echo '{"load_time_msec": 0, "frame_p50_ms": 0.0, "frame_p99_ms": 0.0, "transition_p99_ms": 0.0, "gate_pass": true, "headless_skip": true, "configs_passed": "3/3"}' >> "$log"
-          cat "$log"
-          echo ""
-          echo "perf-level-frame-time PASS (headless CI bypass — pattern miroir story-016)"
+          # Class cache pré-build (step précédent) résout les autoload errors qui
+          # empêchaient _ready() de fire ; le runner peut désormais booter, hit
+          # son skip in-script `OS.has_environment("CI") or not window_can_draw()`
+          # (L229-244 du runner), et retourner JSON_RESULT placeholder PASS.
+          # Gate significative uniquement Tier 1 hardware réel (Mac M4 / dev kits /
+          # Steam Deck) — pattern miroir story-016 VRAM=0=PASS. Timeout-5min job
+          # reste comme safety net si jamais un autre hang régresse.
+          godot --headless --path . tests/performance/level_frame_time_runner.tscn 2>&1 | tee "$log"
+          echo "perf-level-frame-time PASS"
 
       - name: Upload frame time benchmark log
         if: always()
