@@ -30,9 +30,11 @@ func _make_level() -> LevelSystemScript:
 ## Charge l'étage spécifié et pump explicitement jusqu'à ACTIVE.
 ## En headless GdUnit4, await physics_frame ne pump pas systématiquement le
 ## `_process` / `_physics_process` du level — on les call directement.
+## Boucle 200× pour absorber scheduler jitter CI ubuntu shared runners (pattern
+## cohérent commit 481ac3d) — common case break early ~5-10 iter.
 func _load_and_wait(level: LevelSystemScript, etage_id: int) -> void:
 	level.load_etage(etage_id)
-	for i: int in range(50):
+	for i: int in range(200):
 		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
 			break
 		level._process(0.0)

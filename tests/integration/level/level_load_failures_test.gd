@@ -174,8 +174,10 @@ func test_level_load_slow_emitted_after_600ms() -> void:
 	# Pump explicite jusqu'à level_active (le chargement continue après le signal slow —
 	# invariant AC-LVL-7). _process polls ResourceLoader status, _physics_process commit
 	# LOADING → ACTIVE quand THREAD_LOAD_LOADED. En headless, await physics_frame ne pump
-	# pas systématiquement. Boucle bornée 50× ≈ 1 sec wall-clock max.
-	for i: int in range(50):
+	# pas systématiquement. Boucle bornée 200× ≈ 3.3 sec wall-clock max. Common case
+	# break early ~5-10 iter ; bump 50→200 pour absorber scheduler jitter CI ubuntu shared
+	# runners (pattern cohérent commit 481ac3d).
+	for i: int in range(200):
 		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
 			break
 		level._process(0.0)
@@ -237,8 +239,10 @@ func test_level_load_slow_flag_reset_on_reload() -> void:
 	await get_tree().process_frame
 
 	# Premier load — sans slow simulation (charge normalement). Pump explicite.
+	# Boucle 200× pour cohérence anti-flake (pattern commit 481ac3d) — common case
+	# break early ~5-10 iter, bump absorbe scheduler jitter CI ubuntu shared runners.
 	level.load_etage(42)
-	for i: int in range(50):
+	for i: int in range(200):
 		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
 			break
 		level._process(0.0)
