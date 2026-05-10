@@ -141,7 +141,7 @@ func test_ac_mc_4_mouse_mode_restored_on_focus_in() -> void:
 	# passe par Input.mouse_mode read/write — non observable en headless.
 	# Couvert runtime : Player.tscn + InputManager autoload + scene réelle.
 	# Pattern cohérent jump_coyote/wall_jump skip headless (commit 9218033).
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange

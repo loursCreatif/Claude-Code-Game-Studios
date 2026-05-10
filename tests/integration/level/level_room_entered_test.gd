@@ -163,7 +163,7 @@ func test_overlapping_triggers_fire_in_tree_order() -> void:
 	# Skip headless — vérification du tree order DFS preorder de Godot sur Area3D body_entered
 	# simultané requiert que body_entered tire en physics step. Flaky en headless Godot 4.6
 	# (memory `feedback_godot_headless_input_events.md` extended). Couvert par run interactif manuel.
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — level ACTIVE

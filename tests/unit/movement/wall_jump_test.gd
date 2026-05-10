@@ -114,7 +114,7 @@ func test_wall_jump_full_launch_left_wall() -> void:
 	# couvert par les autres tests de la suite (right_wall_negative_x, priority,
 	# invariant) qui ne testent pas la valeur exacte vy. Pattern cohérent
 	# skip headless mouse_capture commit `47ca6e2`.
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange.
@@ -167,7 +167,7 @@ func test_wall_jump_right_wall_negative_x() -> void:
 	# observé vs expected dans [-7.5, -6.5], hors range). AC-MV-32 sign-inverted variant
 	# reste couvert en runtime via Player.tscn + scene réelle.
 	# Pattern cohérent skip headless mouse_capture commit `47ca6e2`.
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange.
@@ -208,7 +208,7 @@ func test_double_jump_blocked_post_wall_jump() -> void:
 	# avec player suspendu y=50 sans floor explicit → step 3 transitionne AIRBORNE→GROUNDED
 	# → step 5b grounded jump fires (vy=7.1) au lieu de double-jump bloqué.
 	# AC-MV-35 reste couvert en runtime via Player.tscn + scene réelle.
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — AIRBORNE as if just after wall-jump.
@@ -246,7 +246,7 @@ func test_wall_jump_priority_over_air_jump_when_simultaneous() -> void:
 	# Skip headless — Jolt 4.6 imprécision wall-jump lateral component en headless
 	# (vx=5.916 observé vs expected dans [6.5, 7.5]). AC-3 priority order reste couvert
 	# par les autres tests (left_wall_full_launch sur runtime, invariant).
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — WALL_RUNNING state with jump available.

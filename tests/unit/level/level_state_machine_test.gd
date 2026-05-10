@@ -165,7 +165,7 @@ func test_level_main_thread_assert_fails_on_worker_thread() -> void:
 	# fonctionne (couvert par le run interactif manuel).
 	# Cohérent avec memory `feedback_godot_headless_input_events.md` (Godot headless flaky
 	# pour APIs runtime non-déterministes).
-	if DisplayServer.get_screen_count() == 0:
+	if not DisplayServer.window_can_draw():
 		return
 
 	# Arrange
