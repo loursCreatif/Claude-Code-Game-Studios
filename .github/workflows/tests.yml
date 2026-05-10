@@ -999,6 +999,12 @@ jobs:
     #          TR-lvl-035, TR-lvl-036, story-017 AC-LVL-3 / AC-LVL-34 / AC-LVL-35a.
     name: Perf — Level Frame Time Budget
     runs-on: ubuntu-latest
+    # Hard timeout — runner peut hang en headless CI si get_tree().process_frame
+    # ne fire pas (pattern --path + .tscn extension Node3D, sanity boundary observée
+    # 2026-05-10 run 25624770162 → 14+ min in_progress sans progression). 5 min
+    # couvre largement le runtime nominal (~30-60 s : 500 frames + 24 frames
+    # transition + load time + boot Godot 4.6.2).
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
