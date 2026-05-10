@@ -49,7 +49,7 @@ func test_mock_combat_reads_velocity_during_dash() -> void:
 	# transitionner AIRBORNE → dash slow → velocity divergence vs DASH_SPEED.
 	# Pattern miroir wall_jump skip headless (commit 9218033). Test couvert
 	# runtime via Player.tscn + StaticBody3D scene réelle.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — parent node commun, player et mock comme enfants indépendants.

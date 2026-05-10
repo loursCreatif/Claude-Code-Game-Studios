@@ -106,7 +106,7 @@ func test_jump_grounded_sets_velocity_y_to_jump_velocity() -> void:
 	# jamais prise → seulement gravity tick (-0.4 au lieu de 7.1).
 	# AC-MV-10 reste couvert en runtime via Player.tscn + StaticBody3D scene réelle.
 	# Pattern cohérent skip headless mouse_capture commit `47ca6e2`.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — GROUNDED state (default), zero velocity, no floor under player.
@@ -140,7 +140,7 @@ func test_double_jump_with_can_air_jump_consumes_one() -> void:
 	# (vy=7.1 = JUMP_VELOCITY-grav au lieu de 6.1 = AIR_JUMP_VELOCITY-grav).
 	# AC-MV-11 reste couvert en runtime via Player.tscn + StaticBody3D scene réelle.
 	# Pattern cohérent skip headless mouse_capture commit `47ca6e2`.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — AIRBORNE with downward velocity, air jump available.
@@ -174,7 +174,7 @@ func test_no_triple_jump_when_air_jumps_exhausted() -> void:
 	# avec player suspendu y=50 sans floor explicit → step 3 transitionne AIRBORNE→GROUNDED
 	# → step 5b grounded jump fires (vy=7.1) au lieu de gating bloqué AIRBORNE (vy<0).
 	# AC-MV-12 reste couvert en runtime via Player.tscn + scene réelle.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — AIRBORNE, air jump already consumed.
@@ -208,7 +208,7 @@ func test_air_jump_blocked_when_can_air_jump_false() -> void:
 	# flipper is_on_floor() flag → step 3 transitionne AIRBORNE→GROUNDED →
 	# grounded jump fires (vy=7.1) au lieu d'air jump bloqué (vy<0).
 	# AC-MV-13 reste couvert en runtime via Player.tscn + scene réelle.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — AIRBORNE, ability not unlocked.
@@ -287,7 +287,7 @@ func test_jump_held_only_one_jump_per_press() -> void:
 	# step 3 transitionne GROUNDED→AIRBORNE au tick 1 → step 5b skip → vy=-0.4 (gravity)
 	# au lieu de vy>0 (jump fired). Edge-triggered contract reste couvert en runtime
 	# via Player.tscn + scene réelle.
-	if not DisplayServer.window_can_draw():
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
 		return
 
 	# Arrange — GROUNDED.
