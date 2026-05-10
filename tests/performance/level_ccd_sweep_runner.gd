@@ -86,6 +86,12 @@ const MAX_ACCEPTABLE_CLIPS: int = 0
 ## On utilise set_collision_mask_value(4, true) via l'API 1-indexée conforme.
 const LAYER_ENVIRONMENT: int = 4
 
+## Layer LAYER_PLAYER (1-indexé, ADR-0008 / CollisionLayers.LAYER_PLAYER = 1).
+## Sans layer assigné au body de test, Jolt headless ubuntu CI peut diverger
+## du comportement Mac M4 (control 0.2m → 0 clips alors que Jolt actif). Parité
+## avec level_ccd_gameplay_runner.gd qui PASS CI ubuntu.
+const LAYER_PLAYER: int = 1
+
 ## Rayon de la capsule de test (approximation capsule joueur slim).
 const TEST_BODY_RADIUS: float = 0.3
 
@@ -156,15 +162,22 @@ func _setup_arenas() -> void:
 		# MOTION_MODE_FLOATING : pas de gravité appliquée par le moteur (joueur = FPS).
 		body.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 		body.safe_margin = 0.001  # Jolt default per story-014 instruction.
+		# layer PLAYER (1) + mask ENVIRONMENT (4) — parité gameplay runner qui PASS CI.
+		# Sans layer assigné, Jolt headless ubuntu peut ne pas enregistrer le body.
+		body.set_collision_layer_value(LAYER_PLAYER, true)
 		body.set_collision_mask_value(LAYER_ENVIRONMENT, true)
 
+		# Ordre add_child AVANT add_child(shape) — parité gameplay runner qui PASS CI.
+		# Jolt headless ubuntu enregistre les shapes au moment où le body entre dans
+		# l'arbre ; attacher la shape au body hors-arbre puis add_child(body) peut
+		# provoquer une registration incomplète (control 0.2m → 0 clips silencieux).
+		add_child(body)
 		var body_shape_node: CollisionShape3D = CollisionShape3D.new()
 		var capsule: CapsuleShape3D = CapsuleShape3D.new()
 		capsule.radius = TEST_BODY_RADIUS
 		capsule.height = TEST_BODY_HEIGHT
 		body_shape_node.shape = capsule
 		body.add_child(body_shape_node)
-		add_child(body)
 		var start_pos: Vector3 = Vector3(offset_x, 0.0, BODY_START_Z)
 		body.global_position = start_pos
 
@@ -180,10 +193,12 @@ func _setup_arenas() -> void:
 
 ## Lance le sweep complet et quitte avec exit code 0 ou 1.
 func _run_benchmark() -> void:
-	# Garantir qu'au moins un tick physique Jolt s'est écoulé avant le premier
-	# move_and_slide() — sinon le pass 0 part avant intégration physique initiale.
-	# Rend l'intent indépendant de l'await dans la boucle de _simulate_pass().
-	await get_tree().physics_frame
+	# Garantir que plusieurs ticks physiques Jolt se sont écoulés avant le premier
+	# move_and_slide() — laisse le temps à Jolt headless ubuntu d'enregistrer
+	# tous les CollisionShape3D programmatiques (parité timing gameplay runner
+	# qui instancie Player.tscn pré-baked). 3 frames > 1 marge de sécurité.
+	for _i: int in range(3):
+		await get_tree().physics_frame
 
 	print("=== EC-8 Jolt CCD Sweep — Story-014 AC-LVL-41 ===")
 	print("velocity=%.1f m/s, passes=%d, ticks/pass=%d" % [
