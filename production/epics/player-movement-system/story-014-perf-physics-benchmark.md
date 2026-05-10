@@ -49,7 +49,7 @@
   - Niveau stub géométrique avec 2 murs parallèles (wall-run corridor 3.0 m), plateforme 1.5 m haut, pit 4 m deep
   - 10 ennemis stub : CharacterBody3D + NavigationAgent3D + patrol cycle simple
   - Capabilities toutes à `true` (set_capability debug fixture)
-- Tests individuels réutilisent le framework GUT existant (`tests/gdunit4_runner.gd` + MikeSchulze/gdUnit4-action@v1 Godot 4.6 dans `.github/workflows/tests.yml`).
+- Tests individuels réutilisent le framework GUT existant (`tests/gdunit4_runner.gd` + godot-gdunit-labs/gdUnit4-action@v1 Godot 4.6 dans `.github/workflows/tests.yml`).
 - Pattern benchmark `input_to_velocity_latency_test.gd` :
   ```
   for i in 200:
