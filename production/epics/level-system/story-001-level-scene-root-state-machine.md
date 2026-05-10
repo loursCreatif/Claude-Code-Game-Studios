@@ -105,7 +105,7 @@
 **Required evidence**:
 - `tests/unit/level/level_state_machine_test.gd` — doit exister et passer (5 test cases ci-dessus)
 
-**Status**: [x] Created at `tests/unit/level/level_state_machine_test.gd` — 5 test cases (1 par AC) ; cache `.godot/global_script_class_cache.cfg` régénéré sans erreur de parse, `LevelSystemScript` enregistré ; exécution effective en CI via `MikeSchulze/gdUnit4-action@v1` (Godot 4.6).
+**Status**: [x] Created at `tests/unit/level/level_state_machine_test.gd` — 5 test cases (1 par AC) ; cache `.godot/global_script_class_cache.cfg` régénéré sans erreur de parse, `LevelSystemScript` enregistré ; exécution effective en CI via `godot-gdunit-labs/gdUnit4-action@v1` (Godot 4.6).
 
 ---
 

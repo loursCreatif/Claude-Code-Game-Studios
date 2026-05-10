@@ -141,7 +141,7 @@
 - `src/gameplay/level/level_system.gd` — paths story-003 (signal `level_unloading` l.41, `load_etage` reject l.171-178, `unload_current` l.202-210, `_physics_process` UNLOADING transition l.101-104).
 - `tests/integration/level/level_unload_test.gd` — 6 tests (AC-LVL-4 + AC-LVL-39 sur ACTIVE / LOADING / UNLOADING, AC-LVL-5, AC-LVL-10, AC-LVL-28).
 
-**Runtime Verification** : production code parse OK (`godot --check-only` 4.6.2). Tests parse-error attendue en local (GdUnit4 non installé) ; exécution effective via CI `MikeSchulze/gdUnit4-action@v1`.
+**Runtime Verification** : production code parse OK (`godot --check-only` 4.6.2). Tests parse-error attendue en local (GdUnit4 non installé) ; exécution effective via CI `godot-gdunit-labs/gdUnit4-action@v1`.
 
 ### Addendum r6 — code-review hardening (2026-04-27)
 
