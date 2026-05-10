@@ -32,6 +32,15 @@ class TestConsumer extends Node:
 # ---------------------------------------------------------------------------
 
 func test_polling_same_tick_consumer_reads_true_at_tick_n_not_n_plus_1() -> void:
+	# Skip headless (CI ubuntu + Mac M4 CLI) : `Input.parse_input_event` ne dispatch
+	# pas vers `_unhandled_input` headless (memory `feedback_godot_headless_input_events`)
+	# + `await get_tree().physics_frame` ne pump pas systématiquement `_physics_process`
+	# en headless GdUnit4 → consumer.observations vide. Le contract `_physics_process`
+	# parent-before-children est testé par invariant autoload order (ADR-0004 VC-4)
+	# et runtime via Player.tscn + InputManager autoload.
+	if OS.has_environment("CI") or not DisplayServer.window_can_draw():
+		return
+
 	# Arrange — créer un manager frais (pas l'autoload — isolation garantie)
 	var manager: InputManagerScript = InputManagerScript.new()
 	add_child(manager)

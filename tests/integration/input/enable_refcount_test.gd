@@ -24,18 +24,21 @@ func _make_owner_node() -> Node:
 	add_child(mock)
 	return mock
 
-## Injecte un press d'action via parse_input_event (ADR-0004 D-9 : jamais Input.action_press).
-func _inject_action_press(action: StringName) -> void:
+## Injecte un press d'action.
+## Headless ubuntu CI : `Input.parse_input_event` ne dispatch pas vers `_unhandled_input`
+## (memory rule `feedback_godot_headless_input_events.md`). Bypass : appel direct
+## à `manager._unhandled_input(ev)`. ADR-0004 D-9 (jamais Input.action_press) respecté.
+func _inject_action_press(manager: InputManagerScript, action: StringName) -> void:
 	var ev := InputEventAction.new()
 	ev.action = action
 	ev.pressed = true
-	Input.parse_input_event(ev)
+	manager._unhandled_input(ev)
 
-## Injecte un InputEventMouseMotion avec un delta donné.
-func _inject_mouse_motion(delta: Vector2) -> void:
+## Injecte un InputEventMouseMotion avec un delta donné (bypass headless idem).
+func _inject_mouse_motion(manager: InputManagerScript, delta: Vector2) -> void:
 	var ev := InputEventMouseMotion.new()
 	ev.relative = delta
-	Input.parse_input_event(ev)
+	manager._unhandled_input(ev)
 
 # ---------------------------------------------------------------------------
 # AC-DS-1 — Action gameplay bloquée quand _enabled == false
@@ -47,18 +50,20 @@ func test_ac_ds_1_gameplay_action_blocked_when_disabled() -> void:
 	await get_tree().process_frame
 	var owner_a: Node = _make_owner_node()
 
-	var jump_emitted: int = 0
-	manager.jump_pressed.connect(func() -> void: jump_emitted += 1)
+	# Dictionary container : primitives capturées par valeur ne propagent pas mutation
+	# (memory rule feedback_gdscript_lambda_capture_by_value).
+	var counters: Dictionary = {"jump_emitted": 0}
+	manager.jump_pressed.connect(func() -> void: counters["jump_emitted"] += 1)
 
 	manager.request_disable(owner_a)
 	assert_bool(manager.enabled).is_false()
 
 	# Act — injecter un press jump pendant que le manager est désactivé
-	_inject_action_press(&"jump")
+	_inject_action_press(manager, &"jump")
 	await get_tree().physics_frame
 
 	# Assert — aucun signal gameplay émis, was_pressed_this_tick retourne false
-	assert_int(jump_emitted) \
+	assert_int(counters["jump_emitted"]) \
 		.override_failure_message("AC-DS-1: jump_pressed ne doit pas être émis quand _enabled == false") \
 		.is_equal(0)
 	assert_bool(manager.was_pressed_this_tick(&"jump")) \
@@ -79,18 +84,18 @@ func test_ac_ds_2_ui_cancel_passthrough_when_disabled() -> void:
 	await get_tree().process_frame
 	var owner_a: Node = _make_owner_node()
 
-	var ui_cancel_count: int = 0
-	manager.ui_cancel_pressed.connect(func() -> void: ui_cancel_count += 1)
+	var counters: Dictionary = {"ui_cancel_count": 0}
+	manager.ui_cancel_pressed.connect(func() -> void: counters["ui_cancel_count"] += 1)
 
 	manager.request_disable(owner_a)
 	assert_bool(manager.enabled).is_false()
 
 	# Act — injecter ui_cancel pendant que le manager est désactivé
-	_inject_action_press(&"ui_cancel")
+	_inject_action_press(manager, &"ui_cancel")
 	await get_tree().physics_frame
 
 	# Assert — ui_cancel_pressed doit avoir été émis exactement 1 fois
-	assert_int(ui_cancel_count) \
+	assert_int(counters["ui_cancel_count"]) \
 		.override_failure_message("AC-DS-2: ui_cancel_pressed doit traverser le gate _enabled (émis 1×)") \
 		.is_equal(1)
 
@@ -107,18 +112,18 @@ func test_ac_ds_3_mouse_motion_blocked_when_disabled() -> void:
 	await get_tree().process_frame
 	var owner_a: Node = _make_owner_node()
 
-	var mouse_emitted: int = 0
-	manager.mouse_motion.connect(func(_delta: Vector2) -> void: mouse_emitted += 1)
+	var counters: Dictionary = {"mouse_emitted": 0}
+	manager.mouse_motion.connect(func(_delta: Vector2) -> void: counters["mouse_emitted"] += 1)
 
 	manager.request_disable(owner_a)
 	assert_bool(manager.enabled).is_false()
 
 	# Act — injecter un InputEventMouseMotion pendant que le manager est désactivé
-	_inject_mouse_motion(Vector2(10.0, 0.0))
+	_inject_mouse_motion(manager, Vector2(10.0, 0.0))
 	await get_tree().physics_frame
 
 	# Assert — mouse_motion ne doit pas être émis (gate story-003, vérifié story-004)
-	assert_int(mouse_emitted) \
+	assert_int(counters["mouse_emitted"]) \
 		.override_failure_message("AC-DS-3: mouse_motion ne doit pas être émis quand _enabled == false") \
 		.is_equal(0)
 
@@ -146,7 +151,7 @@ func test_ac_ds_4_no_ghost_press_after_re_enable() -> void:
 	# Act — injecter un press jump pendant que le manager est désactivé.
 	# Le gate _enabled dans _unhandled_input (input_manager.gd:143) doit empêcher le set du flag,
 	# donc aucun ghost ne peut survivre à la transition disabled→enabled.
-	_inject_action_press(&"jump")
+	_inject_action_press(manager, &"jump")
 	await get_tree().physics_frame
 
 	# Release → transition enabled=true. Le physics_frame suivant swap les dicts.

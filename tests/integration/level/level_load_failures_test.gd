@@ -262,8 +262,16 @@ func test_level_load_slow_flag_reset_on_reload() -> void:
 	level.load_etage(42)
 	level._simulate_load_elapsed_ms(700)  # Simule slow load sur le second load
 
-	# Assert — le signal doit être ré-émissible après reset du flag
-	await await_signal_on(level, "level_load_slow", [], 2000)
+	# Assert — le signal doit être ré-émissible après reset du flag.
+	# Pump explicite `_process` + `_physics_process(0.0)` au lieu de `await_signal_on` :
+	# GdUnit4 headless `physics_frame` ne pump pas systématiquement les ticks
+	# du level (timeout 2000 ms en CI ubuntu). Pattern miroir Level commit f1dd477
+	# (helpers `_load_and_wait` réécrits avec pump explicite _process + _physics_process).
+	for i: int in range(50):
+		level._process(0.0)
+		level._physics_process(0.0)
+		if captured["slow_count"] >= 1:
+			break
 
 	assert_int(captured["slow_count"]) \
 		.override_failure_message("AC-LVL-7 edge reload: level_load_slow doit être ré-émis après reload (flag resetté)") \
