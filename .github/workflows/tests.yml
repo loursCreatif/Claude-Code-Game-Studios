@@ -1070,6 +1070,13 @@ jobs:
             tests/unit
             tests/integration
           report-name: test-results
+          # Disable dorny/test-reporter@v3 post-step (action recommandation explicite
+          # "To disable to run on forked repositories"). Sur fork PR, le post-step
+          # tente de créer un check via GITHUB_TOKEN qui n'a pas la permission
+          # `checks:write` → step fail malgré 1117/1117 tests PASS, conclusion=failure
+          # propage au job alors que tests réels passent. Tests results restent
+          # accessibles via Upload Test Results artifact (reports/) ci-dessous.
+          publish-report: false
 
       - name: Upload Test Results
         if: always()
