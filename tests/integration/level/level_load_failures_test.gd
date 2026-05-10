@@ -263,13 +263,14 @@ func test_level_load_slow_flag_reset_on_reload() -> void:
 	level._simulate_load_elapsed_ms(700)  # Simule slow load sur le second load
 
 	# Assert — le signal doit être ré-émissible après reset du flag.
-	# Pump explicite `_process` + `_physics_process(0.0)` au lieu de `await_signal_on` :
-	# GdUnit4 headless `physics_frame` ne pump pas systématiquement les ticks
-	# du level (timeout 2000 ms en CI ubuntu). Pattern miroir Level commit f1dd477
-	# (helpers `_load_and_wait` réécrits avec pump explicite _process + _physics_process).
-	for i: int in range(50):
+	# Pump explicite `_process` + `_physics_process(0.0)` + `await physics_frame` :
+	# pump sans await peut flake en CI ubuntu (signal emit_deferred Godot peut nécessiter
+	# un physics_frame complet pour propager). Pattern miroir helper `_load_and_wait`
+	# (commit f1dd477). 200 iterations pour absorber jitter scheduler shared runners.
+	for i: int in range(200):
 		level._process(0.0)
 		level._physics_process(0.0)
+		await get_tree().physics_frame
 		if captured["slow_count"] >= 1:
 			break
 
