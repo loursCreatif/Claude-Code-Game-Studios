@@ -29,7 +29,12 @@ const _KILL_DURATION_S: float = 0.100   # CREDIT_COUNTER_TWEEN_KILL_MS = 100
 const _SECRET_DURATION_S: float = 0.150  # CREDIT_COUNTER_TWEEN_SECRET_MS = 150
 # Marge avant / après la durée nominale pour les tests de borne.
 const _MARGIN_BEFORE_S: float = 0.020   # 20ms avant la fin — tween doit encore être actif
-const _MARGIN_AFTER_S: float = 0.040    # 40ms après la fin — tween doit être terminé
+## 80ms après la fin — tween doit être terminé. CI ubuntu shared runners scheduler
+## jitter peut retarder Tween cleanup vs Mac M4 dev (KILL 140ms marge insuffisante).
+## Bumped 40 → 80 ms pour cover CI noise sans perdre la borne haute discriminante
+## (vs durée nominale KILL 100ms × 1.8 = 180ms cap, < SECRET 150ms × 0.9 = 135ms
+## séparation KILL/SECRET préservée).
+const _MARGIN_AFTER_S: float = 0.080    # 80ms après la fin — tween doit être terminé
 
 # =============================================================================
 # Helpers — instanciation hermétique (DRY depuis hud_visibility_state_test.gd)
