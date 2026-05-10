@@ -64,6 +64,13 @@ func before_test() -> void:
 	_camera_effects.add_child(_camera3d)
 	_camera_arm.add_child(_camera_effects)
 	_mock_player.add_child(_camera_arm)
+	# Set owner BEFORE _mock_player enters tree pour que set_unique_name_in_owner(true)
+	# enregistre %CameraEffects/%Camera3D dans le scope owner=_mock_player (mock scene root).
+	# Sans owner explicite : `Node not found: "%CameraEffects"` log ERROR à _ready
+	# (Mac M4 ignore l'erreur, ubuntu CI la compte comme error → test fails).
+	_camera_arm.owner = _mock_player
+	_camera_effects.owner = _mock_player
+	_camera3d.owner = _mock_player
 	add_child(_mock_player)
 	await get_tree().process_frame
 
