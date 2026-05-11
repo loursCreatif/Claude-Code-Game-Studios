@@ -66,6 +66,11 @@ func _process(delta: float) -> void:
 		var mm: int = int(_session_time) / 60
 		var ss: int = int(_session_time) % 60
 		timer_label.text = "%02d:%02d" % [mm, ss]
+	# Speed display (km/h) — vitesse horizontale.
+	var speed_label: Label = get_node_or_null("HUDProto/SpeedLabel") as Label
+	if speed_label != null:
+		var horiz_speed: float = Vector2(velocity.x, velocity.z).length() * 3.6
+		speed_label.text = "%d km/h" % int(horiz_speed)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
