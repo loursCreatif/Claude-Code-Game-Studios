@@ -53,6 +53,11 @@ func _ready() -> void:
 		fade_tween.tween_interval(7.0)
 		fade_tween.tween_property(label, "modulate:a", 0.0, 1.5)
 
+func _process(_delta: float) -> void:
+	# Auto-respawn si Player tombe sous Y=-5 (safety net out-of-world).
+	if global_position.y < -5.0:
+		respawn()
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
