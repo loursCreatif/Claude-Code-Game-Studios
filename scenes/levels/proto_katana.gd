@@ -73,6 +73,60 @@ func _kill_feedback(col: Object) -> void:
 	_apply_player_knockback()
 	_trigger_hitmarker()
 	_update_streak()
+	_spawn_credit_pickup(kill_pos)
+
+func _spawn_credit_pickup(pos: Vector3) -> void:
+	# Spawn un Area3D cyan rotating à la position du kill. Player walks over → pickup.
+	var area: Area3D = Area3D.new()
+	area.collision_layer = 16  # LAYER_INTERACTIVE
+	area.collision_mask = 1   # LAYER_PLAYER
+	area.monitorable = false
+	area.monitoring = true
+	var shape_node: CollisionShape3D = CollisionShape3D.new()
+	var s: SphereShape3D = SphereShape3D.new()
+	s.radius = 1.2
+	shape_node.shape = s
+	area.add_child(shape_node)
+	var mesh_node: MeshInstance3D = MeshInstance3D.new()
+	var m: BoxMesh = BoxMesh.new()
+	m.size = Vector3(0.3, 0.3, 0.3)
+	var mat: StandardMaterial3D = StandardMaterial3D.new()
+	mat.albedo_color = Color(0.3, 0.95, 1.0, 1)
+	mat.emission_enabled = true
+	mat.emission = Color(0.3, 0.95, 1.0, 1)
+	mat.emission_energy_multiplier = 2.0
+	m.material = mat
+	mesh_node.mesh = m
+	area.add_child(mesh_node)
+	get_tree().current_scene.add_child(area)
+	area.global_position = pos + Vector3(0, 0.7, 0)
+	# Rotation continue via Tween infini.
+	var rot_tween: Tween = create_tween().set_loops()
+	rot_tween.tween_property(area, "rotation:y", TAU, 1.5)
+	# Sphere area_entered → increment counter Player.
+	area.body_entered.connect(func(body: Node) -> void:
+		if body.is_in_group(&"player"):
+			_increment_credit_counter()
+			rot_tween.kill()
+			area.queue_free()
+	)
+	# Auto cleanup après 15s pour éviter accumulation.
+	get_tree().create_timer(15.0, false).timeout.connect(func() -> void:
+		if is_instance_valid(area):
+			rot_tween.kill()
+			area.queue_free()
+	)
+
+func _increment_credit_counter() -> void:
+	var player: Node = get_parent().get_parent().get_parent()
+	var label: Label = player.get_node_or_null("HUDProto/CreditCounter") as Label
+	if label == null:
+		return
+	var current: int = label.text.split("  ")[-1].to_int()
+	label.text = "CRÉDITS  %d" % (current + 1)
+	label.pivot_offset = label.size / 2.0
+	label.scale = Vector2(1.2, 1.2)
+	create_tween().tween_property(label, "scale", Vector2.ONE, 0.2)
 
 func _update_streak() -> void:
 	var now: int = Time.get_ticks_msec()
