@@ -1291,6 +1291,7 @@ jobs:
           paths: |
             tests/unit
             tests/integration
+            tests/static
           report-name: test-results
           # Disable dorny/test-reporter@v3 post-step (action recommandation explicite
           # "To disable to run on forked repositories"). Sur fork PR, le post-step
