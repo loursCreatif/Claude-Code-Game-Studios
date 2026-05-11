@@ -58,6 +58,8 @@ func _physics_process(delta: float) -> void:
 			_kill_feedback(col)
 
 var _last_kill_time_msec: int = 0
+var _streak: int = 0
+const STREAK_TIMEOUT_MSEC: int = 1500
 
 func _kill_feedback(col: Object) -> void:
 	enemy_killed.emit(col)
@@ -70,6 +72,34 @@ func _kill_feedback(col: Object) -> void:
 	_check_multi_kill_slowmo()
 	_apply_player_knockback()
 	_trigger_hitmarker()
+	_update_streak()
+
+func _update_streak() -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _last_kill_time_msec < STREAK_TIMEOUT_MSEC and _last_kill_time_msec > 0:
+		_streak += 1
+	else:
+		_streak = 1
+	var player: Node = get_parent().get_parent().get_parent()
+	var label: Label = player.get_node_or_null("HUDProto/StreakLabel") as Label
+	if label == null:
+		return
+	if _streak >= 2:
+		label.text = "x%d STREAK" % _streak
+		label.modulate.a = 1.0
+		# Pulse scale + fade out après timeout.
+		label.pivot_offset = label.size / 2.0
+		var pulse: Tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		label.scale = Vector2(1.25, 1.25)
+		pulse.tween_property(label, "scale", Vector2.ONE, 0.25)
+		# Reset auto après STREAK_TIMEOUT_MSEC.
+		get_tree().create_timer(STREAK_TIMEOUT_MSEC / 1000.0, false).timeout.connect(
+			func() -> void:
+				if Time.get_ticks_msec() - _last_kill_time_msec >= STREAK_TIMEOUT_MSEC:
+					_streak = 0
+					var fade: Tween = create_tween()
+					fade.tween_property(label, "modulate:a", 0.0, 0.4)
+		)
 
 func _trigger_hitmarker() -> void:
 	# Flash hitmarker croix jaune 150ms au kill.
