@@ -158,9 +158,14 @@ func _process(delta: float) -> void:
 			var target_yaw: float = atan2(to_player.x, to_player.z) + PI
 			pivot.global_rotation.y = lerp_angle(pivot.global_rotation.y, target_yaw, 0.05)
 		# Walk vers Player si distance > GRUNT_STOP_DISTANCE (sinon stationary pour shoot).
+		# Utilise move_and_collide pour respecter walls (anti-traverse-murs).
 		if dist > GRUNT_STOP_DISTANCE:
 			var dir: Vector3 = to_player.normalized()
-			grunt3d.global_position += dir * GRUNT_WALK_SPEED * delta
+			var motion: Vector3 = dir * GRUNT_WALK_SPEED * delta
+			if grunt3d.has_method("move_and_collide"):
+				grunt3d.move_and_collide(motion)
+			else:
+				grunt3d.global_position += motion
 
 func _dispose_main_menu_if_present() -> void:
 	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
