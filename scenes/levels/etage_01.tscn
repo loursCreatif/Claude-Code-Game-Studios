@@ -279,8 +279,8 @@ ground_bottom_color = Color(0.08, 0.04, 0.18, 1)
 ground_horizon_color = Color(0.42, 0.18, 0.55, 1)
 ground_curve = 0.10
 ground_energy_multiplier = 0.8
-sun_angle_max = 25.0
-sun_curve = 0.18
+sun_angle_max = 10.0
+sun_curve = 0.05
 
 [sub_resource type="Sky" id="sky_res"]
 sky_material = SubResource("sky_mat")
