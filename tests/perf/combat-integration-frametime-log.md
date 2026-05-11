@@ -451,3 +451,49 @@ sur testbed Tier 1 (DEFERRED).
 - **max** : 0.018 ms
 - **draw_calls_max** : 0 (DEFERRED full bench Godot CLI — headless RenderingServer)
 - **Verdict** : PASS
+
+## Run 2026-05-11T16:15:12 — Worst case ShapeCast (100x8)
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 800
+- **p50** : 0.013 ms
+- **p99** : 0.028 ms (threshold ≤ 16.6 ms)
+- **max** : 0.047 ms
+- **Verdict** : PASS
+
+## Run 2026-05-11T16:15:13 — Soak global (1000 frames)
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 1000
+- **p50** : 0.010 ms
+- **p99** : 0.019 ms (threshold ≤ 16.6 ms)
+- **max** : 0.089 ms
+- **draw_calls_max** : 0 (DEFERRED full bench Godot CLI — headless RenderingServer)
+- **Verdict** : PASS
+
+## Run 2026-05-11T16:33:52 — Worst case ShapeCast (100x8)
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 800
+- **p50** : 0.014 ms
+- **p99** : 0.017 ms (threshold ≤ 16.6 ms)
+- **max** : 0.025 ms
+- **Verdict** : PASS
+
+## Run 2026-05-11T16:33:52 — Soak global (1000 frames)
+
+- **Hardware** : macOS — Apple M4 (10 cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)
+- **Godot version** : 4.6 (project pinned)
+- **Physics** : Jolt 4.6 default
+- **Samples** : 1000
+- **p50** : 0.009 ms
+- **p99** : 0.031 ms (threshold ≤ 16.6 ms)
+- **max** : 0.069 ms
+- **draw_calls_max** : 0 (DEFERRED full bench Godot CLI — headless RenderingServer)
+- **Verdict** : PASS

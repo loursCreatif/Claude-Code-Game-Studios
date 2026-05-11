@@ -1,4 +1,4 @@
-# Tests integration Story-018 — AC-CMB-35b/37 soak combat (5 méthodes).
+# Tests integration Story-018 — AC-CMB-35b/37 soak combat (6 méthodes).
 #
 # Couvre AC-CMB-37 (1000 cycles Idle→Swinging→Idle avec MEMORY_STATIC + OBJECT_COUNT delta) :
 #   (a) `_hit_this_swing.is_empty()` après chaque retour Idle
@@ -6,6 +6,7 @@
 #   (c) `_cooldown_timer == 0.0` après chaque expiration
 #   (d) `Performance.MEMORY_STATIC` after 1000 cycles ≤ avant + 500 KB
 #   (e) `Performance.OBJECT_COUNT` delta ≤ +5
+#   (f) zéro push_error / push_warning pendant SOAK_CYCLES cycles (stderr clean)
 #
 # Couvre AC-CMB-35b (frametime soak combat-only — pas de rendering headless) :
 #   (1) Worst case ShapeCast p99 — 100 swings × ACTIVE_TICKS = 800 samples ≤ 16.6 ms
@@ -288,6 +289,54 @@ func test_combat_soak_global_1000_frames_p50_p99_under_thresholds() -> void:
 		) \
 		.is_less_equal(FRAMETIME_P99_THRESHOLD_MS)
 
+
+
+# ---------------------------------------------------------------------------
+# AC-CMB-37 (f) — Zéro push_error / push_warning pendant le soak
+# ---------------------------------------------------------------------------
+
+## AC-CMB-37 (f) : pendant SOAK_CYCLES cycles Idle→SWINGING→Idle, aucun
+## push_error() ni push_warning() ne doit être émis (stderr clean).
+##
+## Implémentation : GodotGdErrorMonitor (GdUnit4) installé via OS.add_logger().
+## _logger._is_report_push_errors forcé à true indépendamment des GdUnitSettings
+## (pattern miroir de GodotGdErrorMonitorTest, ligne 16/40 — test officiel GdUnit4).
+## monitor.start() vide le log ; monitor.log_entries() renvoie les entrées capturées.
+##
+## Story type : Integration — gate BLOCKING (AC-CMB-37 f).
+## Output : tests/integration/combat/
+func test_combat_soak_cycles_zero_stderr_warnings_and_errors() -> void:
+	var monitor := GodotGdErrorMonitor.new()
+	# Force la capture quelle que soit la valeur du ProjectSetting REPORT_PUSH_ERRORS
+	# (défaut false en CI — pattern officiel GodotGdErrorMonitorTest l.16/40).
+	monitor._logger._is_report_push_errors = true
+
+	var combat: CombatSystem = _make_combat()
+
+	monitor.start()
+
+	for _cycle: int in range(SOAK_CYCLES):
+		combat.attacked()
+		for _t: int in range(CombatSystem.ACTIVE_TICKS):
+			combat._physics_process(DELTA_60HZ)
+		while combat._cooldown_timer > 0.0:
+			combat._physics_process(DELTA_60HZ)
+
+	monitor.stop()
+
+	var entries: Array[ErrorLogEntry] = monitor.log_entries()
+
+	var messages: Array[String] = []
+	for entry: ErrorLogEntry in entries:
+		messages.append(entry._message)
+
+	assert_array(entries) \
+		.override_failure_message(
+			"AC-CMB-37 (f): push_error/push_warning détecté pendant %d cycles soak. " \
+			% SOAK_CYCLES \
+			+ "Messages: %s" % str(messages)
+		) \
+		.is_empty()
 
 
 # ---------------------------------------------------------------------------
