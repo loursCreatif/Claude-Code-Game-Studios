@@ -194,9 +194,10 @@ sky_material = SubResource("sky_mat")
 [sub_resource type="Environment" id="env_main"]
 background_mode = 2
 sky = SubResource("sky_res")
-ambient_light_source = 3
-ambient_light_color = Color(0.82, 0.86, 0.95, 1)
-ambient_light_energy = 2.2
+; ambient_light_source = 2 (Color seule) — évite que sky teinte les murs en cyan.
+ambient_light_source = 2
+ambient_light_color = Color(0.78, 0.80, 0.85, 1)
+ambient_light_energy = 1.4
 ; Glow / bloom modéré — emissions accent mais pas saturé.
 glow_enabled = true
 glow_intensity = 0.35
@@ -229,12 +230,11 @@ script = ExtResource("8_init")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("env_main")
 
-; Directional réduit pour éviter asymétrie (mur droit blanc / gauche sombre).
-; Orientation plus top-down (moins side) pour éclairage homogène.
+; Directional légèrement diagonal pour relief subtil sans asymétrie écrasante.
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.5, 0, 0.866, 0.866, 0, -0.5, 0, 1, 0, 0, 20, 40)
-light_color = Color(0.92, 0.95, 1, 1)
-light_energy = 0.55
+transform = Transform3D(0.94, -0.17, 0.30, 0, 0.87, 0.50, -0.34, -0.47, 0.82, 0, 20, 40)
+light_color = Color(0.95, 0.97, 1, 1)
+light_energy = 1.0
 shadow_enabled = false
 
 ; ==========================================================================
