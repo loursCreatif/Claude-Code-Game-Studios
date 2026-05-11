@@ -52,6 +52,10 @@ func _physics_process(delta: float) -> void:
 		if col.has_method("kill"):
 			col.kill()
 			enemy_killed.emit(col)
+		elif col.has_method("die"):
+			# Production Grunt utilise die() (Enemy GDD r2 Rule 14).
+			col.die()
+			enemy_killed.emit(col)
 
 	if swing_timer <= 0.0:
 		is_swinging = false

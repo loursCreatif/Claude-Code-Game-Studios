@@ -49,7 +49,8 @@ material_override = SubResource("MatKatana")
 [node name="ShapeCast3D" type="ShapeCast3D" parent="Camera3D/Katana"]
 shape = SubResource("CapsuleKatana")
 target_position = Vector3(0, 0, -2.6)
-collision_mask = 4
+; mask=2 (LAYER_ENEMY ADR-0008 D-2) — détecte Grunt body production.
+collision_mask = 2
 enabled = false
 
 [node name="WallRayLeft" type="RayCast3D" parent="."]
