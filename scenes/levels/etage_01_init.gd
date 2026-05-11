@@ -21,6 +21,7 @@ func _ready() -> void:
 	# Idempotent : si déjà appelé (load_etage flow), spawn rien (Grunts déjà existants).
 	if not _has_grunts_already():
 		EnemySpawner.spawn_for_scene(self)
+		_scale_boss_grunt()
 		print("[etage_01_init] EnemySpawner.spawn_for_scene appelé")
 
 	# Proto player a déjà toutes les abilities par défaut (can_dash=true, double-jump natif).
@@ -69,7 +70,34 @@ func _spawn_next_wave() -> void:
 			create_tween().tween_property(wave_label, "scale", Vector2.ONE, 0.3)
 	# Spawn EnemySpawner relance (basé sur EnemySlots existants).
 	EnemySpawner.spawn_for_scene(self)
+	# Scale boss à 1.8× (grunt le plus proche de Z=80).
+	_scale_boss_grunt()
 	print("[etage_01_init] Wave %d spawned" % _wave_number)
+
+func _scale_boss_grunt() -> void:
+	# Trouve le grunt dont Z est le plus proche de 80 et le scale ×1.8.
+	var best_grunt: Node3D = null
+	var best_diff: float = 999.0
+	for g: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if not (g is Node3D):
+			continue
+		if g.has_method("is_dead") and g.is_dead():
+			continue
+		var diff: float = absf((g as Node3D).global_position.z - 80.0)
+		if diff < best_diff and diff < 5.0:
+			best_diff = diff
+			best_grunt = g as Node3D
+	if best_grunt != null:
+		best_grunt.scale = Vector3(1.8, 1.8, 1.8)
+		# Tint plus rouge sur le mesh.
+		var mesh_node: MeshInstance3D = best_grunt.get_node_or_null("MeshInstance3D") as MeshInstance3D
+		if mesh_node != null and mesh_node.material_override == null:
+			var boss_mat: StandardMaterial3D = StandardMaterial3D.new()
+			boss_mat.albedo_color = Color(0.6, 0.05, 0.05, 1)
+			boss_mat.emission_enabled = true
+			boss_mat.emission = Color(0.9, 0.10, 0.10, 1)
+			boss_mat.emission_energy_multiplier = 1.2
+			mesh_node.material_override = boss_mat
 
 const GRUNT_WALK_SPEED: float = 1.2
 const GRUNT_STOP_DISTANCE: float = 6.0
