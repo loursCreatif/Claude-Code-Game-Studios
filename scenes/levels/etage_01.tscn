@@ -226,14 +226,8 @@ sky = SubResource("sky_res")
 ambient_light_source = 2
 ambient_light_color = Color(0.78, 0.80, 0.85, 1)
 ambient_light_energy = 1.4
-; Glow / bloom modéré — emissions accent mais pas saturé.
-glow_enabled = true
-glow_intensity = 0.35
-glow_strength = 1.0
-glow_bloom = 0.08
-glow_blend_mode = 1
-glow_hdr_threshold = 1.2
-glow_hdr_scale = 1.2
+; Glow désactivé — pulsation 3s persistante. À ré-activer plus tard avec config stable.
+glow_enabled = false
 ; Fog Chrome Spire — léger pour distance sans noircir le top.
 fog_enabled = true
 fog_light_color = Color(0.25, 0.32, 0.45, 1)
