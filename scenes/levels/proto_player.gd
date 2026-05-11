@@ -293,11 +293,24 @@ func _update_wall_state() -> void:
 		wall_normal = Vector3.ZERO
 		wall_side = 0
 
+var _bob_phase: float = 0.0
+
 func _update_camera_effects(delta: float) -> void:
 	var target_roll: float = 0.0
 	if is_wall_running:
 		target_roll = CAMERA_TILT_WALL_RUN * float(wall_side)
 	camera.rotation.z = lerp(camera.rotation.z, target_roll, CAMERA_TILT_LERP_SPEED * delta)
+	# Head bob — oscillation Y quand walk au sol (FPS organic feel).
+	var horiz_speed: float = Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and horiz_speed > 2.0 and not is_dashing and not _is_sliding:
+		_bob_phase += delta * 11.0
+		var bob: float = sin(_bob_phase) * 0.04
+		var bob_target: float = 0.65 + bob
+		camera.position.y = lerp(camera.position.y, bob_target, delta * 12.0)
+	else:
+		_bob_phase = 0.0
+		if not _is_sliding:
+			camera.position.y = lerp(camera.position.y, 0.65, delta * 8.0)
 
 	var target_fov: float = BASE_FOV
 	# FOV dynamique : amplitude réduite + lerp doux (anti-flicker au saut/wall).
