@@ -1,6 +1,7 @@
-[gd_resource type="Theme" load_steps=8 format=3 uid="uid://b1mnu009theme01"]
+[gd_resource type="Theme" load_steps=7 format=3 uid="uid://b1mnu009theme01"]
 
-[ext_resource type="FontFile" path="res://assets/fonts/JetBrainsMono-Regular.ttf" id="1_font"]
+; Font JetBrainsMono.ttf manquante — fallback Godot default font.
+; TODO : ajouter assets/fonts/JetBrainsMono-Regular.ttf et restorer ExtResource.
 
 [sub_resource type="StyleBoxFlat" id="btn_normal"]
 content_margin_left = 16.0
@@ -90,7 +91,6 @@ corner_radius_bottom_right = 0
 corner_radius_bottom_left = 0
 
 [resource]
-default_font = ExtResource("1_font")
 default_font_size = 15
 Button/colors/font_color = Color(0.91, 0.91, 0.941, 1)
 Button/colors/font_focus_color = Color(0.91, 0.91, 0.941, 1)

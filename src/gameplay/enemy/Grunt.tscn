@@ -33,7 +33,7 @@ emission_enabled = true
 emission = Color(1, 0.1, 0.1, 1)
 emission_energy_multiplier = 3.0
 
-[node name="Grunt" type="CharacterBody3D" groups=["enemy"]]
+[node name="Grunt" type="CharacterBody3D" groups=["enemy", "enemies"]]
 ; Enemy GDD r2 Rule 3 : canonical scene. Layer LAYER_ENEMY=2, mask LAYER_ENVIRONMENT=4.
 ; Layers configurés via API 1-idx dans _ready() (ADR-0008 D-6 lint cover-all).
 script = ExtResource("1_grunt_script")
