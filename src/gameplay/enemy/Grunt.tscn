@@ -13,9 +13,11 @@ radius = 0.35
 height = 1.8
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grunt_body"]
-; MVP playtest : rouge sombre pour contraste élevé avec gris environnement.
-; Visual Requirements original (gris 0.3) trop similaire au level — invisible.
-albedo_color = Color(0.85, 0.15, 0.15, 1)
+; Rouge crimson émissif — silhouette danger visible à distance (refs Martin).
+albedo_color = Color(0.95, 0.10, 0.10, 1)
+emission_enabled = true
+emission = Color(1.0, 0.15, 0.15, 1)
+emission_energy_multiplier = 0.6
 metallic = 0.0
 roughness = 1.0
 
