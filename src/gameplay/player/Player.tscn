@@ -13,6 +13,9 @@ height = 1.8
 ; Script: MovementController (story-001). ADR-0001 + ADR-0002 + ADR-0005.
 ; physics_interpolation_mode=OFF (Node.PHYSICS_INTERPOLATION_MODE_OFF=2 in Godot 4.6) — ADR-0002 VC.
 ; Note : valeur 1 dans 4.3 mais OFF=2 / ON=1 / INHERIT=0 depuis 4.5.
+; Collision (ADR-0008 D-2 Player body) : layer 1 (LAYER_PLAYER) + mask 30 (Layers 2+3+4+5).
+collision_layer = 1
+collision_mask = 30
 script = ExtResource("3_movescript")
 physics_interpolation_mode = 2
 
