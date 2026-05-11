@@ -56,23 +56,35 @@ func _on_etage_exit(body: Node) -> void:
 func _has_grunts_already() -> bool:
 	return find_child("Grunt_*", true, false) != null
 
-func _process(_delta: float) -> void:
-	# Grunts AI tracking : tourne leur FacingPivot vers le Player.
+const GRUNT_WALK_SPEED: float = 2.0
+const GRUNT_STOP_DISTANCE: float = 4.5
+
+func _process(delta: float) -> void:
+	# Grunts AI tracking : FacingPivot vers Player + walk slow toward Player.
 	var player: Node3D = find_child("Player", true, false) as Node3D
 	if player == null:
 		return
 	for grunt: Node in get_tree().get_nodes_in_group(&"enemies"):
 		if not (grunt is Node3D):
 			continue
-		var pivot: Node3D = grunt.get_node_or_null("%FacingPivot") as Node3D
-		if pivot == null:
+		# Skip si DYING / DEAD (grunt.is_dead() exposé Rule 13).
+		if grunt.has_method("is_dead") and grunt.is_dead():
 			continue
-		var to_player: Vector3 = player.global_position - (grunt as Node3D).global_position
+		var grunt3d: Node3D = grunt as Node3D
+		var to_player: Vector3 = player.global_position - grunt3d.global_position
 		to_player.y = 0.0
-		if to_player.length_squared() < 0.01:
+		var dist: float = to_player.length()
+		if dist < 0.01:
 			continue
-		var target_yaw: float = atan2(to_player.x, to_player.z) + PI
-		pivot.global_rotation.y = lerp_angle(pivot.global_rotation.y, target_yaw, 0.05)
+		# Rotate FacingPivot vers Player (LaserCone aim live).
+		var pivot: Node3D = grunt.get_node_or_null("%FacingPivot") as Node3D
+		if pivot != null:
+			var target_yaw: float = atan2(to_player.x, to_player.z) + PI
+			pivot.global_rotation.y = lerp_angle(pivot.global_rotation.y, target_yaw, 0.05)
+		# Walk vers Player si distance > GRUNT_STOP_DISTANCE (sinon stationary pour shoot).
+		if dist > GRUNT_STOP_DISTANCE:
+			var dir: Vector3 = to_player.normalized()
+			grunt3d.global_position += dir * GRUNT_WALK_SPEED * delta
 
 func _dispose_main_menu_if_present() -> void:
 	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
