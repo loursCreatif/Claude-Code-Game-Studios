@@ -53,10 +53,19 @@ func _ready() -> void:
 		fade_tween.tween_interval(7.0)
 		fade_tween.tween_property(label, "modulate:a", 0.0, 1.5)
 
-func _process(_delta: float) -> void:
+var _session_time: float = 0.0
+
+func _process(delta: float) -> void:
 	# Auto-respawn si Player tombe sous Y=-5 (safety net out-of-world).
 	if global_position.y < -5.0:
 		respawn()
+	# Session timer affiché en HUD.
+	_session_time += delta
+	var timer_label: Label = get_node_or_null("HUDProto/TimerLabel") as Label
+	if timer_label != null:
+		var mm: int = int(_session_time) / 60
+		var ss: int = int(_session_time) % 60
+		timer_label.text = "%02d:%02d" % [mm, ss]
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:

@@ -105,6 +105,18 @@ mouse_filter = 2
 text = "KILLS  0"
 modulate = Color(0.95, 0.92, 0.85, 1)
 
+; Session timer — sous le kill counter
+[node name="TimerLabel" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 16.0
+offset_top = 44.0
+offset_right = 280.0
+offset_bottom = 80.0
+mouse_filter = 2
+text = "00:00"
+modulate = Color(0.75, 0.85, 1.0, 0.9)
+
 ; Onboarding controls label — fade out après 5s
 [node name="ControlsLabel" type="Label" parent="HUDProto"]
 anchors_preset = 1
