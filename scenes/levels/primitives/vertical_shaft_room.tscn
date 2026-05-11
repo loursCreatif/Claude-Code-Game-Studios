@@ -23,7 +23,11 @@ albedo_color = Color(0.35, 0.37, 0.40, 1)
 albedo_color = Color(0.55, 0.55, 0.58, 1)
 
 [sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
-albedo_color = Color(0.65, 0.6, 0.7, 1)
+; Accent cyan vif pour signaler wall-run-able (MVP playtest visibility).
+albedo_color = Color(0.3, 0.85, 0.95, 1)
+emission_enabled = true
+emission = Color(0.3, 0.85, 0.95, 1)
+emission_energy_multiplier = 0.3
 
 ; --- Shapes ---
 ; PitFloor : 6×0.3×6 m
