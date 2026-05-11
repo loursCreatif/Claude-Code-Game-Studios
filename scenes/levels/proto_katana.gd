@@ -146,6 +146,9 @@ func _update_streak() -> void:
 		var pulse: Tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		label.scale = Vector2(1.25, 1.25)
 		pulse.tween_property(label, "scale", Vector2.ONE, 0.25)
+		# Streak milestone : +1 HP tous les 5 kills.
+		if _streak % 5 == 0:
+			_grant_streak_reward()
 		# Reset auto après STREAK_TIMEOUT_MSEC.
 		get_tree().create_timer(STREAK_TIMEOUT_MSEC / 1000.0, false).timeout.connect(
 			func() -> void:
@@ -282,3 +285,40 @@ func camera_shake_at(intensity: float, count: int) -> void:
 		var offset: Vector3 = Vector3(randf_range(-intensity, intensity), randf_range(-intensity, intensity), 0)
 		tween.tween_property(camera, "position", orig + offset, 0.025)
 	tween.tween_property(camera, "position", orig, 0.05)
+
+
+func _grant_streak_reward() -> void:
+	# +1 HP au Player + popup HUD.
+	var player: Node = get_parent().get_parent().get_parent()
+	if player == null:
+		return
+	if player.has_method("get") and "current_hp" in player and "MAX_HP" in player:
+		if player.current_hp < player.MAX_HP:
+			player.current_hp += 1
+			if player.has_method("_update_hp_bar"):
+				player._update_hp_bar()
+	# Spawn popup "+HP" doré au centre écran.
+	var hud: CanvasLayer = player.get_node_or_null("HUDProto") as CanvasLayer
+	if hud == null:
+		return
+	var bonus: Label = Label.new()
+	bonus.text = "+1 HP"
+	bonus.modulate = Color(1.0, 0.85, 0.25, 1)
+	bonus.add_theme_font_size_override(&"font_size", 56)
+	bonus.anchor_left = 0.5
+	bonus.anchor_top = 0.5
+	bonus.anchor_right = 0.5
+	bonus.anchor_bottom = 0.5
+	bonus.offset_left = -120.0
+	bonus.offset_top = -180.0
+	bonus.offset_right = 120.0
+	bonus.offset_bottom = -100.0
+	bonus.horizontal_alignment = 1
+	bonus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(bonus)
+	bonus.pivot_offset = bonus.size / 2.0
+	bonus.scale = Vector2(0.5, 0.5)
+	var tw: Tween = create_tween().set_parallel(true)
+	tw.tween_property(bonus, "scale", Vector2.ONE, 0.3)
+	tw.tween_property(bonus, "modulate:a", 0.0, 1.2)
+	tw.chain().tween_callback(bonus.queue_free)
