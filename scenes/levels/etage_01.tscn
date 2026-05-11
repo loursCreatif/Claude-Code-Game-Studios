@@ -281,15 +281,13 @@ shape = SubResource("shape_ceil_01")
 ; Room_02 — TRAVERSAL (0), origin (0,1.5,8), mezzanine primitive
 ; --------------------------------------------------------------------------
 [node name="Room_02" type="Node3D" parent="StaticEnvironment"]
-; MVP playtest : Y aplati à 0 (était 1.5) — pas de saut requis pour traverser.
+; Y ascending restauré (modeste) — Mezzanine Platform absolue = 0+2.5 = 2.5 m, atteignable au saut.
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 8.0)
 script = ExtResource("1_room_script")
 archetype = 0
 
+; Mezzanine.tscn fixée (Platform à Y=2.5 local). Pas besoin de override transform ici.
 [node name="Mezzanine_01" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
-; Y+=2.0 — élève la Platform Mezzanine à Y=3.5 absolu pour laisser passer le Player (capsule 1.8 m) en dessous.
-; Authoring tech-debt : mezzanine.tscn Platform devrait être à Y≥2 local (corriger primitive en story future).
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
 
 ; --------------------------------------------------------------------------
 ; Room_03 — COMBAT (1), origin (0,2,14)

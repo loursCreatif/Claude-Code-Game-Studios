@@ -19,18 +19,16 @@ func _ready() -> void:
 	# Proto player a déjà toutes les abilities par défaut (can_dash=true, double-jump natif).
 
 func _dispose_main_menu_if_present() -> void:
-	# Cherche un Control nommé "MainMenuController" dans le scene tree root.
+	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
+	# get_tree().current_scene et les inputs ne seraient plus routés correctement.
+	# hide() rend invisible + désactive le process Control (mouse_filter input).
 	for node: Node in get_tree().root.get_children():
-		if node.name == "MainMenuController" or _has_descendant_named(node, "MainMenuController"):
-			print("[etage_01_init] main_menu détecté — libération")
-			if node.name == "MainMenuController":
-				node.queue_free()
-			else:
-				node.find_child("MainMenuController", true, false).queue_free()
+		if node.name == "MainMenuController":
+			print("[etage_01_init] main_menu hide()")
+			(node as Control).visible = false
+			# Désactive aussi le process pour éviter que le menu réagisse aux inputs.
+			node.process_mode = Node.PROCESS_MODE_DISABLED
 			return
-
-func _has_descendant_named(node: Node, target_name: String) -> bool:
-	return node.find_child(target_name, true, false) != null
 
 func _add_key_binding(action: StringName, keycode: int) -> void:
 	if not InputMap.has_action(action):
