@@ -1222,6 +1222,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.2, 68.0)
 [node name="EnemySlot_06" type="Marker3D" parent="SpawnMarkers"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.2, 72.0)
 
+; Grunts perchés sur cover columns (combat 3D vertical)
+[node name="EnemySlot_08_high" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 2.5, 58.0)
+
+[node name="EnemySlot_09_high" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 2.5, 64.0)
+
 ; Boss du Room_09 terminal — sur la dernière marche élévée (Y=2 absolute).
 [node name="EnemySlot_07_boss" type="Marker3D" parent="SpawnMarkers"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 81.0)
