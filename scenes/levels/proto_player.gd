@@ -92,11 +92,13 @@ func _process(delta: float) -> void:
 	var horiz_speed_kmh: float = Vector2(velocity.x, velocity.z).length() * 3.6
 	if speed_label != null:
 		speed_label.text = "%d km/h" % int(horiz_speed_kmh)
-	# Speed vignette : sombre les coins quand vitesse > 30 km/h (Mirror's Edge style).
+	# Speed vignette : lerp doux pour éviter flicker au saut/wall.
 	var vignette: ColorRect = get_node_or_null("HUDProto/SpeedLinesContainer/SpeedVignette") as ColorRect
 	if vignette != null:
-		var intensity: float = clamp((horiz_speed_kmh - 30.0) / 50.0, 0.0, 0.35)
-		vignette.color = Color(0.0, 0.05, 0.10, intensity)
+		var target_intensity: float = clamp((horiz_speed_kmh - 40.0) / 60.0, 0.0, 0.18)
+		var current_a: float = vignette.color.a
+		var new_a: float = lerp(current_a, target_intensity, delta * 3.0)
+		vignette.color = Color(0.0, 0.05, 0.10, new_a)
 	# Exit indicator : distance + symbole direction vers EtageExitTrigger.
 	var exit_label: Label = get_node_or_null("HUDProto/ExitIndicator") as Label
 	if exit_label != null:
@@ -273,13 +275,13 @@ func _update_camera_effects(delta: float) -> void:
 	camera.rotation.z = lerp(camera.rotation.z, target_roll, CAMERA_TILT_LERP_SPEED * delta)
 
 	var target_fov: float = BASE_FOV
-	# FOV dynamique : grow up to +12° quand vitesse haute (flow Mirror's Edge style).
+	# FOV dynamique : amplitude réduite + lerp doux (anti-flicker au saut/wall).
 	var horiz_v: float = Vector2(velocity.x, velocity.z).length()
 	var speed_norm: float = clamp((horiz_v - MOVE_SPEED) / (DASH_SPEED - MOVE_SPEED), 0.0, 1.0)
-	target_fov += speed_norm * 12.0
+	target_fov += speed_norm * 6.0
 	if is_dashing:
 		target_fov = BASE_FOV + CAMERA_DASH_FOV_KICK
-	camera.fov = lerp(camera.fov, target_fov, 14.0 * delta)
+	camera.fov = lerp(camera.fov, target_fov, 4.0 * delta)
 
 func get_state_string() -> String:
 	var state: String = "FLOOR"
