@@ -16,7 +16,9 @@
 # ADR     : ADR-0006 D-2 (Hybrid M1 Option C), ADR-0005 D-5 amendment r2 (SYNC died)
 # GDD     : design/gdd/player-combat-system.md AC-CMB-20/41 + Rule 17
 
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
 
 
 # ---------------------------------------------------------------------------
@@ -27,18 +29,20 @@ const SCENE_PATH: String = "res://src/gameplay/combat/combat_system.tscn"
 const DELTA_60HZ: float = 1.0 / 60.0
 const TIME_SCALE_TOLERANCE: float = 0.0001
 
+var _autoload_snap: Dictionary = {}
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
-	super.before_test()
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 
 
 func after_test() -> void:
 	Engine.time_scale = 1.0
-	super.after_test()
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------

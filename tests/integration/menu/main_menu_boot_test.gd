@@ -1,4 +1,4 @@
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
 
 ## AC-MNU-1/2/3 — Main Menu boot lifecycle integration.
 ##
@@ -11,14 +11,16 @@ extends "res://tests/helpers/autoload_reset_test_suite.gd"
 ## (pas de watch_signals/monitor API utilisable depuis SYNC GdUnit4).
 
 const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/menus/main_menu.tscn")
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
 
 var _menu: Control
+var _autoload_snap: Dictionary = {}
 
 
 func before_test() -> void:
-	# AutoloadResetTestSuite.before_test() snapshots GSM + Engine + AudioSystem + VFXSystem.
-	# La suite remplace ensuite GSM à MENU (requis par MainMenuController._ready() assert).
-	super.before_test()
+	# Snapshot autoloads (GSM + Engine + AudioSystem + VFXSystem) avant mutations
+	# spécifiques au test pour éviter pollution cross-suite (TD-010).
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 	# Force GSM à MENU après snapshot — la restauration after_test() remettra la valeur
 	# d'avant (qui peut être MENU ou autre selon l'ordre de run). Le snapshot est déjà pris.
 	GameStateManager._current_state = GameStateManager.State.MENU
@@ -26,6 +28,10 @@ func before_test() -> void:
 	_menu = MAIN_MENU_SCENE.instantiate()
 	auto_free(_menu)
 	add_child(_menu)
+
+
+func after_test() -> void:
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 func test_main_menu_boot_state_is_menu() -> void:

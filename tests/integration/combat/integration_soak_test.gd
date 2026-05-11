@@ -20,7 +20,11 @@
 # ADR     : ADR-0001 (Physics 60Hz), ADR-0006 (Combat Tick Model)
 # GDD     : design/gdd/player-combat-system.md AC-CMB-35b/37
 
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
 
 
 # ---------------------------------------------------------------------------
@@ -61,12 +65,12 @@ const FRAMETIME_LOG_PATH: String = "res://tests/perf/combat-integration-frametim
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
-	super.before_test()
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 
 
 func after_test() -> void:
 	Engine.time_scale = 1.0
-	super.after_test()
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 func _make_combat() -> CombatSystem:

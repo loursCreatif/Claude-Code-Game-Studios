@@ -13,7 +13,11 @@
 # ADR     : ADR-0009 D-2 (pool jamais étendu runtime)
 # GDD     : design/gdd/audio-system.md AC-AUD-03
 
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
 
 
 # ---------------------------------------------------------------------------
@@ -38,10 +42,14 @@ const POOL_2D_SIZE: int = 5
 func before_test() -> void:
 	# AutoloadResetTestSuite.before_test() snapshots l'état de tous les autoloads
 	# (dont AudioSystem._2d_index) avant toute mutation cross-suite (TD-010).
-	super.before_test()
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 	# Force _2d_index à 0 pour déterminisme intra-suite — after_test() restorerra
 	# la valeur snapshotée, isolant les suites voisines.
 	_get_audio_system()._2d_index = 0
+
+
+func after_test() -> void:
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------

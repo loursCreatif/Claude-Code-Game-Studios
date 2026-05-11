@@ -18,7 +18,9 @@
 # Story   : production/epics/combat-system/story-012-multi-hit-distance-sort-max-kills.md
 # ADR     : ADR-0006 D-3 + Formula 6 (distance squared zéro-sqrt)
 
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
 
 
 # ---------------------------------------------------------------------------
@@ -28,17 +30,19 @@ extends "res://tests/helpers/autoload_reset_test_suite.gd"
 const SCENE_PATH: String = "res://src/gameplay/combat/combat_system.tscn"
 const MockEnemyScript: GDScript = preload("res://tests/unit/combat/mock_enemy.gd")
 
+var _autoload_snap: Dictionary = {}
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
-	super.before_test()
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 
 
 func after_test() -> void:
-	super.after_test()
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------

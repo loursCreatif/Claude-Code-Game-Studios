@@ -11,7 +11,7 @@
 #
 # Story: story-009-signals-typed-contract
 
-extends "res://tests/helpers/autoload_reset_test_suite.gd"
+extends GdUnitTestSuite
 
 # ---------------------------------------------------------------------------
 # Scene preload
