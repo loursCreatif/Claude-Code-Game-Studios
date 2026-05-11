@@ -56,14 +56,48 @@ func _on_etage_exit(body: Node) -> void:
 func _has_grunts_already() -> bool:
 	return find_child("Grunt_*", true, false) != null
 
+func _spawn_next_wave() -> void:
+	_wave_number += 1
+	# Update HUD wave counter.
+	var player: Node = find_child("Player", true, false)
+	if player:
+		var wave_label: Label = player.get_node_or_null("HUDProto/WaveCounter") as Label
+		if wave_label != null:
+			wave_label.text = "VAGUE  %d" % _wave_number
+			wave_label.pivot_offset = wave_label.size / 2.0
+			wave_label.scale = Vector2(1.3, 1.3)
+			create_tween().tween_property(wave_label, "scale", Vector2.ONE, 0.3)
+	# Spawn EnemySpawner relance (basé sur EnemySlots existants).
+	EnemySpawner.spawn_for_scene(self)
+	print("[etage_01_init] Wave %d spawned" % _wave_number)
+
 const GRUNT_WALK_SPEED: float = 2.0
 const GRUNT_STOP_DISTANCE: float = 4.5
+const WAVE_RESPAWN_DELAY: float = 3.0
+
+var _wave_number: int = 1
+var _wave_respawn_timer: float = 0.0
+var _wave_pending: bool = false
 
 func _process(delta: float) -> void:
 	# Grunts AI tracking : FacingPivot vers Player + walk slow toward Player.
 	var player: Node3D = find_child("Player", true, false) as Node3D
 	if player == null:
 		return
+	# Wave system : count alive grunts, respawn wave si tous morts.
+	var alive_count: int = 0
+	for g: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if g.has_method("is_dead") and not g.is_dead():
+			alive_count += 1
+	if alive_count == 0:
+		if not _wave_pending:
+			_wave_pending = true
+			_wave_respawn_timer = WAVE_RESPAWN_DELAY
+		else:
+			_wave_respawn_timer -= delta
+			if _wave_respawn_timer <= 0.0:
+				_spawn_next_wave()
+				_wave_pending = false
 	for grunt: Node in get_tree().get_nodes_in_group(&"enemies"):
 		if not (grunt is Node3D):
 			continue

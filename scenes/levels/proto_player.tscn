@@ -251,6 +251,21 @@ mouse_filter = 2
 text = "CRÉDITS  0"
 modulate = Color(0.3, 0.95, 1.0, 1)
 
+; Wave counter — droite haut, accent rouge orange
+[node name="WaveCounter" type="Label" parent="HUDProto"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -240.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 50.0
+grow_horizontal = 0
+mouse_filter = 2
+text = "VAGUE  1"
+horizontal_alignment = 2
+modulate = Color(1.0, 0.55, 0.20, 1)
+
 ; Kill streak — sous le kill counter, fade out quand reset
 [node name="StreakLabel" type="Label" parent="HUDProto"]
 anchors_preset = 2
