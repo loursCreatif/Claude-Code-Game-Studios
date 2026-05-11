@@ -3,7 +3,7 @@
 ; Contenu : 2 walls face-to-face (physique) + 2 wall-run surfaces (visuels seuls)
 ;   = 4 MeshInstance3D / 2 StaticBody3D.
 ; Les wall-run surfaces sont MeshInstance3D sans StaticBody3D (guidage visuel joueur).
-; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Layer collision : LAYER_ENVIRONMENT (layer 4, décimal 8 — bit 3 set, conforme ADR-0008 D-2).
 ; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_shaft_connector"]
@@ -12,7 +12,8 @@
 
 [node name="WallA" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 3.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallAMesh" type="MeshInstance3D" parent="WallA"]
 
@@ -20,7 +21,8 @@ collision_layer = 2
 
 [node name="WallB" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 3.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallBMesh" type="MeshInstance3D" parent="WallB"]
 

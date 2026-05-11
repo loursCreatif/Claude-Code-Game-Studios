@@ -9,7 +9,7 @@
 ;   + 1 Marker3D ceiling (top of shaft) + 1 Marker3D floor (spawn)
 ;   = 8 MeshInstance3D / 5 StaticBody3D / 2 Marker3D.
 ; Rise minimum : 8m (walls 10m height, floor à y=0, ceiling marker à y=10).
-; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Layer collision : LAYER_ENVIRONMENT (layer 4, décimal 8 — bit 3 set, conforme ADR-0008 D-2).
 ; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_vertical_shaft_room"]
@@ -18,7 +18,8 @@
 
 [node name="PitFloor" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="PitFloorMesh" type="MeshInstance3D" parent="PitFloor"]
 
@@ -26,7 +27,8 @@ collision_layer = 2
 
 [node name="WallNorth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, -3.0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallNorthMesh" type="MeshInstance3D" parent="WallNorth"]
 
@@ -34,7 +36,8 @@ collision_layer = 2
 
 [node name="WallSouth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, 3.0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallSouthMesh" type="MeshInstance3D" parent="WallSouth"]
 
@@ -42,7 +45,8 @@ collision_layer = 2
 
 [node name="WallEast" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 5.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallEastMesh" type="MeshInstance3D" parent="WallEast"]
 
@@ -50,7 +54,8 @@ collision_layer = 2
 
 [node name="WallWest" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 5.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallWestMesh" type="MeshInstance3D" parent="WallWest"]
 
