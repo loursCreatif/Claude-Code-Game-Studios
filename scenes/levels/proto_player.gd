@@ -330,7 +330,7 @@ func respawn() -> void:
 	is_dashing = false
 	is_wall_running = false
 
-const MAX_HP: int = 3
+const MAX_HP: int = 5
 var current_hp: int = MAX_HP
 var _is_dead: bool = false
 var _invuln_timer: float = 0.0

@@ -71,8 +71,8 @@ func _spawn_next_wave() -> void:
 	EnemySpawner.spawn_for_scene(self)
 	print("[etage_01_init] Wave %d spawned" % _wave_number)
 
-const GRUNT_WALK_SPEED: float = 2.0
-const GRUNT_STOP_DISTANCE: float = 4.5
+const GRUNT_WALK_SPEED: float = 1.2
+const GRUNT_STOP_DISTANCE: float = 6.0
 const WAVE_RESPAWN_DELAY: float = 3.0
 
 var _wave_number: int = 1

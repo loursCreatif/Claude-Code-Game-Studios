@@ -99,7 +99,7 @@ func _spawn_credit_pickup(pos: Vector3) -> void:
 	mesh_node.mesh = m
 	area.add_child(mesh_node)
 	get_tree().current_scene.add_child(area)
-	area.global_position = pos + Vector3(0, 0.7, 0)
+	area.global_position = pos + Vector3(0, 0.5, 0)
 	# Rotation continue via Tween infini.
 	var rot_tween: Tween = create_tween().set_loops()
 	rot_tween.tween_property(area, "rotation:y", TAU, 1.5)
