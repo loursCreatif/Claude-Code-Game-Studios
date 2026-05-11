@@ -16,7 +16,7 @@
 # ADR     : ADR-0006 D-2 (Hybrid M1 Option C), ADR-0005 D-5 amendment r2 (SYNC died)
 # GDD     : design/gdd/player-combat-system.md AC-CMB-20/41 + Rule 17
 
-extends GdUnitTestSuite
+extends "res://tests/helpers/autoload_reset_test_suite.gd"
 
 
 # ---------------------------------------------------------------------------
@@ -32,8 +32,13 @@ const TIME_SCALE_TOLERANCE: float = 0.0001
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+func before_test() -> void:
+	super.before_test()
+
+
 func after_test() -> void:
 	Engine.time_scale = 1.0
+	super.after_test()
 
 
 # ---------------------------------------------------------------------------
