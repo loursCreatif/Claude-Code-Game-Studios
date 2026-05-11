@@ -331,6 +331,25 @@ shadow_enabled = false
 ; ==========================================================================
 [node name="GauntletWalls" type="Node3D" parent="."]
 
+; Lights atmosphériques au plafond du gauntlet (3 spots cyan pour profondeur)
+[node name="GauntletLight_01" type="OmniLight3D" parent="GauntletWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 27.0)
+light_color = Color(0.40, 0.90, 1.0, 1)
+light_energy = 1.8
+omni_range = 8.0
+
+[node name="GauntletLight_02" type="OmniLight3D" parent="GauntletWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 36.0)
+light_color = Color(0.40, 0.90, 1.0, 1)
+light_energy = 1.8
+omni_range = 8.0
+
+[node name="GauntletLight_03" type="OmniLight3D" parent="GauntletWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 45.0)
+light_color = Color(0.40, 0.90, 1.0, 1)
+light_energy = 1.8
+omni_range = 8.0
+
 [node name="GauntletLeft" type="StaticBody3D" parent="GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.0, 2.5, 35.0)
 collision_layer = 8
