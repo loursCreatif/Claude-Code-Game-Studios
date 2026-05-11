@@ -172,6 +172,7 @@ var _ctrl_was_pressed: bool = false
 const JUMP_BUFFER_TIME: float = 0.12
 
 func _physics_process(delta: float) -> void:
+	_check_landing_impact()
 	_tick_timers(delta)
 	_update_wall_state()
 	_update_camera_effects(delta)
@@ -294,6 +295,37 @@ func _update_wall_state() -> void:
 		wall_side = 0
 
 var _bob_phase: float = 0.0
+var _was_on_floor: bool = true
+var _last_fall_speed: float = 0.0
+
+func _check_landing_impact() -> void:
+	if is_on_floor() and not _was_on_floor and _last_fall_speed < -6.0:
+		_spawn_landing_dust()
+	_was_on_floor = is_on_floor()
+	if not is_on_floor():
+		_last_fall_speed = velocity.y
+
+func _spawn_landing_dust() -> void:
+	var p: CPUParticles3D = CPUParticles3D.new()
+	p.emitting = false
+	p.amount = 16
+	p.lifetime = 0.5
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.spread = 80.0
+	p.direction = Vector3(0, 1, 0)
+	p.gravity = Vector3(0, -3.0, 0)
+	p.initial_velocity_min = 1.0
+	p.initial_velocity_max = 2.5
+	p.scale_amount_min = 0.05
+	p.scale_amount_max = 0.12
+	p.color = Color(0.7, 0.78, 0.85, 0.6)
+	get_tree().current_scene.add_child(p)
+	p.global_position = global_position + Vector3(0, 0.05, 0)
+	p.emitting = true
+	get_tree().create_timer(p.lifetime + 0.2, false).timeout.connect(func() -> void:
+		if is_instance_valid(p): p.queue_free()
+	)
 
 func _update_camera_effects(delta: float) -> void:
 	var target_roll: float = 0.0
