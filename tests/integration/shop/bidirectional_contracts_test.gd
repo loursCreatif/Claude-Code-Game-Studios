@@ -334,8 +334,8 @@ func test_full_purchase_cycle_bidirectional_sync_chain() -> void:
 	# Tick idle frame — handler DEFERRED met à jour credit display
 	await get_tree().process_frame
 	assert_str(s.get_credit_display_text()) \
-		.override_failure_message("Bidirectional: credit display refresh DEFERRED") \
-		.is_equal("30")
+		.override_failure_message("Bidirectional: credit display refresh DEFERRED (expected %d)" % expected_total) \
+		.is_equal(str(expected_total))
 
 	# Cleanup
 	_free_shop(s)
