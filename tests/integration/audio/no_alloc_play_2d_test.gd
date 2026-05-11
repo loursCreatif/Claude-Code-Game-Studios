@@ -8,12 +8,12 @@
 # Stream stub : AudioStreamWAV.new() vide (data = PackedByteArray()) — valide
 # pour tester l'allocation sans produire de son réel.
 #
-# Framework : GdUnit4 v5 (extends GdUnitTestSuite).
+# Framework : GdUnit4 v5 (extends AutoloadResetTestSuite — TD-010 opt-in).
 # Story   : production/epics/audio-system/story-001-autoload-skeleton-bus-layout-pool-sidechain.md
 # ADR     : ADR-0009 D-2 (pool jamais étendu runtime)
 # GDD     : design/gdd/audio-system.md AC-AUD-03
 
-extends GdUnitTestSuite
+extends AutoloadResetTestSuite
 
 
 # ---------------------------------------------------------------------------
@@ -36,8 +36,11 @@ const POOL_2D_SIZE: int = 5
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
-	# Reset round-robin index pour déterminisme cross-suite (tests partagent
-	# l'autoload AudioSystem, pas de teardown automatique entre fichiers).
+	# AutoloadResetTestSuite.before_test() snapshots l'état de tous les autoloads
+	# (dont AudioSystem._2d_index) avant toute mutation cross-suite (TD-010).
+	super.before_test()
+	# Force _2d_index à 0 pour déterminisme intra-suite — after_test() restorerra
+	# la valeur snapshotée, isolant les suites voisines.
 	_get_audio_system()._2d_index = 0
 
 

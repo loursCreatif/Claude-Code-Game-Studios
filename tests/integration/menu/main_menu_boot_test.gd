@@ -1,4 +1,4 @@
-extends GdUnitTestSuite
+extends AutoloadResetTestSuite
 
 ## AC-MNU-1/2/3 — Main Menu boot lifecycle integration.
 ##
@@ -16,12 +16,12 @@ var _menu: Control
 
 
 func before_test() -> void:
-	# Reset GSM state à MENU pour isolation cross-suite : autre suite (e.g. main_menu_buttons)
-	# peut laisser GSM en PLAYING via start_etage(). MainMenuController._ready() assert
-	# strict GSM.MENU au boot → fail cascade. Pattern miroir cross-suite Movement Jolt
-	# state pollution (commit 9218033).
-	if GameStateManager.get_current_state() != GameStateManager.State.MENU:
-		GameStateManager._current_state = GameStateManager.State.MENU
+	# AutoloadResetTestSuite.before_test() snapshots GSM + Engine + AudioSystem + VFXSystem.
+	# La suite remplace ensuite GSM à MENU (requis par MainMenuController._ready() assert).
+	super.before_test()
+	# Force GSM à MENU après snapshot — la restauration after_test() remettra la valeur
+	# d'avant (qui peut être MENU ou autre selon l'ordre de run). Le snapshot est déjà pris.
+	GameStateManager._current_state = GameStateManager.State.MENU
 
 	_menu = MAIN_MENU_SCENE.instantiate()
 	auto_free(_menu)

@@ -9,9 +9,9 @@
 # ADR-0002 (overlay owned par Camera) ; GDD Rule 9 + Visual/Audio Requirements
 # (Mirror's Edge reference) ; Pillar 3 ≤ 400 ms.
 #
-# Framework: GdUnit4 (extends GdUnitTestSuite).
+# Framework: GdUnit4 (extends AutoloadResetTestSuite — TD-010 opt-in).
 
-extends GdUnitTestSuite
+extends AutoloadResetTestSuite
 
 
 # ---------------------------------------------------------------------------
