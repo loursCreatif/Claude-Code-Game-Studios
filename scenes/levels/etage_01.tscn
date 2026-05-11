@@ -153,6 +153,27 @@ material = SubResource("mat_floor")
 [sub_resource type="BoxShape3D" id="shape_debug_floor"]
 size = Vector3(100.0, 1.0, 120.0)
 
+; LED accent strips matériaux pour edges architecturaux (refs image Martin)
+[sub_resource type="StandardMaterial3D" id="mat_led_cyan_etage"]
+albedo_color = Color(0.3, 0.95, 1.0, 1)
+emission_enabled = true
+emission = Color(0.3, 0.95, 1.0, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="StandardMaterial3D" id="mat_led_yellow_etage"]
+albedo_color = Color(1.0, 0.85, 0.2, 1)
+emission_enabled = true
+emission = Color(1.0, 0.8, 0.15, 1)
+emission_energy_multiplier = 3.0
+
+[sub_resource type="BoxMesh" id="mesh_led_room01_vert"]
+size = Vector3(0.08, 4.0, 0.08)
+material = SubResource("mat_led_cyan_etage")
+
+[sub_resource type="BoxMesh" id="mesh_led_room01_floor"]
+size = Vector3(4.0, 0.05, 0.08)
+material = SubResource("mat_led_yellow_etage")
+
 ; Étape 9/10 — Skybox plus immersif Chrome Spire (bleu profond → cyan horizon → violet ground).
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.03, 0.05, 0.10, 1)
@@ -287,6 +308,32 @@ mesh = SubResource("mesh_wall_01_back")
 
 [node name="WallBackShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/WallBack_01"]
 shape = SubResource("shape_wall_01_b")
+
+; LED cyan strips verticales sur les 4 coins de Room_01 (signal architecture + wall-runnable)
+[node name="LedRoom01_NE" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 2.0, 0.05)
+mesh = SubResource("mesh_led_room01_vert")
+
+[node name="LedRoom01_NW" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 2.0, 0.05)
+mesh = SubResource("mesh_led_room01_vert")
+
+[node name="LedRoom01_SE" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 2.0, 5.95)
+mesh = SubResource("mesh_led_room01_vert")
+
+[node name="LedRoom01_SW" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 2.0, 5.95)
+mesh = SubResource("mesh_led_room01_vert")
+
+; LED jaune au pied du Floor_01 — signal sol
+[node name="LedRoom01_FloorN" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0.1)
+mesh = SubResource("mesh_led_room01_floor")
+
+[node name="LedRoom01_FloorS" type="MeshInstance3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 5.9)
+mesh = SubResource("mesh_led_room01_floor")
 
 [node name="Ceiling_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.15, 3.0)
