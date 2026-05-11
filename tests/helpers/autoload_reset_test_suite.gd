@@ -33,8 +33,12 @@
 ## Source : docs/tech-debt-register.md TD-010
 ## Plan   : production/tech-debt/story-w4-test-infra-autoload-reset-between-suites.md
 
-class_name AutoloadResetTestSuite
 extends GdUnitTestSuite
+
+# NOTE : pas de `class_name` exposé — les consumers utilisent
+# `extends "res://tests/helpers/autoload_reset_test_suite.gd"` (path direct)
+# pour contourner l'absence de `.godot/global_script_class_cache.cfg` dans
+# l'environnement gdUnit4-action CI (gitignored, pas re-build par l'action).
 
 
 # ---------------------------------------------------------------------------

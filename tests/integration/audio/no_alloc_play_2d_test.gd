@@ -8,12 +8,12 @@
 # Stream stub : AudioStreamWAV.new() vide (data = PackedByteArray()) — valide
 # pour tester l'allocation sans produire de son réel.
 #
-# Framework : GdUnit4 v5 (extends AutoloadResetTestSuite — TD-010 opt-in).
+# Framework : GdUnit4 v5 (extends "res://tests/helpers/autoload_reset_test_suite.gd" — TD-010 opt-in).
 # Story   : production/epics/audio-system/story-001-autoload-skeleton-bus-layout-pool-sidechain.md
 # ADR     : ADR-0009 D-2 (pool jamais étendu runtime)
 # GDD     : design/gdd/audio-system.md AC-AUD-03
 
-extends AutoloadResetTestSuite
+extends "res://tests/helpers/autoload_reset_test_suite.gd"
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-extends AutoloadResetTestSuite
+extends "res://tests/helpers/autoload_reset_test_suite.gd"
 
 ## AC-MNU-1/2/3 — Main Menu boot lifecycle integration.
 ##

@@ -11,7 +11,7 @@
 #
 # Framework: GdUnit4 (extends AutoloadResetTestSuite — TD-010 opt-in).
 
-extends AutoloadResetTestSuite
+extends "res://tests/helpers/autoload_reset_test_suite.gd"
 
 
 # ---------------------------------------------------------------------------

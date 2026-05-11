@@ -7,7 +7,7 @@
 ## Story source : docs/tech-debt-register.md TD-010
 ## Plan : production/tech-debt/story-w4-test-infra-autoload-reset-between-suites.md
 
-extends AutoloadResetTestSuite
+extends "res://tests/helpers/autoload_reset_test_suite.gd"
 
 
 # ---------------------------------------------------------------------------
