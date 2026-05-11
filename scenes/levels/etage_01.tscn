@@ -155,16 +155,16 @@ size = Vector3(100.0, 1.0, 120.0)
 
 ; LED accent strips matériaux pour edges architecturaux (refs image Martin)
 [sub_resource type="StandardMaterial3D" id="mat_led_cyan_etage"]
-albedo_color = Color(0.3, 0.95, 1.0, 1)
+albedo_color = Color(0.30, 0.85, 1.0, 1)
 emission_enabled = true
-emission = Color(0.3, 0.95, 1.0, 1)
+emission = Color(0.30, 0.85, 1.0, 1)
 emission_energy_multiplier = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_led_yellow_etage"]
-albedo_color = Color(1.0, 0.85, 0.2, 1)
+albedo_color = Color(1.0, 0.85, 0.20, 1)
 emission_enabled = true
-emission = Color(1.0, 0.8, 0.15, 1)
-emission_energy_multiplier = 1.2
+emission = Color(1.0, 0.78, 0.15, 1)
+emission_energy_multiplier = 1.5
 
 [sub_resource type="BoxMesh" id="mesh_led_room01_vert"]
 size = Vector3(0.08, 4.0, 0.08)
@@ -179,9 +179,10 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.08, 0.05, 6.0)
 material = SubResource("mat_led_yellow_etage")
 
-; Plateformes parkour flottantes (Room_04→Room_05 gap Z=28-36).
+; Plateformes parkour flottantes — gris béton unifié (cohérence palette).
 [sub_resource type="StandardMaterial3D" id="mat_parkour_platform"]
-albedo_color = Color(0.85, 0.85, 0.88, 1)
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+roughness = 0.85
 
 [sub_resource type="BoxShape3D" id="shape_parkour_platform"]
 size = Vector3(2.5, 0.3, 2.5)
@@ -216,9 +217,10 @@ material = SubResource("mat_gauntlet_wall")
 size = Vector3(0.08, 0.08, 30.0)
 material = SubResource("mat_led_yellow_etage")
 
-; Pylons centraux gauntlet — force wall-run (obstacle au centre du sol).
+; Pylons centraux gauntlet — gris béton unifié (cohérence palette).
 [sub_resource type="StandardMaterial3D" id="mat_pylon"]
-albedo_color = Color(0.15, 0.15, 0.20, 1)
+albedo_color = Color(0.40, 0.40, 0.44, 1)
+roughness = 0.85
 
 [sub_resource type="BoxShape3D" id="shape_pylon"]
 size = Vector3(2.0, 3.0, 2.0)
