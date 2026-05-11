@@ -278,8 +278,8 @@ mesh = SubResource("mesh_spire_led")
 ; Ambient dust particles — atmosphère immersive (poussière flottante Chrome Spire).
 [node name="AmbientDust" type="CPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.0, 40.0)
-emitting = true
-amount = 80
+emitting = false
+amount = 40
 lifetime = 8.0
 preprocess = 4.0
 emission_shape = 3
