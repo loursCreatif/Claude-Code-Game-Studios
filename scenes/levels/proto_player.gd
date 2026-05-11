@@ -49,9 +49,15 @@ signal died
 
 var _dash_trail: CPUParticles3D = null
 
+const HIGHSCORE_PATH: String = "user://highscore.cfg"
+var _best_kills: int = 0
+var _best_wave: int = 1
+
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	respawn_point = global_position
+	_load_highscore()
+	_update_highscore_label()
 	# Fade out onboarding controls label après 7s.
 	var label: Label = get_node_or_null("HUDProto/ControlsLabel") as Label
 	if label != null:
@@ -440,3 +446,34 @@ func _toggle_pause() -> void:
 	var overlay: ColorRect = get_node_or_null("HUDProto/PauseOverlay") as ColorRect
 	if overlay != null:
 		overlay.visible = _is_paused
+
+
+func _load_highscore() -> void:
+	var cfg: ConfigFile = ConfigFile.new()
+	if cfg.load(HIGHSCORE_PATH) == OK:
+		_best_kills = cfg.get_value("score", "kills", 0)
+		_best_wave = cfg.get_value("score", "wave", 1)
+
+func _save_highscore() -> void:
+	var cfg: ConfigFile = ConfigFile.new()
+	cfg.set_value("score", "kills", _best_kills)
+	cfg.set_value("score", "wave", _best_wave)
+	cfg.save(HIGHSCORE_PATH)
+
+func _update_highscore_label() -> void:
+	var label: Label = get_node_or_null("HUDProto/HighScoreLabel") as Label
+	if label != null:
+		label.text = "BEST  K%d  V%d" % [_best_kills, _best_wave]
+
+func record_run_score(kills: int, wave: int) -> void:
+	# Appelé par etage_01_init au Game Over avec current_run values.
+	var improved: bool = false
+	if kills > _best_kills:
+		_best_kills = kills
+		improved = true
+	if wave > _best_wave:
+		_best_wave = wave
+		improved = true
+	if improved:
+		_save_highscore()
+		_update_highscore_label()
