@@ -153,12 +153,14 @@ material = SubResource("mat_floor")
 [sub_resource type="BoxShape3D" id="shape_debug_floor"]
 size = Vector3(100.0, 1.0, 120.0)
 
-; --- Environment & Sky (copié du proto movement-katana pour visibilité MVP) ---
+; Étape 9/10 — Skybox plus immersif Chrome Spire (bleu profond → cyan horizon → violet ground).
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
-sky_top_color = Color(0.05, 0.07, 0.12, 1)
-sky_horizon_color = Color(0.15, 0.1, 0.2, 1)
-ground_bottom_color = Color(0.02, 0.02, 0.03, 1)
-ground_horizon_color = Color(0.1, 0.05, 0.15, 1)
+sky_top_color = Color(0.03, 0.05, 0.10, 1)
+sky_horizon_color = Color(0.18, 0.42, 0.55, 1)
+ground_bottom_color = Color(0.04, 0.02, 0.08, 1)
+ground_horizon_color = Color(0.30, 0.12, 0.35, 1)
+sun_angle_max = 30.0
+sun_curve = 0.15
 
 [sub_resource type="Sky" id="sky_res"]
 sky_material = SubResource("sky_mat")

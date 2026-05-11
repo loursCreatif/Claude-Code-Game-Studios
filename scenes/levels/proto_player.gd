@@ -217,6 +217,9 @@ func _start_dash(wish_dir: Vector3) -> void:
 	dash_timer = DASH_DURATION
 	can_dash = false
 	dash_cooldown_timer = DASH_COOLDOWN
+	# Étape 7/10 — Camera shake léger au dash pour punch.
+	if katana and katana.has_method("camera_shake_at"):
+		katana.camera_shake_at(0.025, 2)
 
 func _dash_physics(_delta: float) -> void:
 	velocity = dash_dir * DASH_SPEED

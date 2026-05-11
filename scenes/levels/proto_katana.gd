@@ -137,13 +137,17 @@ func _spawn_kill_particles(pos: Vector3) -> void:
 
 func _trigger_camera_shake() -> void:
 	# Quick camera shake — juicy kill feedback MVP.
+	camera_shake_at(0.04, 3)
+
+func camera_shake_at(intensity: float, count: int) -> void:
+	# Public — appelable depuis proto_player pour dash shake (étape 7/10).
 	var player: Node = get_parent().get_parent().get_parent()
 	var camera: Node3D = player.get_node_or_null("Camera3D") as Node3D
 	if camera == null:
 		return
 	var orig: Vector3 = camera.position
 	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE)
-	for i in 3:
-		var offset: Vector3 = Vector3(randf_range(-0.04, 0.04), randf_range(-0.04, 0.04), 0)
+	for i in count:
+		var offset: Vector3 = Vector3(randf_range(-intensity, intensity), randf_range(-intensity, intensity), 0)
 		tween.tween_property(camera, "position", orig + offset, 0.025)
 	tween.tween_property(camera, "position", orig, 0.05)
