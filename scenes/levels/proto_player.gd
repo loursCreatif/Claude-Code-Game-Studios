@@ -188,6 +188,9 @@ func _physics_process(delta: float) -> void:
 
 	# Horizontal move — snap au sol (Pillar 1 FLOW), air control limité en l'air
 	var speed: float = MOVE_SPEED * SPRINT_MULT
+	# Wall-run boost : speed ×1.5 (récompense parkour fluide).
+	if is_wall_running:
+		speed *= 1.5
 	if is_on_floor():
 		if wish_dir.length() > 0.01:
 			velocity.x = wish_dir.x * speed
@@ -297,6 +300,9 @@ func _update_camera_effects(delta: float) -> void:
 	target_fov += speed_norm * 6.0
 	if is_dashing:
 		target_fov = BASE_FOV + CAMERA_DASH_FOV_KICK
+	# Wall-run kick FOV léger.
+	if is_wall_running:
+		target_fov += 4.0
 	camera.fov = lerp(camera.fov, target_fov, 4.0 * delta)
 
 func get_state_string() -> String:
