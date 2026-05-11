@@ -171,9 +171,8 @@ func test_was_pressed_this_tick_returns_false_when_disabled() -> void:
 	var manager: InputManagerScript = _make_manager()
 	await get_tree().process_frame
 
-	# Désactiver le manager avant la press
-	# TODO: story-004 — remplacer par API publique (refcount gate) quand disponible.
-	manager._enabled = false
+	# Désactiver le manager avant la press via l'API publique refcount gate (story-004).
+	manager.request_disable(self)
 
 	# Act — bypass headless Input.parse_input_event + await physics_frame
 	# (pattern Level commit `f1dd477` + Movement commit `9218033`).
@@ -185,9 +184,8 @@ func test_was_pressed_this_tick_returns_false_when_disabled() -> void:
 		.override_failure_message("Gate _enabled: was_pressed_this_tick doit retourner false quand _enabled == false") \
 		.is_false()
 
-	# Réactiver et vérifier que le flag est lisible normalement
-	# TODO: story-004 — remplacer par API publique (refcount gate) quand disponible.
-	manager._enabled = true
+	# Réactiver via l'API publique refcount gate (story-004).
+	manager.release_enable_request(self)
 	manager.inject_pressed_for_test(&"attack")
 	manager._physics_process(0.0)
 
