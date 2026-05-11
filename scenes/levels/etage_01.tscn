@@ -294,8 +294,8 @@ archetype = 0
 ; custom floor + 2 murs wall-run face-to-face + mezzanine
 ; --------------------------------------------------------------------------
 [node name="Room_03" type="Node3D" parent="StaticEnvironment"]
-; MVP playtest : Y aplati à 0 (était 2).
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 14.0)
+; Verticality progressive : Y=0.8 (step depuis Room_02 Y=0, atteignable single jump 0.875 m).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 14.0)
 script = ExtResource("1_room_script")
 archetype = 1
 
@@ -341,7 +341,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.0, 2.0)
 ; Room_04 — TRAVERSAL (0), origin (0,4,26), shaft_connector
 ; --------------------------------------------------------------------------
 [node name="Room_04" type="Node3D" parent="StaticEnvironment"]
-; MVP playtest : Y aplati à 0 (était 4).
+; Aplati Y=0 — ShaftConnector primitive n'a pas de floor (Player tomberait dans le vide
+; vu DebugFloor à Y=-0.5). Wall-run intra-room remplace verticality.
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 26.0)
 script = ExtResource("1_room_script")
 archetype = 0
@@ -352,7 +353,7 @@ archetype = 0
 ; Room_05 — COMBAT (1), origin (0,5,38), mezzanine
 ; --------------------------------------------------------------------------
 [node name="Room_05" type="Node3D" parent="StaticEnvironment"]
-; MVP playtest : Y aplati à 0 (était 5).
+; Aplati Y=0 — Mezzanine intra-room donne la verticality (Platform Y=1.0 local).
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 38.0)
 script = ExtResource("1_room_script")
 archetype = 1
