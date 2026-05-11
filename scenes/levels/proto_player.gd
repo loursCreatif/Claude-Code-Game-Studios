@@ -71,6 +71,12 @@ func _process(delta: float) -> void:
 	if speed_label != null:
 		var horiz_speed: float = Vector2(velocity.x, velocity.z).length() * 3.6
 		speed_label.text = "%d km/h" % int(horiz_speed)
+	# Dash cooldown bar : fill scale.x = 1 - (cooldown_timer / DASH_COOLDOWN), full quand prêt.
+	var fill: ColorRect = get_node_or_null("HUDProto/DashCooldownBg/DashCooldownFill") as ColorRect
+	if fill != null:
+		var ratio: float = 1.0 - clamp(dash_cooldown_timer / DASH_COOLDOWN, 0.0, 1.0)
+		fill.size.x = 200.0 * ratio
+		fill.color = Color(0.3, 0.85, 0.95, 0.9) if ratio >= 1.0 else Color(0.5, 0.5, 0.55, 0.7)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
