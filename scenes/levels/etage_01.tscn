@@ -198,6 +198,24 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.06, 0.06, 2.55)
 material = SubResource("mat_led_yellow_etage")
 
+; Long mur wall-run gauntlet (cyan émissif solide)
+[sub_resource type="StandardMaterial3D" id="mat_gauntlet_wall"]
+albedo_color = Color(0.20, 0.60, 0.80, 1)
+emission_enabled = true
+emission = Color(0.30, 0.85, 1.0, 1)
+emission_energy_multiplier = 0.6
+
+[sub_resource type="BoxShape3D" id="shape_gauntlet_wall"]
+size = Vector3(0.3, 5.0, 30.0)
+
+[sub_resource type="BoxMesh" id="mesh_gauntlet_wall"]
+size = Vector3(0.3, 5.0, 30.0)
+material = SubResource("mat_gauntlet_wall")
+
+[sub_resource type="BoxMesh" id="mesh_gauntlet_led"]
+size = Vector3(0.08, 0.08, 30.0)
+material = SubResource("mat_led_yellow_etage")
+
 ; Spire tower au fond — point focal lointain (image 8 ref)
 [sub_resource type="StandardMaterial3D" id="mat_spire"]
 albedo_color = Color(0.15, 0.12, 0.22, 1)
@@ -277,6 +295,50 @@ transform = Transform3D(0.94, -0.17, 0.30, 0, 0.87, 0.50, -0.34, -0.47, 0.82, 0,
 light_color = Color(0.95, 0.97, 1, 1)
 light_energy = 1.0
 shadow_enabled = false
+
+; ==========================================================================
+; WALL-RUN GAUNTLET : 2 longs murs cyan parallèles Z=20→50, X=±5
+; Le Player peut wall-run continuous 30m de long.
+; ==========================================================================
+[node name="GauntletWalls" type="Node3D" parent="."]
+
+[node name="GauntletLeft" type="StaticBody3D" parent="GauntletWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.0, 2.5, 35.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+mesh = SubResource("mesh_gauntlet_wall")
+
+[node name="Shape" type="CollisionShape3D" parent="GauntletWalls/GauntletLeft"]
+shape = SubResource("shape_gauntlet_wall")
+
+[node name="LedTop" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 2.40, 0)
+mesh = SubResource("mesh_gauntlet_led")
+
+[node name="LedBot" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, -2.40, 0)
+mesh = SubResource("mesh_gauntlet_led")
+
+[node name="GauntletRight" type="StaticBody3D" parent="GauntletWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 2.5, 35.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+mesh = SubResource("mesh_gauntlet_wall")
+
+[node name="Shape" type="CollisionShape3D" parent="GauntletWalls/GauntletRight"]
+shape = SubResource("shape_gauntlet_wall")
+
+[node name="LedTop" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 2.40, 0)
+mesh = SubResource("mesh_gauntlet_led")
+
+[node name="LedBot" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, -2.40, 0)
+mesh = SubResource("mesh_gauntlet_led")
 
 ; ==========================================================================
 ; Parkour platforms — zigzag vertical entre Room_04 (Z=26) et Room_05 (Z=38)
