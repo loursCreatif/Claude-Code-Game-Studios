@@ -86,9 +86,14 @@ func _process(delta: float) -> void:
 		timer_label.text = "%02d:%02d" % [mm, ss]
 	# Speed display (km/h) — vitesse horizontale.
 	var speed_label: Label = get_node_or_null("HUDProto/SpeedLabel") as Label
+	var horiz_speed_kmh: float = Vector2(velocity.x, velocity.z).length() * 3.6
 	if speed_label != null:
-		var horiz_speed: float = Vector2(velocity.x, velocity.z).length() * 3.6
-		speed_label.text = "%d km/h" % int(horiz_speed)
+		speed_label.text = "%d km/h" % int(horiz_speed_kmh)
+	# Speed vignette : sombre les coins quand vitesse > 30 km/h (Mirror's Edge style).
+	var vignette: ColorRect = get_node_or_null("HUDProto/SpeedLinesContainer/SpeedVignette") as ColorRect
+	if vignette != null:
+		var intensity: float = clamp((horiz_speed_kmh - 30.0) / 50.0, 0.0, 0.35)
+		vignette.color = Color(0.0, 0.05, 0.10, intensity)
 	# Dash cooldown bar : fill scale.x = 1 - (cooldown_timer / DASH_COOLDOWN), full quand prêt.
 	var fill: ColorRect = get_node_or_null("HUDProto/DashCooldownBg/DashCooldownFill") as ColorRect
 	if fill != null:

@@ -239,6 +239,24 @@ horizontal_alignment = 1
 vertical_alignment = 1
 modulate = Color(1.0, 0.85, 0.3, 0.0)
 
+; Speed lines vignette — radial lines apparaît quand vitesse haute
+[node name="SpeedLinesContainer" type="Control" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="SpeedVignette" type="ColorRect" parent="HUDProto/SpeedLinesContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0, 0.0, 0.05, 0.0)
+
 ; Onboarding controls label — fade out après 5s
 [node name="ControlsLabel" type="Label" parent="HUDProto"]
 anchors_preset = 1
