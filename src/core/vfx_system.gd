@@ -295,13 +295,19 @@ func _setup_vfx_pool() -> void:
 
 
 ## Crée le ShaderMaterial partagé pour particles sang.
-## TODO story-002 : implémenter shader code flat unshaded BLOOD_COLOR + opacity
-## fade-out (F-VFX-3 — deferred explicitement au story-002 scope).
-## Story-001 : instance vide correctement typée — partagée entre les 8 slots (R-VFX-16).
+## Charge particles_combat_blood.gdshader (shader_type particles, flat unshaded).
+## Configure blood_color + spread_deg initiaux (R-VFX-8 + F-VFX-3 + AC-VFX-11/27).
+## Partagé entre les 8 slots (R-VFX-16) — spread_deg muté avant chaque restart()
+## dans _spawn_blood_spurt (safe : reduce_motion est global, pas per-slot).
+## Story-014 : implémentation déférée story-002 Out of Scope §shader — tech-debt levé.
 func _create_blood_shader_material() -> ShaderMaterial:
 	var mat: ShaderMaterial = ShaderMaterial.new()
-	# TODO story-002: shader = load("res://assets/shaders/blood_particle.gdshader")
-	# TODO story-002: ajouter shader_parameter BLOOD_COLOR + opacity fade-out
+	var shader: Shader = load("res://assets/shaders/particles_combat_blood.gdshader")
+	mat.shader = shader
+	# Couleur sang Chrome Zen #C8232C (AC-VFX-27 — R-VFX-8).
+	mat.set_shader_parameter(&"blood_color", BLOOD_COLOR)
+	# Spread initial = 30° — appliqué per-spawn avec reduce_motion mult dans _spawn_blood_spurt.
+	mat.set_shader_parameter(&"spread_deg", BLOOD_CONE_ANGLE_DEG)
 	return mat
 
 
@@ -663,8 +669,10 @@ func _spawn_blood_spurt(position: Vector3) -> void:
 	if _reduce_motion:
 		effective_cone_deg *= REDUCE_MOTION_PARTICLE_ANGLE_MULT
 	_last_effective_cone_deg = effective_cone_deg
-	# TODO story-002 polish : appliquer effective_cone_deg sur ParticleProcessMaterial.spread
-	# (ParticleProcessMaterial non assigné au MVP — ShaderMaterial sans spread param).
+	# Appliquer effective_cone_deg sur le shader particles partagé avant restart() (AC-VFX-12).
+	# Safe sur le ShaderMaterial PARTAGÉ : reduce_motion est un flag global (même valeur
+	# pour tous les slots concurrents — pas de variance per-slot). Muté avant restart().
+	_blood_shader_material.set_shader_parameter(&"spread_deg", effective_cone_deg)
 
 	_blood_idx = (_blood_idx + 1) % BLOOD_PARTICLE_POOL_SIZE
 
@@ -744,10 +752,11 @@ func _trigger_flash_kill() -> void:
 ## Gère reduce_flash gris substitute via _flash_kill_use_grey (F-VFX-2).
 ## Fade-out linéaire alpha 1.0 → 0.0 sur 80 ms wall-clock.
 ##
-## TODO MVP scope : `_flash_mult` continu (pullé story-005) non consommé ici —
-## brightness binaire 0.625 (gris) / 1.0 (blanc) suffit MVP. Si interpolation continue
-## requise post-MVP (F-VFX-2 spec drift), utiliser `_flash_mult` au lieu de
-## REDUCE_FLASH_BRIGHTNESS — story-007 polish ou enhancement future.
+## _flash_mult (story-005) : intentionnellement non consommé ici.
+## Décision MVP (story-014 tech-debt levé) : brightness binaire suffit —
+## REDUCE_FLASH_BRIGHTNESS = 0.625 (gris #A0A0A0) ou DEFAULT_FLASH_BRIGHTNESS = 1.0 (blanc).
+## L'interpolation continue via _flash_mult est hors-spec MVP (F-VFX-2 spec drift
+## future — post-MVP enhancement uniquement). Aucun AC ne la requiert.
 func _apply_flash_kill_color(t: float) -> void:
 	var base_brightness: float = REDUCE_FLASH_BRIGHTNESS if _flash_kill_use_grey else DEFAULT_FLASH_BRIGHTNESS
 	var alpha: float = 1.0 - t
