@@ -179,6 +179,30 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.08, 0.05, 6.0)
 material = SubResource("mat_led_yellow_etage")
 
+; Spire tower au fond — point focal lointain (image 8 ref)
+[sub_resource type="StandardMaterial3D" id="mat_spire"]
+albedo_color = Color(0.15, 0.12, 0.22, 1)
+metallic = 0.3
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="mesh_spire_base"]
+size = Vector3(8.0, 30.0, 8.0)
+material = SubResource("mat_spire")
+
+[sub_resource type="BoxMesh" id="mesh_spire_tip"]
+size = Vector3(2.0, 12.0, 2.0)
+material = SubResource("mat_spire")
+
+[sub_resource type="StandardMaterial3D" id="mat_spire_led"]
+albedo_color = Color(0.95, 0.15, 0.20, 1)
+emission_enabled = true
+emission = Color(1.0, 0.2, 0.25, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="BoxMesh" id="mesh_spire_led"]
+size = Vector3(0.3, 0.3, 0.3)
+material = SubResource("mat_spire_led")
+
 ; Skybox Chrome Spire aligné refs (navy zenith → cyan turquoise horizon → violet bas).
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 sky_top_color = Color(0.02, 0.04, 0.12, 1)
@@ -240,6 +264,22 @@ transform = Transform3D(0.94, -0.17, 0.30, 0, 0.87, 0.50, -0.34, -0.47, 0.82, 0,
 light_color = Color(0.95, 0.97, 1, 1)
 light_energy = 1.0
 shadow_enabled = false
+
+; ==========================================================================
+; Spire tower au fond — point focal lointain (Chrome Spire silhouette).
+; Z=120 au-delà du level (Player Z=2..84), Y=15 → s'élève dramatiquement.
+; ==========================================================================
+[node name="SpireTowerBase" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15.0, 130.0)
+mesh = SubResource("mesh_spire_base")
+
+[node name="SpireTowerTip" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 36.0, 130.0)
+mesh = SubResource("mesh_spire_tip")
+
+[node name="SpireLED" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 42.3, 130.0)
+mesh = SubResource("mesh_spire_led")
 
 ; ==========================================================================
 ; DEBUG : safety floor MVP (comble les trous entre Mezzanine/ShaftConnector).
