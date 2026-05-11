@@ -288,17 +288,18 @@ sky_material = SubResource("sky_mat")
 [sub_resource type="Environment" id="env_main"]
 background_mode = 2
 sky = SubResource("sky_res")
-; ambient_light_source = 2 (Color seule) — évite que sky teinte les murs en cyan.
+; Ambient color violet-bleu saturé pour mood Chrome Spire nocturne.
 ambient_light_source = 2
-ambient_light_color = Color(0.78, 0.80, 0.85, 1)
-ambient_light_energy = 1.4
+ambient_light_color = Color(0.40, 0.48, 0.72, 1)
+ambient_light_energy = 1.6
 ; Glow désactivé — pulsation 3s persistante. À ré-activer plus tard avec config stable.
 glow_enabled = false
-; Fog Chrome Spire — léger pour distance sans noircir le top.
+; Fog Chrome Spire — densité moderée + couleur violet-cyan saturée.
 fog_enabled = true
-fog_light_color = Color(0.25, 0.32, 0.45, 1)
-fog_density = 0.003
-fog_sky_affect = 0.1
+fog_light_color = Color(0.30, 0.38, 0.55, 1)
+fog_density = 0.006
+fog_sky_affect = 0.15
+fog_aerial_perspective = 0.4
 ; Tonemap linear pour stabilité (ACES cause pulsation perçue selon Martin playtest).
 tonemap_mode = 0
 tonemap_exposure = 1.0
@@ -318,11 +319,11 @@ script = ExtResource("8_init")
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("env_main")
 
-; Directional légèrement diagonal pour relief subtil sans asymétrie écrasante.
+; Directional réduit pour mood nocturne — les OmniLights cyan/rouge dominent.
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.94, -0.17, 0.30, 0, 0.87, 0.50, -0.34, -0.47, 0.82, 0, 20, 40)
-light_color = Color(0.95, 0.97, 1, 1)
-light_energy = 1.0
+light_color = Color(0.75, 0.82, 1.0, 1)
+light_energy = 0.45
 shadow_enabled = false
 
 ; ==========================================================================
