@@ -346,7 +346,7 @@ mesh = SubResource("mesh_gauntlet_led")
 [node name="ParkourPlatforms" type="Node3D" parent="."]
 
 [node name="PP_01" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.0, 10.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 9.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -365,7 +365,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_02" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.6, 14.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 13.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -384,7 +384,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_03" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 2.3, 53.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 55.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -403,7 +403,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_04" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 2.5, 57.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 75.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -591,12 +591,14 @@ archetype = 0
 ; Mezzanine.tscn fixée (Platform à Y=2.5 local). Pas besoin de override transform ici.
 [node name="Mezzanine_01" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
 
-; Plateformes additionnelles Room_02 pour parkour vertical multi-niveau.
+; Mezzanines additionnelles Room_02 désactivées (clutter parcours, remplacées par PP_xx).
 [node name="Mezzanine_02_higher" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 4.0)
+visible = false
 
 [node name="Mezzanine_03_top" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 3.0, -1.0)
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_03 — COMBAT (1), origin (0,2,14)
@@ -645,6 +647,7 @@ shape = SubResource("shape_wallrun_03_b")
 
 [node name="Mezzanine_02" parent="StaticEnvironment/Room_03" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.0, 2.0)
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_04 — TRAVERSAL (0), origin (0,4,26), shaft_connector
@@ -657,6 +660,7 @@ script = ExtResource("1_room_script")
 archetype = 0
 
 [node name="ShaftConnector_01" parent="StaticEnvironment/Room_04" instance=ExtResource("5_shaft_connector")]
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_05 — COMBAT (1), origin (0,5,38), mezzanine
@@ -668,12 +672,15 @@ script = ExtResource("1_room_script")
 archetype = 1
 
 [node name="Mezzanine_03" parent="StaticEnvironment/Room_05" instance=ExtResource("3_mezzanine")]
+visible = false
 
 [node name="Mezzanine_03b" parent="StaticEnvironment/Room_05" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 2.0, 2.0)
+visible = false
 
 [node name="Mezzanine_03c" parent="StaticEnvironment/Room_05" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 3.0, -2.0)
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_06 — SHAFT (2), origin (0,6,48), vertical_shaft_room
@@ -704,6 +711,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.0, 0)
 
 [node name="Mezzanine_04" parent="StaticEnvironment/Room_07" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0.0)
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_08 — TRAVERSAL (0), origin (0,17,68), shaft_connector
@@ -715,6 +723,7 @@ script = ExtResource("1_room_script")
 archetype = 0
 
 [node name="ShaftConnector_02" parent="StaticEnvironment/Room_08" instance=ExtResource("5_shaft_connector")]
+visible = false
 
 ; --------------------------------------------------------------------------
 ; Room_09 — TRAVERSAL (0), origin (0,17,78), 6×4×6 m custom
