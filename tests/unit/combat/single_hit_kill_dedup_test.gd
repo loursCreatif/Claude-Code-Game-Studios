@@ -44,6 +44,9 @@ var _autoload_snap: Dictionary = {}
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
+	# Defense-in-depth — reset time_scale AVANT snapshot pour neutraliser pollution
+	# cross-suite (pattern miroir commit 4228597 sur death_respawn_lifecycle_test).
+	Engine.time_scale = 1.0
 	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 
 
