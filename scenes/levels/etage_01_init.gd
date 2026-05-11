@@ -16,7 +16,17 @@ func _ready() -> void:
 	# free le main_menu pour libérer la vue gameplay.
 	_dispose_main_menu_if_present()
 
+	# MVP playtest : spawn enemies sur les EnemySlot_* Marker3D présents dans la scène.
+	# Normalement appelé par LevelSystem.commit_active() — mais bypass si lancement direct.
+	# Idempotent : si déjà appelé (load_etage flow), spawn rien (Grunts déjà existants).
+	if not _has_grunts_already():
+		EnemySpawner.spawn_for_scene(self)
+		print("[etage_01_init] EnemySpawner.spawn_for_scene appelé")
+
 	# Proto player a déjà toutes les abilities par défaut (can_dash=true, double-jump natif).
+
+func _has_grunts_already() -> bool:
+	return find_child("Grunt_*", true, false) != null
 
 func _dispose_main_menu_if_present() -> void:
 	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
