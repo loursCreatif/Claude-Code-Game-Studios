@@ -44,6 +44,8 @@ var shift_was_pressed: bool = false
 signal attacked
 signal died
 
+var _dash_trail: CPUParticles3D = null
+
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	respawn_point = global_position
@@ -53,6 +55,21 @@ func _ready() -> void:
 		var fade_tween: Tween = create_tween()
 		fade_tween.tween_interval(7.0)
 		fade_tween.tween_property(label, "modulate:a", 0.0, 1.5)
+	# Setup dash trail particles (n'emit que pendant is_dashing).
+	_dash_trail = CPUParticles3D.new()
+	_dash_trail.emitting = false
+	_dash_trail.amount = 40
+	_dash_trail.lifetime = 0.3
+	_dash_trail.local_coords = false
+	_dash_trail.spread = 8.0
+	_dash_trail.gravity = Vector3.ZERO
+	_dash_trail.initial_velocity_min = 0.5
+	_dash_trail.initial_velocity_max = 1.5
+	_dash_trail.scale_amount_min = 0.08
+	_dash_trail.scale_amount_max = 0.16
+	_dash_trail.color = Color(0.3, 0.85, 0.95, 0.9)
+	add_child(_dash_trail)
+	_dash_trail.position = Vector3(0, 0.9, 0)
 
 var _session_time: float = 0.0
 
@@ -174,9 +191,16 @@ func _physics_process(delta: float) -> void:
 func _tick_timers(delta: float) -> void:
 	if is_dashing:
 		dash_timer -= delta
+		if _dash_trail != null:
+			_dash_trail.emitting = true
 		if dash_timer <= 0.0:
 			is_dashing = false
 			velocity = dash_dir * MOVE_SPEED
+			if _dash_trail != null:
+				_dash_trail.emitting = false
+	else:
+		if _dash_trail != null and _dash_trail.emitting:
+			_dash_trail.emitting = false
 	# Nouvelle règle : dash recharge UNIQUEMENT au contact du sol (pas de cooldown temps).
 	if not can_dash and is_on_floor() and not is_dashing:
 		can_dash = true
