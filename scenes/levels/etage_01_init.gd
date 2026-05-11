@@ -39,20 +39,34 @@ func _on_etage_exit(body: Node) -> void:
 	if not (body is CharacterBody3D):
 		return
 	_victory_triggered = true
-	# Affiche Victory label fade in + scale.
+	# Affiche Victory label fade in + scale + stats.
 	var player: Node = find_child("Player", true, false)
 	if player == null:
 		return
 	var label: Label = player.get_node_or_null("HUDProto/VictoryLabel") as Label
 	if label == null:
 		return
-	label.add_theme_font_size_override(&"font_size", 96)
+	# Récupère stats.
+	var k: int = 0
+	var w: int = _wave_number
+	var kill_l: Label = player.get_node_or_null("HUDProto/KillCounter") as Label
+	if kill_l != null:
+		k = kill_l.text.split("  ")[-1].to_int()
+	var tim_l: Label = player.get_node_or_null("HUDProto/TimerLabel") as Label
+	var time_text: String = "00:00"
+	if tim_l != null:
+		time_text = tim_l.text
+	label.text = "VICTOIRE\nKILLS  %d\nVAGUE  %d\nTEMPS  %s" % [k, w, time_text]
+	label.add_theme_font_size_override(&"font_size", 56)
 	var tween: Tween = create_tween().set_parallel(true)
 	tween.tween_property(label, "modulate:a", 1.0, 0.6)
 	tween.tween_property(label, "scale", Vector2(1.15, 1.15), 0.6).from(Vector2.ONE)
 	# Slow-mo dramatique à la victoire.
 	Engine.time_scale = 0.3
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	# Save high score.
+	if player.has_method("record_run_score"):
+		player.record_run_score(k, w)
 
 func _has_grunts_already() -> bool:
 	return find_child("Grunt_*", true, false) != null

@@ -216,6 +216,33 @@ material = SubResource("mat_gauntlet_wall")
 size = Vector3(0.08, 0.08, 30.0)
 material = SubResource("mat_led_yellow_etage")
 
+; Pylons centraux gauntlet — force wall-run (obstacle au centre du sol).
+[sub_resource type="StandardMaterial3D" id="mat_pylon"]
+albedo_color = Color(0.15, 0.15, 0.20, 1)
+
+[sub_resource type="BoxShape3D" id="shape_pylon"]
+size = Vector3(2.0, 3.0, 2.0)
+
+[sub_resource type="BoxMesh" id="mesh_pylon"]
+size = Vector3(2.0, 3.0, 2.0)
+material = SubResource("mat_pylon")
+
+[sub_resource type="BoxMesh" id="mesh_pylon_led"]
+size = Vector3(2.05, 0.06, 0.06)
+material = SubResource("mat_led_yellow_etage")
+
+; Cover columns arena combat (Z=55-72).
+[sub_resource type="BoxShape3D" id="shape_cover_col"]
+size = Vector3(0.8, 2.5, 0.8)
+
+[sub_resource type="BoxMesh" id="mesh_cover_col"]
+size = Vector3(0.8, 2.5, 0.8)
+material = SubResource("mat_pylon")
+
+[sub_resource type="BoxMesh" id="mesh_cover_col_led"]
+size = Vector3(0.85, 0.06, 0.06)
+material = SubResource("mat_led_cyan_etage")
+
 ; Spire tower au fond — point focal lointain (image 8 ref)
 [sub_resource type="StandardMaterial3D" id="mat_spire"]
 albedo_color = Color(0.15, 0.12, 0.22, 1)
@@ -339,6 +366,106 @@ mesh = SubResource("mesh_gauntlet_led")
 [node name="LedBot" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, -2.40, 0)
 mesh = SubResource("mesh_gauntlet_led")
+
+; ==========================================================================
+; Pylons gauntlet — 3 obstacles au sol qui forcent le wall-run.
+; ==========================================================================
+[node name="GauntletPylons" type="Node3D" parent="."]
+
+[node name="Pylon_01" type="StaticBody3D" parent="GauntletPylons"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 26.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_01"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_01"]
+shape = SubResource("shape_pylon")
+
+[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
+mesh = SubResource("mesh_pylon_led")
+
+[node name="Pylon_02" type="StaticBody3D" parent="GauntletPylons"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 35.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_02"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_02"]
+shape = SubResource("shape_pylon")
+
+[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
+mesh = SubResource("mesh_pylon_led")
+
+[node name="Pylon_03" type="StaticBody3D" parent="GauntletPylons"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 44.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_03"]
+mesh = SubResource("mesh_pylon")
+
+[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_03"]
+shape = SubResource("shape_pylon")
+
+[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
+mesh = SubResource("mesh_pylon_led")
+
+; ==========================================================================
+; Cover columns combat arena (Z=55-72) — combat tactique.
+; ==========================================================================
+[node name="CoverColumns" type="Node3D" parent="."]
+
+[node name="Col_01" type="StaticBody3D" parent="CoverColumns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 1.25, 58.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_01"]
+mesh = SubResource("mesh_cover_col")
+
+[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_01"]
+shape = SubResource("shape_cover_col")
+
+[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
+mesh = SubResource("mesh_cover_col_led")
+
+[node name="Col_02" type="StaticBody3D" parent="CoverColumns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.25, 64.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_02"]
+mesh = SubResource("mesh_cover_col")
+
+[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_02"]
+shape = SubResource("shape_cover_col")
+
+[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
+mesh = SubResource("mesh_cover_col_led")
+
+[node name="Col_03" type="StaticBody3D" parent="CoverColumns"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 70.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_03"]
+mesh = SubResource("mesh_cover_col")
+
+[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_03"]
+shape = SubResource("shape_cover_col")
+
+[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
+mesh = SubResource("mesh_cover_col_led")
 
 ; ==========================================================================
 ; Parkour platforms — zigzag vertical entre Room_04 (Z=26) et Room_05 (Z=38)
