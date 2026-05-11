@@ -45,6 +45,7 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	Engine.time_scale = 1.0
 	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
