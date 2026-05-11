@@ -94,7 +94,7 @@ func _spawn_credit_pickup(pos: Vector3) -> void:
 	area.monitoring = true
 	var shape_node: CollisionShape3D = CollisionShape3D.new()
 	var s: SphereShape3D = SphereShape3D.new()
-	s.radius = 1.2
+	s.radius = 1.8
 	shape_node.shape = s
 	area.add_child(shape_node)
 	var mesh_node: MeshInstance3D = MeshInstance3D.new()
@@ -109,12 +109,14 @@ func _spawn_credit_pickup(pos: Vector3) -> void:
 	mesh_node.mesh = m
 	area.add_child(mesh_node)
 	get_tree().current_scene.add_child(area)
-	area.global_position = pos + Vector3(0, 0.5, 0)
+	area.global_position = pos + Vector3(0, 0.3, 0)
+	print("[pickup] spawned at %s, radius 1.8" % area.global_position)
 	# Rotation continue via Tween infini.
 	var rot_tween: Tween = create_tween().set_loops()
 	rot_tween.tween_property(area, "rotation:y", TAU, 1.5)
-	# Sphere area_entered → increment counter Player.
+	# Sphere body_entered → increment counter Player.
 	area.body_entered.connect(func(body: Node) -> void:
+		print("[pickup] body_entered: %s (in player group=%s)" % [body.name, body.is_in_group(&"player")])
 		if body.is_in_group(&"player"):
 			_increment_credit_counter()
 			rot_tween.kill()
