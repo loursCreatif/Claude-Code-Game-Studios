@@ -71,11 +71,21 @@ func _kill_feedback(col: Object) -> void:
 	_apply_player_knockback()
 
 func _check_multi_kill_slowmo() -> void:
-	# Étape 10/10 — multi-kill (2 kills en <500ms) → slow-mo 0.5× pendant 300ms.
+	# Étape 11 — Hit-stop : freeze 40ms wall-clock sur chaque kill (punch impact).
+	# Puis si multi-kill (≤500ms), slow-mo 0.5× pendant 300ms.
 	var now: int = Time.get_ticks_msec()
-	if now - _last_kill_time_msec < 500 and _last_kill_time_msec > 0:
-		Engine.time_scale = 0.5
-		get_tree().create_timer(0.3 * 0.5, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	var is_multi_kill: bool = (now - _last_kill_time_msec < 500 and _last_kill_time_msec > 0)
+	# Hit-stop systematic.
+	Engine.time_scale = 0.05
+	if is_multi_kill:
+		# Multi-kill : hit-stop 40ms puis slow-mo 0.5× 300ms.
+		get_tree().create_timer(0.04 * 0.05, false).timeout.connect(func() -> void:
+			Engine.time_scale = 0.5
+			get_tree().create_timer(0.3 * 0.5, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+		)
+	else:
+		# Solo kill : juste hit-stop 40ms.
+		get_tree().create_timer(0.04 * 0.05, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
 	_last_kill_time_msec = now
 
 func _apply_player_knockback() -> void:
