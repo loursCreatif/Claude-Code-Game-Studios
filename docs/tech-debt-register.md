@@ -6,7 +6,7 @@
 >
 > Mise à jour : alimentée par `/story-done`, `/code-review`, `/architecture-review`, `/tech-debt`.
 >
-> **Dernière mise à jour** : 2026-05-11 — refresh post 6-agent run autonome (TD-006/007/015 résolus).
+> **Dernière mise à jour** : 2026-05-11 (PM) — addition TD-017 (accessibility ref drift cosmétique) post-audit Quality Check #4.
 
 ## Format
 
@@ -128,6 +128,25 @@
 **Description** : Draw calls < 500 / frame et target 60 fps non validés sur hardware Tier 1 minimum (Apple M4 ≠ Tier 1 cible). Gates W-1+W-2 auto-SKIP en headless CI.
 
 **Trigger re-prio** : passe P0 si playtest Vertical Slice révèle < 60 fps sur hardware Tier 1 avant release.
+
+---
+
+### TD-017 — Accessibility ref drift ADR-0015 (4 GDDs + 3 UX specs) — OPEN
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-11 |
+| **Origine** | Audit `production/qa/evidence/accessibility-tier-coverage-audit-2026-05-11.md` (Quality Check #4 gate-check) |
+| **Sévérité** | ADVISORY (cosmétique, non-bloquant gate Pre-Production → Production) |
+| **Priorité** | P3 nice-to-have (Sprint Polish) |
+| **Coût** | XS (~45 min cumulé : 30 min GDDs + 15 min UX) |
+| **Fichiers** | `design/gdd/camera-system.md` · `player-movement-system.md` · `player-combat-system.md` · `hud-system.md` · `design/ux/interaction-patterns.md` · `main-menu.md` · `pause-menu.md` |
+
+**Description** : 4 GDDs implémentent `reduce_motion`/`reduce_flash` mais sans ref `ADR-0015 D-1` (rédigés avant l'ADR). 3 UX specs citent `accessibility-requirements.md` mais pas ADR-0015. Inconsistance pour devs partant de l'ADR vers les specs. **Quality Check #4 PASS** sans ce patch — purement cosmétique.
+
+**Action** : ajouter header `> **Accessibility** : ADR-0015 D-1 — consumers lisent AccessibilityService.reduce_motion / reduce_flash` aux 4 GDDs + ajouter lien ADR-0015 dans section References des 3 UX specs.
+
+**Trigger re-prio** : si un dev ouvre incident "où est l'API canonique reduce_motion ?" en pointant un GDD silencieux, passer P2.
 
 ---
 
