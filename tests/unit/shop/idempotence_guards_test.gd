@@ -47,21 +47,24 @@ func _make_shop() -> Control:
 # n'est appelé qu'une fois (au 1er call) — semantically équivalent au double-click.
 
 ## GIVEN solde 50, double_jump non owned,
-## WHEN _on_buy_pressed appelé 2× consécutifs,
-## THEN total décrémenté de 20 (1× try_spend), pas 40 (2×).
+## WHEN _on_buy_pressed appelé 2× consécutifs (n_index=0),
+## THEN total décrémenté de cost_0 = BASE_UPGRADE_COST + TIER_COST_STEP × 0 = 8 (1× try_spend),
+##      pas 16 (2×).
+## Post commit 9a4cc0b — valeurs canoniques BASE=8 / STEP=20 (F-CRD-3 r2 B-2).
 func test_idempotence_double_call_same_id_spends_only_once() -> void:
 	# Arrange
 	_seed_credits(50)
 	var s: Control = _make_shop()
+	var expected_total: int = 50 - CreditEconomy.BASE_UPGRADE_COST  # 50 - 8 = 42
 
 	# Act — 2 calls consécutifs
 	s._on_buy_pressed(&"double_jump", 0)
 	s._on_buy_pressed(&"double_jump", 0)
 
-	# Assert — total décrémenté de 20 seulement (pas 40)
+	# Assert — total décrémenté de cost_0 seulement (pas 2×)
 	assert_int(CreditEconomy.get_total()) \
-		.override_failure_message("AC-SHP-13: 2 calls double_jump → total attendu 30 (50-20×1), obtenu %d" % CreditEconomy.get_total()) \
-		.is_equal(30)
+		.override_failure_message("AC-SHP-13: 2 calls double_jump → total attendu %d (50-%d×1), obtenu %d" % [expected_total, CreditEconomy.BASE_UPGRADE_COST, CreditEconomy.get_total()]) \
+		.is_equal(expected_total)
 	assert_int(s.get_owned_upgrades().size()) \
 		.override_failure_message("AC-SHP-13: _owned_upgrades.size() doit rester 1 (pas de doublon)") \
 		.is_equal(1)

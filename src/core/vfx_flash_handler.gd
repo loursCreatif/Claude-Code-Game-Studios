@@ -113,7 +113,7 @@ func trigger_flash_respawn() -> void:
 	if _vfx._reduce_flash:
 		return  # AC-VFX-09 — zéro flash respawn si reduce_flash ON
 	var now: int = _vfx._get_time_msec.call()
-	_flash_respawn_active = now > 0  # wall-clock guard
+	_flash_respawn_active = true
 	_flash_respawn_start_msec = now
 	_vfx._flash_overlay_rect.visible = true
 	_vfx._flash_overlay_rect.color = Color(

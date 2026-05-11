@@ -293,6 +293,19 @@ func _record_latency_sample(value_ms: float, ts_usec: int) -> void:
 	last_input_to_publish_latency_ms = _latency.last_latency_ms
 
 
+## Proxies properties — préservent l'accès direct aux champs internes du ring buffer
+## (`_latency_sample_count`, `_latency_write_idx`, `_latency_values_ms`) utilisés par
+## tests `latency_ring_buffer_test.gd` (TD-008 split).
+var _latency_sample_count: int:
+	get: return _latency._sample_count
+
+var _latency_write_idx: int:
+	get: return _latency._write_idx
+
+var _latency_values_ms: PackedFloat32Array:
+	get: return _latency._values_ms
+
+
 ## Retourne true si [param action] a été pressée ce tick (edge-triggered).
 ## API canonique de polling gameplay (TR-inp-001, ADR-0004 D-1).
 ## Retourne false si le manager est désactivé.
