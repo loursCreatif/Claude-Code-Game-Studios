@@ -8,6 +8,51 @@
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_atrium"]
 
+; --- Materials MVP ---
+; TODO story-022 : remplacer par SubResource ShaderMaterial chrome_zen_flat
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.35, 0.37, 0.40, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
+albedo_color = Color(0.65, 0.6, 0.7, 1)
+
+; --- Shapes ---
+[sub_resource type="BoxShape3D" id="shape_floor"]
+size = Vector3(8.0, 0.3, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_ceiling"]
+size = Vector3(8.0, 0.3, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_wall_ns"]
+size = Vector3(8.0, 4.0, 0.3)
+
+[sub_resource type="BoxShape3D" id="shape_wall_ew"]
+size = Vector3(0.3, 4.0, 8.0)
+
+; --- Meshes ---
+[sub_resource type="BoxMesh" id="mesh_floor"]
+size = Vector3(8.0, 0.3, 8.0)
+material = SubResource("mat_floor")
+
+[sub_resource type="BoxMesh" id="mesh_ceiling"]
+size = Vector3(8.0, 0.3, 8.0)
+material = SubResource("mat_wall")
+
+[sub_resource type="BoxMesh" id="mesh_wall_ns"]
+size = Vector3(8.0, 4.0, 0.3)
+material = SubResource("mat_wall")
+
+[sub_resource type="BoxMesh" id="mesh_wall_ew"]
+size = Vector3(0.3, 4.0, 8.0)
+material = SubResource("mat_wall")
+
+[sub_resource type="BoxMesh" id="mesh_wall_run_guide"]
+size = Vector3(6.0, 2.0, 0.1)
+material = SubResource("mat_wall_run_guide")
+
 [node name="Atrium" type="Node3D"]
 
 [node name="Floor" type="StaticBody3D" parent="."]
@@ -16,8 +61,10 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="FloorMesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("mesh_floor")
 
 [node name="FloorShape" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("shape_floor")
 
 [node name="Ceiling" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 0)
@@ -25,8 +72,10 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="CeilingMesh" type="MeshInstance3D" parent="Ceiling"]
+mesh = SubResource("mesh_ceiling")
 
 [node name="CeilingShape" type="CollisionShape3D" parent="Ceiling"]
+shape = SubResource("shape_ceiling")
 
 [node name="WallNorth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, -4.0)
@@ -34,8 +83,10 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="WallNorthMesh" type="MeshInstance3D" parent="WallNorth"]
+mesh = SubResource("mesh_wall_ns")
 
 [node name="WallNorthShape" type="CollisionShape3D" parent="WallNorth"]
+shape = SubResource("shape_wall_ns")
 
 [node name="WallSouth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 4.0)
@@ -43,8 +94,10 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="WallSouthMesh" type="MeshInstance3D" parent="WallSouth"]
+mesh = SubResource("mesh_wall_ns")
 
 [node name="WallSouthShape" type="CollisionShape3D" parent="WallSouth"]
+shape = SubResource("shape_wall_ns")
 
 [node name="WallEast" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.0, 2.0, 0)
@@ -52,8 +105,10 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="WallEastMesh" type="MeshInstance3D" parent="WallEast"]
+mesh = SubResource("mesh_wall_ew")
 
 [node name="WallEastShape" type="CollisionShape3D" parent="WallEast"]
+shape = SubResource("shape_wall_ew")
 
 [node name="WallWest" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.0, 2.0, 0)
@@ -61,11 +116,15 @@ collision_layer = 8
 collision_mask = 0
 
 [node name="WallWestMesh" type="MeshInstance3D" parent="WallWest"]
+mesh = SubResource("mesh_wall_ew")
 
 [node name="WallWestShape" type="CollisionShape3D" parent="WallWest"]
+shape = SubResource("shape_wall_ew")
 
 [node name="WallRunGuideEast" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 2.0, 0)
+mesh = SubResource("mesh_wall_run_guide")
 
 [node name="WallRunGuideWest" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 2.0, 0)
+mesh = SubResource("mesh_wall_run_guide")
