@@ -80,6 +80,16 @@ func _process(delta: float) -> void:
 	# Invuln timer decrement.
 	if _invuln_timer > 0.0:
 		_invuln_timer -= delta
+	# HP regen progressive : après 5s sans damage, regen 1 HP/s.
+	if not _is_dead:
+		if _hp_regen_cooldown > 0.0:
+			_hp_regen_cooldown -= delta
+		elif current_hp < MAX_HP:
+			_hp_regen_accum += delta * HP_REGEN_RATE
+			if _hp_regen_accum >= 1.0:
+				current_hp = mini(current_hp + 1, MAX_HP)
+				_hp_regen_accum = 0.0
+				_update_hp_bar()
 	# Auto-respawn si Player tombe sous Y=-5 (safety net out-of-world).
 	if global_position.y < -5.0:
 		respawn()
@@ -334,7 +344,11 @@ const MAX_HP: int = 5
 var current_hp: int = MAX_HP
 var _is_dead: bool = false
 var _invuln_timer: float = 0.0
+var _hp_regen_cooldown: float = 0.0
+var _hp_regen_accum: float = 0.0
 const INVULN_AFTER_HIT: float = 1.0
+const HP_REGEN_DELAY: float = 5.0
+const HP_REGEN_RATE: float = 1.0
 
 func die() -> void:
 	# Intercepté : Grunt laser → take_damage 1 (legacy compat).
@@ -345,6 +359,8 @@ func take_damage(amount: int) -> void:
 		return
 	current_hp -= amount
 	_invuln_timer = INVULN_AFTER_HIT
+	_hp_regen_cooldown = HP_REGEN_DELAY
+	_hp_regen_accum = 0.0
 	_update_hp_bar()
 	# Flash rouge écran.
 	var flash: ColorRect = get_node_or_null("HUDProto/KillFlash") as ColorRect
