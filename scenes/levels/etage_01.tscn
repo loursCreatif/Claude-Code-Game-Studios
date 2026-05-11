@@ -346,7 +346,7 @@ mesh = SubResource("mesh_gauntlet_led")
 [node name="ParkourPlatforms" type="Node3D" parent="."]
 
 [node name="PP_01" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.5, 28.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.0, 10.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -365,7 +365,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_02" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 2.2, 31.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.6, 14.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -384,7 +384,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_03" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 2.8, 34.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 2.3, 53.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -403,7 +403,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 [node name="PP_04" type="StaticBody3D" parent="ParkourPlatforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 36.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 2.5, 57.0)
 collision_layer = 8
 collision_mask = 0
 
@@ -970,28 +970,29 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 2.0)
 
 ; Enemy slots
 ; EnemySlots Y aplatis (rooms maintenant Y=0 sauf Room_03 Y=0.8) — grunts au sol accessibles.
-; EnemySlots redistribués pour combat + parkour engagés sur tout l'étage.
+; EnemySlots redistribués logiquement : combat avant gauntlet (Z<20), après (Z>50), final.
+; Gauntlet Z=20-50 = zone parkour pure (pas de grunts).
 [node name="EnemySlot_01" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 1.0, 20.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.2, 12.0)
 
 [node name="EnemySlot_02" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.2, 30.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.2, 16.0)
 
 [node name="EnemySlot_03" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.2, 42.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.2, 55.0)
 
 [node name="EnemySlot_04" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 0.2, 50.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.2, 58.0)
 
 [node name="EnemySlot_05" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.2, 60.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.2, 68.0)
 
 [node name="EnemySlot_06" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 72.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.2, 72.0)
 
-; Boss du Room_07 atrium — challenge final avant exit
+; Boss du Room_09 terminal — challenge final avant exit (Z=80)
 [node name="EnemySlot_07_boss" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 58.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 80.0)
 
 ; Checkpoint anchors — appairés avec CheckpointVolume_NN, distance ≤ 10 m (AC-LVL-19)
 ; CheckpointAnchor_01 : volume (0,1.8,13), anchor (0,2.2,13) → dist ≈ 0.4 m ✓
