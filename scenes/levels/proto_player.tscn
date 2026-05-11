@@ -29,11 +29,14 @@ collision_layer = 1
 collision_mask = 30
 ; CCD anti-tunneling murs 0.3 m à haute vitesse (dash 28 m/s × dt 0.0167 = 0.47 m/frame).
 motion_mode = 0
-floor_max_angle = 0.785398
-; Auto-step plateformes : grimpe les bords ≤ 0.5 m sans saut (fluidité parkour).
-floor_snap_length = 0.5
-floor_constant_speed = true
+; Floor max angle 60° (anti-blocage aux edges plateforme).
+floor_max_angle = 1.0472
+; Auto-step plateformes : grimpe les bords ≤ 0.3 m sans saut (fluidité parkour).
+floor_snap_length = 0.3
+; floor_constant_speed FALSE : évite stutters aux transitions plateforme.
+floor_constant_speed = false
 floor_block_on_wall = false
+slide_on_ceiling = true
 script = ExtResource("1_player")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
