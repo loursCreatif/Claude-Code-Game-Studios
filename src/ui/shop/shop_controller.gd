@@ -20,10 +20,10 @@ const _SHAKE_DURATION_S: float = 0.200            # §J.5 shake DISABLED ±4 px
 const _SHAKE_AMPLITUDE_PX: float = 4.0
 const _SHAKE_COOLDOWN_MS: int = 400               # EC-SHP-30 anti-spam ≤ 3 Hz a11y
 
-# TODO Sprint 2 — replace fallbacks par CreditEconomy.BASE_UPGRADE_COST /
-# TIER_COST_STEP quand exposés (Credit Economy story-008+).
-const _BASE_COST_FALLBACK: int = 20
-const _TIER_COST_STEP_FALLBACK: int = 20
+# Cost constants delegated to CreditEconomy (F-CRD-3 — story-014 TODO Sprint 2 resolved).
+# ShopController does not redefine these values — single source of truth is CreditEconomy.
+const _BASE_COST: int = CreditEconomy.BASE_UPGRADE_COST
+const _TIER_COST_STEP: int = CreditEconomy.TIER_COST_STEP
 
 const _SAVE_KEY: String = "owned_upgrades"
 const _MAIN_MENU_SCENE_PATH: String = "res://scenes/menus/main_menu.tscn"
@@ -163,7 +163,7 @@ func _compute_cost(n: int) -> int:
 	if n >= N_UPGRADES_MVP:
 		push_error("ShopSystem: _compute_cost n=%d > MAX_UPGRADE_INDEX=%d" % [n, N_UPGRADES_MVP - 1])
 		return 0
-	return _BASE_COST_FALLBACK + _TIER_COST_STEP_FALLBACK * n
+	return _BASE_COST + _TIER_COST_STEP * n
 
 
 # Story-005 — purchase cycle 6 étapes déterministes SYNC.

@@ -53,6 +53,18 @@ const BASE_SECRET_CREDIT: int = 5
 ## (story 002), so KILL_CREDIT_GRUNT == 1.
 const KILL_CREDIT_GRUNT: int = 1
 
+## Base cost (credits) for the cheapest upgrade (n=0) in the shop catalogue.
+## Curve : cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × n  (F-CRD-3 0-based).
+## r2 B-2 : lowered 20 → 8 so a combat-only étage 1 (8 kills × 1 cr) reaches
+## the first upgrade without secrets (anti soft-lock Pillar 2).
+## Tier 2+ knob : will move to `data/balance/credit_config.tres`.
+const BASE_UPGRADE_COST: int = 8
+
+## Linear cost increment between consecutive upgrade tiers (F-CRD-3).
+## cost_n=1 = 8 + 20 = 28 cr, cost_n=2 = 48 cr, etc.
+## Tier 2+ knob : will move to `data/balance/credit_config.tres`.
+const TIER_COST_STEP: int = 20
+
 # ---------------------------------------------------------------------------
 # Signals
 # ---------------------------------------------------------------------------
