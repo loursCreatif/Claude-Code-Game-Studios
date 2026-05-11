@@ -15,7 +15,7 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 
 ---
 
-## Stories en scope — 175 total / 162 Complete (effectifs) / 1 Closed-Migrated / 12 unstarted (épics post-Pre-Production)
+## Stories en scope — 175 total / 168 Complete (effectifs) / 2 Closed (Migrated + WON'T-FIX) / 1 Deprecated / 4 Ready ou Blocked (story-019 Combat panel + story-008 Credit + story-006 HUD + story-008 VFX)
 
 | Epic | Layer | Stories total | Complete | Ready/Pending | Status | Reference |
 |------|-------|---------------|----------|---------------|--------|-----------|
@@ -25,8 +25,8 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 | **accessibility-system** | Foundation | 1 | **1/1** ✅ | — | Complete (interface layer ADR-0015) | `production/epics/accessibility-system/EPIC.md` |
 | **audio-system** | Core | 12 | **12/12** ✅ | — | Complete (Epic close-out commit `6e5cf2b`) | `production/epics/audio-system/EPIC.md` |
 | **camera-system** | Core | 13 | **13/13** ✅ | — | Complete | `production/epics/camera-system/EPIC.md` |
-| **player-movement-system** | Core | 18 | **17/18** | 1 (canonical fails diagnostic post-`b60d809`) | Complete (1 story canonical fail tech-debt — voir notes) | `production/epics/player-movement-system/EPIC.md` |
-| **combat-system** | Feature | 22 | **19/22** | 1 Ready (019 panel Martin) + 1 Closed-Migrated (021→VFX) + 1 (subtle Status format variance) | Complete (re-affirmé 2026-05-05 `qa-signoff-combat-system-2026-05-05.md` APPROVED WITH CONDITIONS) | `production/epics/combat-system/EPIC.md` |
+| **player-movement-system** | Core | 18 | **17/18** | 1 Closed-WON'T-FIX (story-018 accessibility — résolu côté consumer via ADR-0015 D-1 Option A) | Complete (tech-debt canonical fails Movement RÉSOLU 2026-05-09 — voir notes #2) | `production/epics/player-movement-system/EPIC.md` |
+| **combat-system** | Feature | 22 | **20/22** | 1 Ready (019 panel Martin) + 1 Closed-Migrated (021→VFX) | Complete (re-affirmé 2026-05-05 `qa-signoff-combat-system-2026-05-05.md` APPROVED WITH CONDITIONS) | `production/epics/combat-system/EPIC.md` |
 | **enemy-system** | Feature | 6 | **6/6** ✅ | — | Complete | `production/epics/enemy-system/EPIC.md` |
 | **level-system** | Feature | 23 | **23/23** ✅ | — | Complete | `production/epics/level-system/EPIC.md` |
 | **credit-economy-system** | Feature | 8 | **7/8** | 1 Ready (story-008 Visual/Feel ADVISORY — unblocked 2026-05-04 par HUD-002 Complete, close-out shared evidence avec HUD-006 OR subsume au playtest MVP) | Complete partiel (story-008 Ready en attente convergence playtest HUD-006) | `production/epics/credit-economy-system/EPIC.md` |
@@ -37,11 +37,10 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 
 **Totaux scope sprint Pre-Production** :
 - **Foundation** : 32/32 stories Complete (Input + SaveLoad + Menu + Accessibility) — 0 gap
-- **Core** : 42/43 Complete (Audio + Camera + Movement) — 1 canonical fail Movement post-`b60d809` à diagnostiquer
-- **Feature** : 81/87 Complete (Combat + Enemy + Level + Credit + Shop + Upgrade) — 1 Closed-Migrated + 1 Ready ADVISORY playtest convergence HUD-006 (credit-008) + 1 Ready panel Martin + 1 Deprecated + 1 partial DEFERRED
-- **Out of scope (Production sprint suivant)** : HUD 0/6 + VFX 0/8 = 14 stories à venir
+- **Core** : 42/43 Complete (Audio + Camera + Movement) — 1 Closed-WON'T-FIX (movement-018 résolu via ADR-0015 D-1 Option A)
+- **Feature** : 94/100 Complete (Combat + Enemy + Level + Credit + Shop + Upgrade + HUD + VFX) — 1 Closed-Migrated (combat-021→VFX) + 1 Deprecated (shop-011 Tier 2+) + 4 Ready/Blocked Visual/Feel ADVISORY playtest (combat-019 panel Martin + credit-008 + hud-006 + vfx-008)
 
-**Effectifs livrés Pre-Production** : ~155-162 stories complétées + 13 archivées historiques = **~175 stories tracked**.
+**Effectifs livrés Pre-Production** : **168 stories Complete / 175 total tracked** (2 Closed + 1 Deprecated + 4 Ready/Blocked ADVISORY playtest manuel).
 
 ---
 
