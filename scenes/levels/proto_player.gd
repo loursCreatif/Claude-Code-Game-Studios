@@ -131,7 +131,7 @@ func _input(event: InputEvent) -> void:
 		camera.rotation.x -= event.relative.y * MOUSE_SENS
 		camera.rotation.x = clamp(camera.rotation.x, -PI / 2.0 + 0.05, PI / 2.0 - 0.05)
 	if event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED else Input.MOUSE_MODE_CAPTURED
+		_toggle_pause()
 	if event.is_action_pressed("restart"):
 		respawn()
 	if event.is_action_pressed("attack"):
@@ -350,3 +350,16 @@ func _end_slide() -> void:
 	_slide_timer = 0.0
 	if camera:
 		camera.position.y = 0.65
+
+
+var _is_paused: bool = false
+
+func _toggle_pause() -> void:
+	# Utilise Engine.time_scale au lieu de tree.paused pour garder _input vivant
+	# (process_mode subtleties évitées pour MVP).
+	_is_paused = not _is_paused
+	Engine.time_scale = 0.0001 if _is_paused else 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if _is_paused else Input.MOUSE_MODE_CAPTURED
+	var overlay: ColorRect = get_node_or_null("HUDProto/PauseOverlay") as ColorRect
+	if overlay != null:
+		overlay.visible = _is_paused
