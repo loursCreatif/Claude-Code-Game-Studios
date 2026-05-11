@@ -1,0 +1,61 @@
+; Proto Player imported from prototypes/movement-katana — Mac-compatible
+; (uses Input.is_physical_key_pressed direct, bypass action map).
+[gd_scene load_steps=6 format=3 uid="uid://proto_player_etage01"]
+
+[ext_resource type="Script" path="res://scenes/levels/proto_player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scenes/levels/proto_katana.gd" id="2_katana"]
+
+[sub_resource type="CapsuleShape3D" id="CapsulePlayer"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="CapsuleKatana"]
+radius = 0.9
+height = 2.6
+
+[sub_resource type="BoxMesh" id="BoxKatana"]
+size = Vector3(0.05, 0.05, 1.0)
+
+[sub_resource type="StandardMaterial3D" id="MatKatana"]
+albedo_color = Color(0.9, 0.95, 1.0, 1)
+metallic = 0.9
+roughness = 0.15
+emission_enabled = true
+emission = Color(0.6, 0.8, 1.0, 1)
+emission_energy_multiplier = 0.6
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 1
+collision_mask = 30
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsulePlayer")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+current = true
+fov = 90.0
+
+[node name="Katana" type="Node3D" parent="Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, -0.3, -0.5)
+script = ExtResource("2_katana")
+
+[node name="Mesh" type="MeshInstance3D" parent="Camera3D/Katana"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+mesh = SubResource("BoxKatana")
+material_override = SubResource("MatKatana")
+
+[node name="ShapeCast3D" type="ShapeCast3D" parent="Camera3D/Katana"]
+shape = SubResource("CapsuleKatana")
+target_position = Vector3(0, 0, -2.6)
+collision_mask = 4
+enabled = false
+
+[node name="WallRayLeft" type="RayCast3D" parent="."]
+target_position = Vector3(-1.3, 0, 0)
+collision_mask = 8
+
+[node name="WallRayRight" type="RayCast3D" parent="."]
+target_position = Vector3(1.3, 0, 0)
+collision_mask = 8
