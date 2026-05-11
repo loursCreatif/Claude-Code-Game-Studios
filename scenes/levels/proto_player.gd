@@ -46,6 +46,12 @@ signal died
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	respawn_point = global_position
+	# Fade out onboarding controls label après 7s.
+	var label: Label = get_node_or_null("HUDProto/ControlsLabel") as Label
+	if label != null:
+		var fade_tween: Tween = create_tween()
+		fade_tween.tween_interval(7.0)
+		fade_tween.tween_property(label, "modulate:a", 0.0, 1.5)
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
