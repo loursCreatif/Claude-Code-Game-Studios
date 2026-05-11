@@ -17,8 +17,8 @@ const DASH_COOLDOWN: float = 0.8
 const MOUSE_SENS: float = 0.0022
 const WALL_RUN_MIN_SPEED: float = 5.0
 const WALL_RUN_STICK_FORCE: float = 6.0
-const WALL_JUMP_SIDE: float = 7.0
-const WALL_JUMP_UP: float = 6.5
+const WALL_JUMP_SIDE: float = 9.0
+const WALL_JUMP_UP: float = 8.0
 const CAMERA_TILT_WALL_RUN: float = 0.35
 const CAMERA_TILT_LERP_SPEED: float = 12.0
 const CAMERA_DASH_FOV_KICK: float = 10.0
@@ -149,7 +149,8 @@ func _physics_process(delta: float) -> void:
 			velocity.z = 0.0
 	else:
 		if wish_dir.length() > 0.01:
-			var air_accel: float = 40.0 * delta
+			# Air control augmenté pour parkour plus réactif (40 → 75).
+			var air_accel: float = 75.0 * delta
 			velocity.x = move_toward(velocity.x, wish_dir.x * speed, air_accel)
 			velocity.z = move_toward(velocity.z, wish_dir.z * speed, air_accel)
 

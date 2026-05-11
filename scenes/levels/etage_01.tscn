@@ -690,6 +690,10 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 0.2, 60.0)
 [node name="EnemySlot_06" type="Marker3D" parent="SpawnMarkers"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 72.0)
 
+; Boss du Room_07 atrium — challenge final avant exit
+[node name="EnemySlot_07_boss" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 58.0)
+
 ; Checkpoint anchors — appairés avec CheckpointVolume_NN, distance ≤ 10 m (AC-LVL-19)
 ; CheckpointAnchor_01 : volume (0,1.8,13), anchor (0,2.2,13) → dist ≈ 0.4 m ✓
 [node name="CheckpointAnchor_01" type="Marker3D" parent="SpawnMarkers"]
