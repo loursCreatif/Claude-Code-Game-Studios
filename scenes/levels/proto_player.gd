@@ -4,8 +4,8 @@
 
 extends CharacterBody3D
 
-const MOVE_SPEED: float = 12.0
-const COYOTE_TIME: float = 0.1
+const MOVE_SPEED: float = 13.0
+const COYOTE_TIME: float = 0.12
 const SPRINT_MULT: float = 1.0
 const JUMP_VELOCITY: float = 7.0
 const AIR_JUMP_VELOCITY: float = 6.5

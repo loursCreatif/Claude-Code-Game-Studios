@@ -15,6 +15,12 @@ albedo_color = Color(0.35, 0.37, 0.40, 1)
 [sub_resource type="StandardMaterial3D" id="mat_wall"]
 albedo_color = Color(0.55, 0.55, 0.58, 1)
 
+[sub_resource type="StandardMaterial3D" id="mat_platform_accent"]
+albedo_color = Color(0.95, 0.75, 0.20, 1)
+emission_enabled = true
+emission = Color(1.0, 0.7, 0.15, 1)
+emission_energy_multiplier = 0.4
+
 [sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
 albedo_color = Color(0.65, 0.6, 0.7, 1)
 
