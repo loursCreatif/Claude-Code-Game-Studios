@@ -397,6 +397,16 @@ func _trigger_game_over() -> void:
 	var overlay: ColorRect = get_node_or_null("HUDProto/GameOverOverlay") as ColorRect
 	if overlay != null:
 		overlay.visible = true
+	# Record run scores depuis HUD counters.
+	var kill_counter: Label = get_node_or_null("HUDProto/KillCounter") as Label
+	var wave_counter: Label = get_node_or_null("HUDProto/WaveCounter") as Label
+	var k: int = 0
+	var w: int = 1
+	if kill_counter != null:
+		k = kill_counter.text.split("  ")[-1].to_int()
+	if wave_counter != null:
+		w = wave_counter.text.split("  ")[-1].to_int()
+	record_run_score(k, w)
 
 func _reset_run() -> void:
 	_is_dead = false
