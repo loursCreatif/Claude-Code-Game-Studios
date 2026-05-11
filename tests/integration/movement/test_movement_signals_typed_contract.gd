@@ -6,11 +6,12 @@
 #   AC-5 : attacked forward, idempotence, Dead gate.
 #
 # ADR-0005 (D-1..D-4, D-6, D-8), ADR-0004 D-1 (was_pressed_this_tick edge consume).
-# Framework: GdUnit4 (extends GdUnitTestSuite).
+# Framework: GdUnit4 (extends AutoloadResetTestSuite — TD-010 opt-in, snapshot
+# autoloads avant chaque test pour éviter les pollutions cross-suite).
 #
 # Story: story-009-signals-typed-contract
 
-extends GdUnitTestSuite
+extends AutoloadResetTestSuite
 
 # ---------------------------------------------------------------------------
 # Scene preload
