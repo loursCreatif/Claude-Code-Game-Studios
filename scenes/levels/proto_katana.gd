@@ -57,6 +57,8 @@ func _physics_process(delta: float) -> void:
 			col.die()
 			_kill_feedback(col)
 
+var _last_kill_time_msec: int = 0
+
 func _kill_feedback(col: Object) -> void:
 	enemy_killed.emit(col)
 	_trigger_kill_flash()
@@ -65,6 +67,27 @@ func _kill_feedback(col: Object) -> void:
 	_trigger_camera_shake()
 	_increment_kill_counter()
 	_spawn_kill_popup(kill_pos)
+	_check_multi_kill_slowmo()
+	_apply_player_knockback()
+
+func _check_multi_kill_slowmo() -> void:
+	# Étape 10/10 — multi-kill (2 kills en <500ms) → slow-mo 0.5× pendant 300ms.
+	var now: int = Time.get_ticks_msec()
+	if now - _last_kill_time_msec < 500 and _last_kill_time_msec > 0:
+		Engine.time_scale = 0.5
+		get_tree().create_timer(0.3 * 0.5, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	_last_kill_time_msec = now
+
+func _apply_player_knockback() -> void:
+	# Étape 5/10 — recul léger du Player au kill (weight feedback).
+	var player: Node3D = get_parent().get_parent().get_parent() as Node3D
+	if player == null or not player.has_method("move_and_slide"):
+		return
+	var forward: Vector3 = -player.transform.basis.z
+	forward.y = 0.0
+	# Set velocity directement — CharacterBody3D suivra physics next tick.
+	if player.has_method("get") and "velocity" in player:
+		player.velocity -= forward.normalized() * 1.5
 
 func _increment_kill_counter() -> void:
 	var player: Node = get_parent().get_parent().get_parent()
