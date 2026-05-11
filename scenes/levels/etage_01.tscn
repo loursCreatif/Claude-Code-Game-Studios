@@ -13,7 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://primitive_atrium" path="res://scenes/levels/primitives/atrium.tscn" id="4_atrium"]
 [ext_resource type="PackedScene" uid="uid://primitive_shaft_connector" path="res://scenes/levels/primitives/shaft_connector.tscn" id="5_shaft_connector"]
 [ext_resource type="PackedScene" uid="uid://primitive_vertical_shaft_room" path="res://scenes/levels/primitives/vertical_shaft_room.tscn" id="6_vertical_shaft_room"]
-[ext_resource type="PackedScene" uid="uid://camera_player_001" path="res://src/gameplay/player/Player.tscn" id="7_player"]
+[ext_resource type="PackedScene" uid="uid://proto_player_etage01" path="res://scenes/levels/proto_player.tscn" id="7_player"]
 [ext_resource type="Script" path="res://scenes/levels/etage_01_init.gd" id="8_init"]
 
 ; --- Shapes inline ---
@@ -145,12 +145,13 @@ material = SubResource("mat_wall")
 size = Vector3(4.0, 0.3, 6.0)
 material = SubResource("mat_wall")
 
-; DEBUG : grand plancher de secours visible pour valider rendu + collision
+; DEBUG MVP : safety floor 100×120 m sous tout l'étage (comble les trous Mezzanine/ShaftConnector).
+; Y=-0.5 top=0 → 0.15m sous les room floors (transform Y=-0.15) — pas de conflit.
 [sub_resource type="BoxMesh" id="mesh_debug_floor"]
-size = Vector3(50.0, 1.0, 100.0)
+size = Vector3(100.0, 1.0, 120.0)
 material = SubResource("mat_floor")
 [sub_resource type="BoxShape3D" id="shape_debug_floor"]
-size = Vector3(50.0, 1.0, 100.0)
+size = Vector3(100.0, 1.0, 120.0)
 
 ; --- Environment & Sky (copié du proto movement-katana pour visibilité MVP) ---
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
@@ -189,10 +190,10 @@ light_energy = 1.1
 shadow_enabled = true
 
 ; ==========================================================================
-; DEBUG : grand plancher 50×100 m à Y=-0.5 pour rendu + safety net
+; DEBUG : safety floor MVP (comble les trous entre Mezzanine/ShaftConnector).
 ; ==========================================================================
 [node name="DebugFloor" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 30)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 40)
 collision_layer = 8
 collision_mask = 0
 
@@ -203,10 +204,11 @@ mesh = SubResource("mesh_debug_floor")
 shape = SubResource("shape_debug_floor")
 
 ; ==========================================================================
-; Player — élevé à Y=3 pour avoir la vue dégagée + valider rendu
+; Player — élevé à Y=1.5 pour atterrir GROUNDED sur le sol des rooms
 ; ==========================================================================
 [node name="Player" parent="." instance=ExtResource("7_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.0, 2)
+; Y=1.5 — au-dessus du DebugFloor (Y=0 top), tombe correctement → GROUNDED state.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 2)
 
 ; ==========================================================================
 ; StaticEnvironment
@@ -279,18 +281,23 @@ shape = SubResource("shape_ceil_01")
 ; Room_02 — TRAVERSAL (0), origin (0,1.5,8), mezzanine primitive
 ; --------------------------------------------------------------------------
 [node name="Room_02" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 8.0)
+; MVP playtest : Y aplati à 0 (était 1.5) — pas de saut requis pour traverser.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 8.0)
 script = ExtResource("1_room_script")
 archetype = 0
 
 [node name="Mezzanine_01" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
+; Y+=2.0 — élève la Platform Mezzanine à Y=3.5 absolu pour laisser passer le Player (capsule 1.8 m) en dessous.
+; Authoring tech-debt : mezzanine.tscn Platform devrait être à Y≥2 local (corriger primitive en story future).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0)
 
 ; --------------------------------------------------------------------------
 ; Room_03 — COMBAT (1), origin (0,2,14)
 ; custom floor + 2 murs wall-run face-to-face + mezzanine
 ; --------------------------------------------------------------------------
 [node name="Room_03" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 14.0)
+; MVP playtest : Y aplati à 0 (était 2).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 14.0)
 script = ExtResource("1_room_script")
 archetype = 1
 
@@ -336,7 +343,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.0, 2.0)
 ; Room_04 — TRAVERSAL (0), origin (0,4,26), shaft_connector
 ; --------------------------------------------------------------------------
 [node name="Room_04" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 26.0)
+; MVP playtest : Y aplati à 0 (était 4).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 26.0)
 script = ExtResource("1_room_script")
 archetype = 0
 
@@ -346,7 +354,8 @@ archetype = 0
 ; Room_05 — COMBAT (1), origin (0,5,38), mezzanine
 ; --------------------------------------------------------------------------
 [node name="Room_05" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, 38.0)
+; MVP playtest : Y aplati à 0 (était 5).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 38.0)
 script = ExtResource("1_room_script")
 archetype = 1
 
@@ -356,7 +365,8 @@ archetype = 1
 ; Room_06 — SHAFT (2), origin (0,6,48), vertical_shaft_room
 ; --------------------------------------------------------------------------
 [node name="Room_06" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.0, 48.0)
+; MVP playtest : Y aplati à 0 (était 6).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 48.0)
 script = ExtResource("1_room_script")
 archetype = 2
 
@@ -366,7 +376,8 @@ archetype = 2
 ; Room_07 — SECRET_HUB (3), origin (0,16,58), atrium + mezzanine
 ; --------------------------------------------------------------------------
 [node name="Room_07" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.0, 58.0)
+; MVP playtest : Y aplati à 0 (était 16).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 58.0)
 script = ExtResource("1_room_script")
 archetype = 3
 
@@ -379,7 +390,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0.0)
 ; Room_08 — TRAVERSAL (0), origin (0,17,68), shaft_connector
 ; --------------------------------------------------------------------------
 [node name="Room_08" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.0, 68.0)
+; MVP playtest : Y aplati à 0 (était 17).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 68.0)
 script = ExtResource("1_room_script")
 archetype = 0
 
@@ -389,7 +401,8 @@ archetype = 0
 ; Room_09 — TRAVERSAL (0), origin (0,17,78), 6×4×6 m custom
 ; --------------------------------------------------------------------------
 [node name="Room_09" type="Node3D" parent="StaticEnvironment"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.0, 78.0)
+; MVP playtest : Y aplati à 0 (était 17).
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0, 78.0)
 script = ExtResource("1_room_script")
 archetype = 0
 
