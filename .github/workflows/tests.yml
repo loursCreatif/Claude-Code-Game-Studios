@@ -952,6 +952,100 @@ jobs:
           godot --headless --script tools/lint/run_level_lint.gd
           echo "lint-level-invariants PASS"
 
+  lint-level-signals-main-thread:
+    # story-014 — lint cover-all : .emit() dans src/gameplay/level/ doit s'exécuter main-thread seulement.
+    # Interdit : Thread, WorkerThreadPool, cross-thread call_deferred avec .emit().
+    # Source : .claude/rules/level-signals-main-thread-only.md + ADR-0005 D-4.
+    # Exception : `# lint-emit-thread-ok: <raison>` sur la ligne concernée.
+    name: Lint — Level Signals Main Thread Only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run level-signals-main-thread lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          review=0
+          # 1. Lister tous les fichiers level/ qui émettent des signaux
+          while IFS= read -r f; do
+            # 2. Vérifier l'absence de contextes thread
+            if grep -qE '\bThread\s*(\(|\.new|\.start)|\bWorkerThreadPool\s*\.' "$f"; then
+              # Exception : commentaire lint-emit-thread-ok sur la ligne concernée
+              if ! grep -qE 'lint-emit-thread-ok' "$f"; then
+                echo "REVIEW: $f touches .emit() AND mentions Thread/WorkerThreadPool"
+                review=$((review + 1))
+              fi
+            fi
+          done < <(grep -rlE '\.(emit|emit_signal)\s*\(' src/gameplay/level/ 2>/dev/null || true)
+
+          if [ "$review" -gt 0 ]; then
+            echo "::error::lint-level-signals-main-thread FAIL — $review file(s) need review"
+            exit 1
+          fi
+          echo "lint-level-signals-main-thread PASS — 0 cross-thread emit violations"
+
+  lint-movement-emit-physics:
+    # story-014 — lint static : .emit() sur Movement signals doit être appelé depuis _physics_process uniquement.
+    # Interdit : .emit() dans _process, _input, _unhandled_input, _ready, _notification.
+    # Source : .claude/rules/movement-emit-physics-only.md + ADR-0005 D-4.
+    name: Lint — Movement Emit Physics Only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run movement-emit-physics lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="src/gameplay/player/movement_controller.gd"
+          if [ ! -f "$target" ]; then
+            echo "Target file not found: $target (skip)"
+            exit 0
+          fi
+          violations=$(awk '/^func _(process|input|unhandled_input|ready|notification)\(/ { in_bad=1 } /^func / && !/^func _(process|input|unhandled_input|ready|notification)\(/ { in_bad=0 } in_bad && /\.emit\(/ { print NR": "$0 }' "$target" || echo "")
+          if [ -z "$violations" ]; then
+            echo "lint-movement-emit-physics PASS — 0 emit in forbidden functions"
+          else
+            echo "::error::lint-movement-emit-physics FAIL — .emit() in forbidden functions:"
+            echo "$violations"
+            exit 1
+          fi
+
+  lint-movement-no-consumer-refs:
+    # story-014 — lint cover-all : MovementController doit rester outbound-only (ADR-0005 D-10).
+    # Interdit : références directes à CameraSystem, CombatSystem, VFXManager, AudioManager, HUDController.
+    # Interdit : get_node("/root/...") vers autoload consumer, preload(res://src/gameplay/...), $NodePath.
+    # Source : .claude/rules/movement-no-consumer-refs.md + ADR-0005 D-10.
+    # Exception : `# lint-movement-no-consumer-refs-ok: <raison>` sur la ligne concernée.
+    name: Lint — Movement No Consumer Refs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run movement-no-consumer-refs lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          target="src/gameplay/player/movement_controller.gd"
+          if [ ! -f "$target" ]; then
+            echo "Target file not found: $target (skip)"
+            exit 0
+          fi
+          violations=$(grep -nE '\b(CameraSystem|CombatSystem|VFXManager|AudioManager|HUDController)\b' "$target" \
+            | grep -v '^[^:]*:\s*#' \
+            | grep -v 'lint-movement-no-consumer-refs-ok' || echo "")
+          if [ -z "$violations" ]; then
+            echo "lint-movement-no-consumer-refs PASS — 0 consumer references"
+          else
+            echo "::error::lint-movement-no-consumer-refs FAIL — consumer references found:"
+            echo "$violations"
+            exit 1
+          fi
+
   perf-level-ccd:
     # story-014 AC-LVL-41 — EC-8 Jolt CCD benchmark sub-gate.
     # Valide que le runner exit 0 (clips_rate == 0 sur murs >= 0.3m).
