@@ -248,6 +248,27 @@ func get_state() -> LevelState:
 	return _state
 
 
+## TEST/PERF-ONLY : initialise le LevelSystem pour un runner de performance en contournant
+## le cycle de chargement threadé normal.
+##
+## Passe l'état interne à ACTIVE et connecte les room triggers de la scène `root` fournie.
+## Remplace les accès privés `_state` + `_connect_room_triggers` du runner de perf
+## (TD-009 — encapsulation breach supprimé). Conforme au pattern test-hook `_simulate_load_elapsed_ms`
+## (story-004 Option A) et `_set_current_scene_root_for_test` (story-009).
+##
+## No-op en release (OS.has_feature("debug") false).
+## Réservé aux runners de performance (level_frame_time_runner, level_draw_calls_runner, etc.)
+## et aux tests unitaires/intégration. Ne jamais appeler depuis le code de production.
+##
+## [param root] : racine Node3D de la fixture chargée — doit déjà être dans le SceneTree.
+## Source : TD-009, story-017, tests/performance/level_frame_time_runner.gd.
+func prepare_for_perf_runner(root: Node3D) -> void:
+	if not OS.has_feature("debug"):
+		return
+	_state = LevelState.ACTIVE
+	_connect_room_triggers(root)
+
+
 ## Retourne l'id de l'étage courant (ou en cours de chargement), -1 si aucun.
 ## En LOADING, reflète déjà l'id cible (ADR-0007 D-7).
 func get_current_etage_id() -> int:

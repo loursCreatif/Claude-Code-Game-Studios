@@ -325,17 +325,12 @@ func _phase_1_load_time() -> void:
 		push_error("PlayerStub CharacterBody3D non trouvé dans fixture — phases 2/3 peuvent être affectées")
 
 	# Instancier LevelSystem localement pour connecter les room triggers (AC-LVL-35a)
-	# Sans load_etage() (pas d'autoload MVP), on force _state=ACTIVE manuellement —
-	# sinon _on_room_trigger_body_entered guard early-returns sur _state != ACTIVE
-	# et room_entered n'émet jamais. Pattern test-only acceptable (runner perf).
-	# TECH-DEBT : accès `_state` et `_connect_room_triggers` privés (encapsulation breach).
-	# Si LevelSystemScript renomme ces internes, ce runner casse silencieusement à runtime.
-	# Mitigation envisagée (post-MVP) : exposer un test_hook public `prepare_for_perf_runner(root)`.
+	# Sans load_etage() (pas d'autoload MVP), on force _state=ACTIVE via l'API publique
+	# prepare_for_perf_runner() (TD-009 — remplace les anciens accès privés `_state`
+	# et `_connect_room_triggers`).
 	_level_system = LevelSystemScript.new()
 	add_child(_level_system)
-	_level_system._state = LevelSystemScript.LevelState.ACTIVE
-	# Connexion manuelle des room triggers de la fixture chargée
-	_level_system._connect_room_triggers(_current_fixture)
+	_level_system.prepare_for_perf_runner(_current_fixture)
 	_level_system.room_entered.connect(_on_room_entered)
 
 
