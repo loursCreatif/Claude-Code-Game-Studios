@@ -5,6 +5,25 @@ extends Node3D
 
 func _ready() -> void:
 	InputManager.set_mouse_captured(true)
+	_spawn_boss_marker()
+
+func _spawn_boss_marker() -> void:
+	# Label3D "BOSS" flottant rouge au-dessus de la zone boss (Z=80 Y=4).
+	var label: Label3D = Label3D.new()
+	label.text = "BOSS"
+	label.font_size = 96
+	label.modulate = Color(1.0, 0.15, 0.15, 1)
+	label.outline_size = 10
+	label.outline_modulate = Color(0, 0, 0, 1)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = false
+	label.fixed_size = false
+	add_child(label)
+	label.global_position = Vector3(0, 4.5, 80.0)
+	# Pulse infinite scale.
+	var tw: Tween = create_tween().set_loops()
+	tw.tween_property(label, "scale", Vector3(1.1, 1.1, 1.1), 0.8)
+	tw.tween_property(label, "scale", Vector3(1.0, 1.0, 1.0), 0.8)
 
 	# MVP playtest : bindings alternatifs au cas où Shift gauche ne marche pas sur Mac.
 	# Ajoute touche E pour dash, F pour saut alternatif.
