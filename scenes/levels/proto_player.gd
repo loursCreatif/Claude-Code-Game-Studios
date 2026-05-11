@@ -94,6 +94,24 @@ func _process(delta: float) -> void:
 	if vignette != null:
 		var intensity: float = clamp((horiz_speed_kmh - 30.0) / 50.0, 0.0, 0.35)
 		vignette.color = Color(0.0, 0.05, 0.10, intensity)
+	# Exit indicator : distance + symbole direction vers EtageExitTrigger.
+	var exit_label: Label = get_node_or_null("HUDProto/ExitIndicator") as Label
+	if exit_label != null:
+		var exit_node: Node3D = get_tree().current_scene.get_node_or_null("EtageExitTrigger") as Node3D
+		if exit_node != null:
+			var to_exit: Vector3 = exit_node.global_position - global_position
+			var dist: float = to_exit.length()
+			var local_dir: Vector3 = transform.basis.inverse() * to_exit.normalized()
+			var arrow: String = "→"
+			if local_dir.z < -0.5:
+				arrow = "↑"
+			elif local_dir.z > 0.5:
+				arrow = "↓"
+			elif local_dir.x > 0.3:
+				arrow = "↗"
+			elif local_dir.x < -0.3:
+				arrow = "↖"
+			exit_label.text = "%s EXIT  %dm" % [arrow, int(dist)]
 	# Dash cooldown bar : fill scale.x = 1 - (cooldown_timer / DASH_COOLDOWN), full quand prêt.
 	var fill: ColorRect = get_node_or_null("HUDProto/DashCooldownBg/DashCooldownFill") as ColorRect
 	if fill != null:
