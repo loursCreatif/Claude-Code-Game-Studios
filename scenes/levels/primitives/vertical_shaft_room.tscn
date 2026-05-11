@@ -120,10 +120,12 @@ shape = SubResource("shape_wall_ew")
 [node name="WallRunInnerEast" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 5.0, 0)
 mesh = SubResource("mesh_wall_run_inner")
+visible = false
 
 [node name="WallRunInnerWest" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 5.0, 0)
 mesh = SubResource("mesh_wall_run_inner")
+visible = false
 
 [node name="SpawnPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)

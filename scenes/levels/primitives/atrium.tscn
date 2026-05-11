@@ -128,7 +128,9 @@ shape = SubResource("shape_wall_ew")
 [node name="WallRunGuideEast" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 2.0, 0)
 mesh = SubResource("mesh_wall_run_guide")
+visible = false
 
 [node name="WallRunGuideWest" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 2.0, 0)
 mesh = SubResource("mesh_wall_run_guide")
+visible = false
