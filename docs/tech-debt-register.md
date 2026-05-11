@@ -6,7 +6,7 @@
 >
 > Mise à jour : alimentée par `/story-done`, `/code-review`, `/architecture-review`, `/tech-debt`.
 >
-> **Dernière mise à jour** : 2026-05-11 — refresh post story-014 cleanup + scan complet src/ + cross-ref sprint Pre-Production.
+> **Dernière mise à jour** : 2026-05-11 — refresh post 6-agent run autonome (TD-006/007/015 résolus).
 
 ## Format
 
@@ -16,47 +16,6 @@
 ---
 
 ## Entrées actives
-
----
-
-### TD-006 — vfx_system.gd : 5 TODOs story-002 (blood shader + cone + flash_mult) — OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-11 |
-| **Origine** | scan src/ (grep TODO) |
-| **Sévérité** | ADVISORY |
-| **Priorité** | P2 polish |
-| **Coût** | S (2-4h par item, 3 items) |
-| **Fichiers** | `src/core/vfx_system.gd` lignes 298, 303, 304, 666, 747 |
-| **Sprint suggéré** | Sprint 1 Production (VFX story-002 scope) |
-
-**Description** :
-- L298-304 : `_setup_blood_pool()` — shader `blood_particle.gdshader` non chargé, couleur flat fallback, `BLOOD_COLOR` + `opacity` shader parameters absents.
-- L666 : `_spawn_blood_spurt()` — `effective_cone_deg` calculé mais non appliqué sur `ParticleProcessMaterial.spread`.
-- L747 : `_flash_mult` continu (pullé story-005) non consommé dans `_physics_process` flash loop.
-
-Comportement visible : pas de shader blood flat unshaded Chrome Zen, cone de particules fixe ignoring la formule, flash mult continu inutilisé.
-
-**Trigger re-prio** : story-008 VFX playtest panel Martin — si les testeurs notent l'absence de shader blood, passer P1 avant playtest.
-
----
-
-### TD-007 — shop_controller.gd : TODO Sprint 2 — constantes CreditEconomy hardcodées — OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-11 |
-| **Origine** | scan src/ (grep TODO) |
-| **Sévérité** | ADVISORY |
-| **Priorité** | P2 polish |
-| **Coût** | XS (30 min) |
-| **Fichier** | `src/ui/shop/shop_controller.gd` ligne 23 |
-| **Sprint suggéré** | Sprint 2 (avant shop launch playtest) |
-
-**Description** : Fallback hardcodé `BASE_UPGRADE_COST` au lieu de référencer `CreditEconomy.BASE_UPGRADE_COST`. Risque de divergence si la constante est tuned en production sans que le shop reflète la valeur.
-
-**Trigger re-prio** : tout ajustement de `BASE_UPGRADE_COST` dans `credit_economy.gd` rend ce TODO P1 (valeur désynchronisée visible en playtest).
 
 ---
 
@@ -190,25 +149,57 @@ Comportement visible : pas de shader blood flat unshaded Chrome Zen, cone de par
 
 ---
 
-### TD-015 — Credit story-008 BLOCKED upstream HUD — OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-05 |
-| **Origine** | Sprint Pre-Production — credit-economy EPIC.md |
-| **Sévérité** | ADVISORY |
-| **Priorité** | P2 important |
-| **Coût** | XS — HUD epic livré (unblocked 2026-05-04), à vérifier |
-| **Fichier** | `production/epics/credit-economy-system/EPIC.md` |
-| **Sprint suggéré** | Sprint 1 Production immédiat — HUD epic livré = débloqué |
-
-**Description** : story-008 crédit était bloquée upstream HUD epic. Index.md indique HUD epic livré (`unblocked 2026-05-04`). Vérifier si story-008 peut passer `Ready → In Progress` maintenant.
-
-**Trigger re-prio** : si story-008 n'est pas encore démarrée Sprint 1, P1.
+## Résolu récemment
 
 ---
 
-## Résolu récemment
+### TD-006 — vfx_system.gd : 5 TODOs story-002 (blood shader + cone + flash_mult) — RESOLVED 2026-05-11
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-11 → **Resolved 2026-05-11** |
+| **Origine** | scan src/ (grep TODO) |
+| **Sévérité** | ADVISORY |
+| **Coût** | S (3 items, agent autonome) |
+| **Fichiers** | `assets/shaders/particles_combat_blood.gdshader` (nouveau) · `src/core/vfx_system.gd` L298/303/304/666/747 |
+
+**Action appliquée 2026-05-11** (commit `19d68b0` — `feat(vfx/shader): story-002 blood particles shader + cone + flash_mult resolution`) :
+- Nouveau shader `assets/shaders/particles_combat_blood.gdshader` : particles flat Chrome Zen `#C8232C` avec LCG pseudo-random + cone spread + F-VFX-3 opacity fade linéaire.
+- `_create_blood_shader_material()` charge le shader + paramètres `blood_color` + `spread_deg=BLOOD_CONE_ANGLE_DEG`.
+- `_spawn_blood_spurt()` applique `effective_cone_deg` via `set_shader_parameter`.
+- `_apply_flash_kill_color()` documente `_flash_mult` non consommé au MVP (binary brightness intentionnel — décision design).
+
+---
+
+### TD-007 — shop_controller.gd : TODO Sprint 2 — constantes CreditEconomy hardcodées — RESOLVED 2026-05-11
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-11 → **Resolved 2026-05-11** |
+| **Origine** | scan src/ (grep TODO) |
+| **Sévérité** | ADVISORY |
+| **Coût** | XS (30 min agent autonome) |
+| **Fichiers** | `src/core/credit_economy.gd` · `src/ui/shop/shop_controller.gd` · `tests/unit/shop/shop_controller_catalogue_test.gd` |
+
+**Action appliquée 2026-05-11** (commit `9a4cc0b` — `refactor(shop): remplace fallbacks par CreditEconomy constants — clôt TODO Sprint 2`) :
+- `CreditEconomy` expose désormais `BASE_UPGRADE_COST = 8` + `TIER_COST_STEP = 20` (Tuning Knobs).
+- `shop_controller.gd` : 2 fallback magic numbers (`_BASE_COST_FALLBACK`, `_TIER_COST_STEP_FALLBACK`) supprimés, refs directes `CreditEconomy.BASE_UPGRADE_COST` / `TIER_COST_STEP`.
+- `shop_controller_catalogue_test.gd` : expectations 20/40 corrigées à 8/28 (source-of-truth unifiée).
+
+---
+
+### TD-015 — Credit story-008 BLOCKED upstream HUD — RESOLVED 2026-05-11
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-05 → **Resolved 2026-05-11** |
+| **Origine** | Sprint Pre-Production — credit-economy EPIC.md |
+| **Sévérité** | ADVISORY |
+| **Coût** | XS (déblocage administratif) |
+| **Fichier** | `production/sprints/sprint-pre-production-2026-05-05.md` |
+
+**Action appliquée 2026-05-11** (commit `d092a13` — `chore(sprint): unblock credit-economy story-008 — HUD dependency satisfied by HUD-002 Complete`) :
+- Sprint plan ligne credit-008 : `BLOCKED → Ready ADVISORY`. HUD-002 Complete (référence upstream satisfaite), story-008 peut démarrer Sprint 1 sans dépendance résiduelle.
 
 ---
 
@@ -317,4 +308,4 @@ Comportement visible : pas de shader blood flat unshaded Chrome Zen, cone de par
 | 2 | TD-011 | Combat story-019 panel ≥5 testeurs | P1 | 0 code | Bloque story-019 Close, épique combat à 21/22 Complete |
 | 3 | TD-012 | HUD-006 + VFX-008 playtest Visual/Feel | P1 | 0 code | Débloque 2 épiques close-out (HUD 5/6 → 6/6, VFX 7/8 → 8/8) |
 | 4 | TD-010 | Cross-suite pollution 4 suites (AutoloadReset) | P2 | S (3-5h) | Smoke run global encore instable ; débloque CI sweep complet fiable |
-| 5 | TD-006 | VFX blood shader + cone + flash_mult (5 TODOs) | P2 | S–M | Visible en playtest VFX story-008 ; à résoudre avant panel Martin |
+| 5 | TD-013 | Tier 1 hardware sign-off (draw_calls + 60 fps) | P2 | XS (1-2h sur HW) | Gates W-1+W-2 auto-SKIP en CI ; bloque audit perf release |
