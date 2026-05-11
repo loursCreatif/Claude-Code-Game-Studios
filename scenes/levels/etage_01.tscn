@@ -443,6 +443,19 @@ mesh = SubResource("mesh_pylon_led")
 ; ==========================================================================
 [node name="BossStairs" type="Node3D" parent="."]
 
+; Lights rouge danger ambient sur la zone boss
+[node name="BossLight_01" type="OmniLight3D" parent="BossStairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 4.0, 78.0)
+light_color = Color(1.0, 0.20, 0.20, 1)
+light_energy = 2.0
+omni_range = 7.0
+
+[node name="BossLight_02" type="OmniLight3D" parent="BossStairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 4.0, 82.0)
+light_color = Color(1.0, 0.20, 0.20, 1)
+light_energy = 2.0
+omni_range = 7.0
+
 [node name="Step_01" type="StaticBody3D" parent="BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 76.0)
 collision_layer = 8
