@@ -77,6 +77,9 @@ func _ready() -> void:
 var _session_time: float = 0.0
 
 func _process(delta: float) -> void:
+	# Invuln timer decrement.
+	if _invuln_timer > 0.0:
+		_invuln_timer -= delta
 	# Auto-respawn si Player tombe sous Y=-5 (safety net out-of-world).
 	if global_position.y < -5.0:
 		respawn()
@@ -135,7 +138,10 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_toggle_pause()
 	if event.is_action_pressed("restart"):
-		respawn()
+		if _is_dead:
+			_reset_run()
+		else:
+			respawn()
 	if event.is_action_pressed("attack"):
 		if katana and katana.has_method("swing"):
 			katana.swing()
@@ -324,8 +330,55 @@ func respawn() -> void:
 	is_dashing = false
 	is_wall_running = false
 
+const MAX_HP: int = 3
+var current_hp: int = MAX_HP
+var _is_dead: bool = false
+var _invuln_timer: float = 0.0
+const INVULN_AFTER_HIT: float = 1.0
+
 func die() -> void:
-	died.emit()
+	# Intercepté : Grunt laser → take_damage 1 (legacy compat).
+	take_damage(1)
+
+func take_damage(amount: int) -> void:
+	if _is_dead or _invuln_timer > 0.0:
+		return
+	current_hp -= amount
+	_invuln_timer = INVULN_AFTER_HIT
+	_update_hp_bar()
+	# Flash rouge écran.
+	var flash: ColorRect = get_node_or_null("HUDProto/KillFlash") as ColorRect
+	if flash != null:
+		flash.color = Color(1.0, 0.1, 0.1, 0.5)
+		var t: Tween = create_tween()
+		t.tween_property(flash, "color:a", 0.0, 0.25)
+	if current_hp <= 0:
+		_trigger_game_over()
+	else:
+		died.emit()
+
+func _update_hp_bar() -> void:
+	var fill: ColorRect = get_node_or_null("HUDProto/HpBg/HpFill") as ColorRect
+	if fill != null:
+		fill.size.x = 200.0 * (float(current_hp) / float(MAX_HP))
+
+func _trigger_game_over() -> void:
+	_is_dead = true
+	Engine.time_scale = 0.0001
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	var overlay: ColorRect = get_node_or_null("HUDProto/GameOverOverlay") as ColorRect
+	if overlay != null:
+		overlay.visible = true
+
+func _reset_run() -> void:
+	_is_dead = false
+	current_hp = MAX_HP
+	Engine.time_scale = 1.0
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	var overlay: ColorRect = get_node_or_null("HUDProto/GameOverOverlay") as ColorRect
+	if overlay != null:
+		overlay.visible = false
+	_update_hp_bar()
 	respawn()
 
 
