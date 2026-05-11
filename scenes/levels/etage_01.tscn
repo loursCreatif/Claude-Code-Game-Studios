@@ -179,6 +179,25 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.08, 0.05, 6.0)
 material = SubResource("mat_led_yellow_etage")
 
+; Plateformes parkour flottantes (Room_04→Room_05 gap Z=28-36).
+[sub_resource type="StandardMaterial3D" id="mat_parkour_platform"]
+albedo_color = Color(0.85, 0.85, 0.88, 1)
+
+[sub_resource type="BoxShape3D" id="shape_parkour_platform"]
+size = Vector3(2.5, 0.3, 2.5)
+
+[sub_resource type="BoxMesh" id="mesh_parkour_platform"]
+size = Vector3(2.5, 0.3, 2.5)
+material = SubResource("mat_parkour_platform")
+
+[sub_resource type="BoxMesh" id="mesh_parkour_led_edge"]
+size = Vector3(2.55, 0.06, 0.06)
+material = SubResource("mat_led_yellow_etage")
+
+[sub_resource type="BoxMesh" id="mesh_parkour_led_edge_short"]
+size = Vector3(0.06, 0.06, 2.55)
+material = SubResource("mat_led_yellow_etage")
+
 ; Spire tower au fond — point focal lointain (image 8 ref)
 [sub_resource type="StandardMaterial3D" id="mat_spire"]
 albedo_color = Color(0.15, 0.12, 0.22, 1)
@@ -258,6 +277,87 @@ transform = Transform3D(0.94, -0.17, 0.30, 0, 0.87, 0.50, -0.34, -0.47, 0.82, 0,
 light_color = Color(0.95, 0.97, 1, 1)
 light_energy = 1.0
 shadow_enabled = false
+
+; ==========================================================================
+; Parkour platforms — zigzag vertical entre Room_04 (Z=26) et Room_05 (Z=38)
+; ==========================================================================
+[node name="ParkourPlatforms" type="Node3D" parent="."]
+
+[node name="PP_01" type="StaticBody3D" parent="ParkourPlatforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.5, 28.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_01"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="PP_02" type="StaticBody3D" parent="ParkourPlatforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 2.2, 31.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_02"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="PP_03" type="StaticBody3D" parent="ParkourPlatforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 2.8, 34.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_03"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="PP_04" type="StaticBody3D" parent="ParkourPlatforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 36.5)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_04"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
 
 ; ==========================================================================
 ; Spire tower au fond — point focal lointain (Chrome Spire silhouette).
