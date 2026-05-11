@@ -1264,6 +1264,26 @@ jobs:
         with:
           lfs: true
 
+      - name: Setup Godot 4.6
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.6.2
+          use-dotnet: false
+
+      - name: Build class cache (resolve class_name + path-direct extends)
+        shell: bash
+        run: |
+          # Force-build .godot/global_script_class_cache.cfg : sans ce fichier, le
+          # parser GDScript ne peut résoudre ni `class_name` ni `extends "res://..."`
+          # (gdUnit4-action lance Godot sans pré-build cache, contrairement aux jobs
+          # perf qui appellent godot directement). Sans ce step, les tests qui
+          # heritent du base class AutoloadResetTestSuite via path direct échouent
+          # avec "Parse Error: Could not resolve class".
+          timeout 90 godot --headless --editor --quit-after 2 || true
+          test -f .godot/global_script_class_cache.cfg && \
+            echo "class cache built ($(wc -c < .godot/global_script_class_cache.cfg) bytes)" || \
+            echo "WARNING: class cache absent post-build"
+
       - name: Run GdUnit4 Tests
         uses: godot-gdunit-labs/gdUnit4-action@v1
         with:
