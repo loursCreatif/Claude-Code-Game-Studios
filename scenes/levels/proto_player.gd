@@ -111,13 +111,13 @@ func _process(delta: float) -> void:
 	var horiz_speed_kmh: float = Vector2(velocity.x, velocity.z).length() * 3.6
 	if speed_label != null:
 		speed_label.text = "%d km/h" % int(horiz_speed_kmh)
-	# Speed vignette : lerp doux pour éviter flicker au saut/wall.
+	# Speed motion blur cyan : lerp doux, couleur cyan accent comme refs Ghostrunner.
 	var vignette: ColorRect = get_node_or_null("HUDProto/SpeedLinesContainer/SpeedVignette") as ColorRect
 	if vignette != null:
-		var target_intensity: float = clamp((horiz_speed_kmh - 40.0) / 60.0, 0.0, 0.18)
+		var target_intensity: float = clamp((horiz_speed_kmh - 35.0) / 60.0, 0.0, 0.30)
 		var current_a: float = vignette.color.a
 		var new_a: float = lerp(current_a, target_intensity, delta * 3.0)
-		vignette.color = Color(0.0, 0.05, 0.10, new_a)
+		vignette.color = Color(0.30, 0.85, 1.0, new_a)
 	# Exit indicator : distance + symbole direction vers EtageExitTrigger.
 	var exit_label: Label = get_node_or_null("HUDProto/ExitIndicator") as Label
 	if exit_label != null:
