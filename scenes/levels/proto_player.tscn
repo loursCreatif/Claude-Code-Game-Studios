@@ -92,3 +92,23 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 0.0)
+
+; Onboarding controls label — fade out après 5s
+[node name="ControlsLabel" type="Label" parent="HUDProto"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -360.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 220.0
+grow_horizontal = 0
+mouse_filter = 2
+text = "ZQSD  bouger
+Souris  regarder
+Espace  saut (×2 = double-jump)
+Shift  dash
+Clic gauche  katana
+Échap  libérer la souris"
+horizontal_alignment = 2
+modulate = Color(1, 1, 1, 0.85)
