@@ -4,7 +4,7 @@
 > **Owner** : ux-designer
 > **Last Updated** : 2026-04-27
 > **Related** : `design/gdd/menu-system.md` § K.2 / K.3 / K.4 / K.5 / K.6 / K.7 / K.8 / K.9 / K.10 ; `design/gdd/game-state-manager-system.md` r1 (ADR-0007 D-4 process_mode + 5 verbes) ; `design/gdd/input-system.md` r5 (ADR-0004 D-4 refcount + ui_cancel) ; `design/ux/interaction-patterns.md` (P-INP-003, P-INP-004) ; `design/accessibility-requirements.md` ; `design/art/art-bible.md`
-> **Accessibility Tier** : Standard (Tier 1 obligatoire, Tier 2 AccessKit best-effort)
+> **Accessibility Tier** : Standard (Tier 1 obligatoire, Tier 2 AccessKit best-effort) — tiers définis par `docs/architecture/adr-0015-accessibility-interface-layer.md` D-1
 
 ---
 
@@ -258,25 +258,27 @@ MVP analytics scope = zéro. Hooks réservés Tier 2+ :
 
 ## 10. Accessibility (Tier 1 — obligatoire MVP)
 
-Cohérent GDD § K.9.
+Cohérent GDD § K.9. Tiers définis par ADR-0015 D-1 (`docs/architecture/adr-0015-accessibility-interface-layer.md` D-1) : **Tier 1** = baseline obligatoire MVP, **Tier 2** = expanded best-effort Sprint Polish, **Tier 3** = advanced hors scope MVP. `AccessibilityService` autoload (position #5) est la source canonique des préférences `reduce_motion` / `reduce_flash` ; le Pause Menu n'en consomme aucune directement (aucune animation à atténuer — natif conforme).
 
-| Critère | Status | Implementation |
-|---|---|---|
-| Navigation clavier 100 % | ✅ | `Tab`/`Shift+Tab` cycle 3 boutons, `ui_confirm` activate, `ui_cancel` = équivalent Reprendre |
-| Focus initial sur action principale | ✅ | `ResumeButton.grab_focus()` dans `_on_gsm_state_changed(PAUSED)` |
-| Aucun élément mouse-only | ✅ | Tous les boutons + sortie Pause accessibles clavier |
-| Contraste texte/fond ≥ 7:1 (WCAG AAA) | ✅ | `#E8E8F0` sur `#0A0A12` panel ≈ 14.8:1 ; `#3EE4FF` sur `#0A0A12` ≈ 8.6:1 ; texte sur DimRect+gameplay : panel opaque assure le contraste, jamais texte direct sur DimRect |
-| Taille texte minimale | ✅ | Boutons 15 px ; "PAUSE" label 13 px ; aucun texte fonctionnel < 12 px |
-| Color-as-only-indicator | ✅ | Focus = bordure rect (forme + couleur) ; Hover = underline (forme + couleur) |
-| Aucune animation flash > 3 Hz | ✅ | Aucune animation Pause (K.7) |
-| `reduce_motion` | ✅ natif | Pas d'animation à supprimer |
-| Visibilité du fait que c'est en pause | ✅ | DimRect alpha 0.65 + Panel + (optionnel "PAUSE" label) — triple indicateur |
-| Empêcher input gameplay accidentel | ✅ | InputManager refcount disabled pendant Pause (P-INP-004) |
-| ESC trapped (capture le focus système) | ✅ | `process_mode = ALWAYS` + `ui_cancel_pressed` toujours émis ADR-0004 D-4 garantit que ESC ouvre Pause depuis PLAYING et ferme Pause depuis PAUSED |
-| Screen reader (Tier 2 AccessKit best-effort) | 🟡 | `Button.text` non-vide pour les 3 boutons. Si Tier 3 ajoute un label de contexte ("Menu de pause — étage X"), l'ajouter au `PauseTitleLabel.text` |
-| Font scaling 75-150 % | ❌ Tier 3 | Hors scope MVP |
-| Remap clavier | ❌ Tier 3 | Hors scope MVP |
-| Pause auto sur perte de focus fenêtre | 🟡 Tier 2+ | MVP : alt-tab depuis PLAYING ne déclenche pas Pause (gameplay continue de tourner sauf si focus_lost handler ailleurs). À évaluer Tier 2 — souvent attendu sur PC. Voir O-PM-3 |
+### Tier coverage par feature
+
+| Critère | Tier ADR-0015 | Status | Implementation |
+|---|---|---|---|
+| Navigation clavier 100 % | Tier 1 | ✅ | `Tab`/`Shift+Tab` cycle 3 boutons, `ui_confirm` activate, `ui_cancel` = équivalent Reprendre |
+| Focus initial sur action principale | Tier 1 | ✅ | `ResumeButton.grab_focus()` dans `_on_gsm_state_changed(PAUSED)` |
+| Aucun élément mouse-only | Tier 1 | ✅ | Tous les boutons + sortie Pause accessibles clavier |
+| Contraste texte/fond ≥ 7:1 (WCAG AAA) | Tier 1 | ✅ | `#E8E8F0` sur `#0A0A12` panel ≈ 14.8:1 ; `#3EE4FF` sur `#0A0A12` ≈ 8.6:1 ; texte sur DimRect+gameplay : panel opaque assure le contraste, jamais texte direct sur DimRect |
+| Taille texte minimale | Tier 1 | ✅ | Boutons 15 px ; "PAUSE" label 13 px ; aucun texte fonctionnel < 12 px |
+| Color-as-only-indicator | Tier 1 | ✅ | Focus = bordure rect (forme + couleur) ; Hover = underline (forme + couleur) |
+| Aucune animation flash > 3 Hz | Tier 1 | ✅ | Aucune animation Pause (K.7) |
+| `reduce_motion` | Tier 1 | ✅ natif | Pas d'animation à supprimer — Pause Menu est natif conforme sans consommer `AccessibilityService` |
+| Visibilité du fait que c'est en pause | Tier 1 | ✅ | DimRect alpha 0.65 + Panel + (optionnel "PAUSE" label) — triple indicateur |
+| Empêcher input gameplay accidentel | Tier 1 | ✅ | InputManager refcount disabled pendant Pause (P-INP-004) |
+| ESC trapped (capture le focus système) | Tier 1 | ✅ | `process_mode = ALWAYS` + `ui_cancel_pressed` toujours émis ADR-0004 D-4 garantit que ESC ouvre Pause depuis PLAYING et ferme Pause depuis PAUSED |
+| Screen reader (AccessKit best-effort) | Tier 2 | 🟡 | `Button.text` non-vide pour les 3 boutons. Si Tier 3 ajoute un label de contexte ("Menu de pause — étage X"), l'ajouter au `PauseTitleLabel.text` |
+| Pause auto sur perte de focus fenêtre | Tier 2 | 🟡 | MVP : alt-tab depuis PLAYING ne déclenche pas Pause (gameplay continue de tourner sauf si focus_lost handler ailleurs). À évaluer Tier 2 — souvent attendu sur PC. Voir O-PM-3 |
+| Font scaling 75-150 % | Tier 3 | ❌ | Hors scope MVP |
+| Remap clavier | Tier 3 | ❌ | Hors scope MVP |
 
 ---
 
@@ -354,4 +356,5 @@ Critères UX-tester (vérifiables sans lire GDD ni code). Reformulent en perspec
 - `design/ux/main-menu.md` r1 (cohérence cross-spec)
 - `design/ux/interaction-patterns.md` P-INP-003, P-INP-004, P-TRANS-001
 - `design/accessibility-requirements.md` Tier 1 obligatoire
+- `docs/architecture/adr-0015-accessibility-interface-layer.md` D-1 (définition canonique Tier 1/2/3 — `AccessibilityService` autoload, `reduce_motion` / `reduce_flash` source-of-truth, tier coverage cross-system)
 - `design/art/art-bible.md` § 1-4 Chrome Zen visual identity

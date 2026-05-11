@@ -6,7 +6,7 @@
 >
 > Mise à jour : alimentée par `/story-done`, `/code-review`, `/architecture-review`, `/tech-debt`.
 >
-> **Dernière mise à jour** : 2026-05-11 (PM) — addition TD-017 (accessibility ref drift cosmétique) post-audit Quality Check #4.
+> **Dernière mise à jour** : 2026-05-11 (PM·2) — TD-017 RESOLVED (7 agents accessibility-specialist parallèles) + nouvelle session Cluster B reviews WIP étage 1 + GDScript fixes `run_level_lint.gd` / `test_load_etage_01.gd → debug_load_etage_01.gd`.
 
 ## Format
 
@@ -131,25 +131,6 @@
 
 ---
 
-### TD-017 — Accessibility ref drift ADR-0015 (4 GDDs + 3 UX specs) — OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-11 |
-| **Origine** | Audit `production/qa/evidence/accessibility-tier-coverage-audit-2026-05-11.md` (Quality Check #4 gate-check) |
-| **Sévérité** | ADVISORY (cosmétique, non-bloquant gate Pre-Production → Production) |
-| **Priorité** | P3 nice-to-have (Sprint Polish) |
-| **Coût** | XS (~45 min cumulé : 30 min GDDs + 15 min UX) |
-| **Fichiers** | `design/gdd/camera-system.md` · `player-movement-system.md` · `player-combat-system.md` · `hud-system.md` · `design/ux/interaction-patterns.md` · `main-menu.md` · `pause-menu.md` |
-
-**Description** : 4 GDDs implémentent `reduce_motion`/`reduce_flash` mais sans ref `ADR-0015 D-1` (rédigés avant l'ADR). 3 UX specs citent `accessibility-requirements.md` mais pas ADR-0015. Inconsistance pour devs partant de l'ADR vers les specs. **Quality Check #4 PASS** sans ce patch — purement cosmétique.
-
-**Action** : ajouter header `> **Accessibility** : ADR-0015 D-1 — consumers lisent AccessibilityService.reduce_motion / reduce_flash` aux 4 GDDs + ajouter lien ADR-0015 dans section References des 3 UX specs.
-
-**Trigger re-prio** : si un dev ouvre incident "où est l'API canonique reduce_motion ?" en pointant un GDD silencieux, passer P2.
-
----
-
 ### TD-014 — Vertical Slice playtest humain — OPEN (bloque gate Pre-Production → Production)
 
 | Champ | Valeur |
@@ -169,6 +150,24 @@
 ---
 
 ## Résolu récemment
+
+---
+
+### TD-017 — Accessibility ref drift ADR-0015 (4 GDDs + 3 UX specs) — RESOLVED 2026-05-11
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-11 → **Resolved 2026-05-11** |
+| **Origine** | Audit `production/qa/evidence/accessibility-tier-coverage-audit-2026-05-11.md` (Quality Check #4 gate-check) |
+| **Sévérité** | ADVISORY (cosmétique) |
+| **Coût** | XS (~50 min cumulé, 7 agents accessibility-specialist parallèles) |
+| **Fichiers** | `design/gdd/camera-system.md` · `player-movement-system.md` · `player-combat-system.md` · `hud-system.md` · `design/ux/interaction-patterns.md` · `main-menu.md` · `pause-menu.md` |
+
+**Action appliquée 2026-05-11** (7 agents accessibility-specialist parallèles, post-session Backlog audit producer) :
+- 4 GDDs ont reçu une section Dependencies + sous-section tier coverage rétro-référençant `ADR-0015 D-1` (real name `adr-0015-accessibility-interface-layer.md`) avec classification Tier 1/2/3 par feature.
+- 3 UX specs ont reçu une colonne `Tier (ADR-0015 D-1)` dans leurs tableaux accessibility existants + lien vers l'ADR canonique en References.
+- Zéro feature nouvelle ajoutée — documentation pure du tier coverage existant. Source-of-truth `AccessibilityService` (autoload, ADR-0015 D-1) explicitement nommé partout.
+- Découverte mineure : audit avait référencé `adr-0015-accessibility-tier-model.md` (nom incorrect) — corrigé à `adr-0015-accessibility-interface-layer.md` dans toutes les rétro-refs.
 
 ---
 

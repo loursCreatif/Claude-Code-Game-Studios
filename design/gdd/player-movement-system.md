@@ -321,6 +321,7 @@ velocity.y = WALL_JUMP_UP
 | **VFX & Feedback System** | Aval (écoute signals) | Écoute `dash_started`, `dash_ended`, `wall_run_entered`, `wall_run_exited`, `died`, `respawned` pour déclencher les effets. |
 | **Audio System** | Aval (écoute signals) | Mêmes signals que VFX pour SFX. |
 | **HUD System** | Aval | Lit `dash_cooldown_ratio` et `state` pour affichage. |
+| **AccessibilityService** (ADR-0015 D-1) | Amont (consommé par Camera via signal `settings_changed`) | Movement délègue les effets visuels `reduce_motion` / `reduce_flash` à Camera System (Rule 14), qui pull les valeurs depuis `AccessibilityService.get_camera_tilt_mult()` / `get_camera_fov_kick_mult()` / `get_camera_shake_mult()`. Movement ne lit pas directement le service (voir tableau D-4 ADR-0015 : `MovementController` — aucun appel direct). |
 
 **Note de cohérence bidirectionnelle** : chaque dépendance listée ci-dessus DOIT apparaître dans le GDD de l'autre système (à rédiger). Au moment de ce GDD, aucun des autres GDDs n'existe encore — toutes ces interfaces sont *provisoires* et doivent être confirmées ou révisées quand les GDDs amont/aval sont écrits.
 
@@ -389,6 +390,18 @@ Tous ces knobs doivent vivre dans une `Resource` (`movement_tuning.tres`). **Pat
 | **`reduce_motion`** (confort vestibulaire) | OFF | Multiplicateurs appliqués par Camera GDD Rule 14 : tilt wall-run `× 0.25`, FOV pulse dash `× 0.5` (peak ≤ 95°), shake wall-jump `× 0`. Valeurs numériques owned par Camera GDD (voir Camera Rule 14 + Tuning Knobs). |
 
 Les valeurs alternatives sont des `tuning_knobs` dans `movement_tuning.tres` (ou dans un `accessibility_settings.tres` séparé) et doivent être exposées dans le menu principal (pas seulement pendant gameplay). Le toggle **MUST** être accessible dès le premier lancement, avant tout gameplay.
+
+**Tier coverage (ADR-0015 D-1 — `AccessibilityService` autoload single-source-of-truth)** :
+
+| Feature accessibility | Tier | Source-of-truth | Notes |
+|---|---|---|---|
+| `reduce_motion` (tilt wall-run × 0.25, FOV dash × 0.5, shake × 0) | Tier 1 — Baseline (MVP-required) | `AccessibilityService.get_camera_tilt_mult()` / `get_camera_fov_kick_mult()` / `get_camera_shake_mult()` — délégation à Camera System Rule 14 | Movement ne lit pas le service directement (ADR-0015 D-4) |
+| `reduce_flash` (fondu rouge → assombrissement gris 80-120 ms ; flash respawn → fade neutre 100 ms) | Tier 1 — Baseline (MVP-required) | `AccessibilityService.is_reduce_flash_enabled()` — consommé par VFX System lors des événements `died` / `respawned` | WCAG 2.3.1 + 2.3.3 |
+| `dash_reject.wav` feedback cooldown (AC-MV gap accessibilité malvoyants) | Tier 1 — Baseline (MVP-required) | Audio System (signal `dash_rejected` Movement → Audio) | Pas de dépendance `AccessibilityService` — toujours actif |
+| Input remapping (`move_*`, `jump`, `dash`) | Tier 2 — Expanded (post-MVP) | Input System GDD — ADR-0004 OQ-INP-X | ADR-0015 OQ-ACC-6 : sticky keys / hold-to-toggle Tier 2+ Input remap epic |
+| `slow_mo_air` aerial slow-motion | Tier 2 — Expanded (post-MVP) | `aerial-slowmo-system.md` (à écrire) + `AccessibilityService.get_slow_mo_scale_mult()` | Hors scope MVP Movement GDD |
+| Sticky keys / hold-to-toggle inputs | Tier 2 — Expanded (post-MVP) | ADR-0004 (Input remap epic) | ADR-0015 OQ-ACC-6 |
+| Screen reader / AccessKit integration | Tier 3 — Advanced | Godot 4.5+ AccessKit natif Control nodes + `AccessibilityService.is_screen_reader_active()` (futur) | Tier 3 — ADR-0015 OQ-ACC-5 |
 
 📌 **Asset Spec** — Visual/Audio requirements sont définis. Après que l'art bible soit approuvée, lancer `/asset-spec system:player-movement-system` pour produire les specs per-asset.
 

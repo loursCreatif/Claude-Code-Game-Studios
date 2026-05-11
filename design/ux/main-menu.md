@@ -215,21 +215,22 @@ MVP analytics scope = zéro (Tier 2+). Aucun event fire MVP. La table ci-dessous
 
 ## 10. Accessibility (Tier 1 — obligatoire MVP)
 
-Cohérent GDD § K.9.
+Cohérent GDD § K.9. Tier coverage défini par ADR-0015 D-1 (`AccessibilityService` single-source-of-truth) — voir `docs/architecture/adr-0015-accessibility-interface-layer.md`.
 
-| Critère | Status | Implementation |
-|---|---|---|
-| Navigation clavier 100 % | ✅ | `Tab`/`Shift+Tab` cycle, `ui_confirm` activate, focus visible bordure cyan rect (K.5 distinct du hover underline) |
-| Focus initial sur action principale | ✅ | `StartButton.grab_focus()` dans `_ready()` |
-| Aucun élément mouse-only | ✅ | Tous les boutons sont aussi accessibles clavier |
-| Contraste texte/fond ≥ 7:1 (WCAG AAA) | ✅ | `#E8E8F0` sur `#050608` ≈ 15.2:1 ; `#3EE4FF` sur `#050608` ≈ 8.9:1 |
-| Taille texte minimale | ✅ | Boutons 15 px ; titre 22-28 px ; aucun texte fonctionnel < 12 px |
-| Color-as-only-indicator | ✅ | Focus = bordure rect (forme + couleur) ; Hover = underline (forme + couleur) ; Pressed = background (forme + couleur). Le bordure cyan n'est jamais le seul indicateur |
-| Aucune animation flash > 3 Hz | ✅ | Aucune animation Menu (K.7) |
-| `reduce_motion` | ✅ natif | Pas d'animation à supprimer |
-| Screen reader (Tier 2 AccessKit best-effort) | 🟡 | Tous les `Button.text` sont non-vides, `TitleLabel.text` non-vide. Si Godot 4.6 expose AccessKit fonctionnel, cela suffit. Sinon, différer Tier 3 |
-| Font scaling 75-150 % | ❌ Tier 3 | Hors scope MVP (pas de Settings Menu) |
-| Remap clavier | ❌ Tier 3 | Hors scope MVP |
+| Critère | Status | Tier (ADR-0015 D-1) | Implementation |
+|---|---|---|---|
+| Navigation clavier 100 % | ✅ | Tier 1 — obligatoire MVP | `Tab`/`Shift+Tab` cycle, `ui_confirm` activate, focus visible bordure cyan rect (K.5 distinct du hover underline) |
+| Focus initial sur action principale | ✅ | Tier 1 — obligatoire MVP | `StartButton.grab_focus()` dans `_ready()` |
+| Aucun élément mouse-only | ✅ | Tier 1 — obligatoire MVP | Tous les boutons sont aussi accessibles clavier |
+| Contraste texte/fond ≥ 7:1 (WCAG AAA) | ✅ | Tier 1 — obligatoire MVP | `#E8E8F0` sur `#050608` ≈ 15.2:1 ; `#3EE4FF` sur `#050608` ≈ 8.9:1 |
+| Taille texte minimale | ✅ | Tier 1 — obligatoire MVP | Boutons 15 px ; titre 22-28 px ; aucun texte fonctionnel < 12 px |
+| Color-as-only-indicator | ✅ | Tier 1 — obligatoire MVP | Focus = bordure rect (forme + couleur) ; Hover = underline (forme + couleur) ; Pressed = background (forme + couleur). Le bordure cyan n'est jamais le seul indicateur |
+| Aucune animation flash > 3 Hz | ✅ | Tier 1 — obligatoire MVP | Aucune animation Menu (K.7) |
+| `reduce_motion` | ✅ natif | Tier 1 — obligatoire MVP | Pas d'animation à supprimer ; `AccessibilityService.is_reduce_motion_enabled()` sans effet côté Menu (natif par construction — K.7) |
+| Screen reader (AccessKit best-effort) | 🟡 | Tier 2 — expanded | Tous les `Button.text` sont non-vides, `TitleLabel.text` non-vide. Si Godot 4.6 expose AccessKit fonctionnel, cela suffit. Sinon, différer Tier 3 |
+| Settings Menu accessibility section | ❌ | Tier 2 — expanded | Hors scope MVP — `AccessibilityService.apply_settings()` + `save_settings()` prêts pour branchement Settings Menu Tier 2+ (ADR-0015 D-3) |
+| Font scaling 75-150 % | ❌ | Tier 3 — advanced | Hors scope MVP (pas de Settings Menu) |
+| Remap clavier | ❌ | Tier 3 — advanced | Hors scope MVP |
 
 ---
 

@@ -148,7 +148,11 @@ func _validate_scene(path: String) -> Array[String]:
 	var tuning_errors: Array[String] = LevelLintScript.validate_tuning_knobs_present()
 	errors.append_array(tuning_errors)
 
-	root_3d.queue_free()
+	# `free()` synchrone (pas `queue_free()` différé) — évite l'accumulation de
+	# scènes dans le SceneTree entre étages successifs, qui ferait lire des
+	# transforms parasites par les checks positionnels de la scène suivante.
+	root.remove_child(root_3d)
+	root_3d.free()
 	return errors
 
 

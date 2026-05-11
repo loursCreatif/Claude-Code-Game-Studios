@@ -239,6 +239,7 @@ aim_forward = Vector3(-sin(yaw) * cos(pitch), -sin(pitch), -cos(yaw) * cos(pitch
 | **Audio System** | Aval (passif) | `AudioListener3D` child de `Camera3D` — convention Godot, aucune interaction code. |
 | **Game State Manager** | Aval (contrôleur) | Bascule Camera entre Active / Paused / Respawning via signaux Player + Input.enabled. Reconnecte signals au scene reload. |
 | **Save/Load System** | Aval (indirect) | Persiste `input_settings.tres` contenant `mouse_sensitivity`. Camera en bénéficie sans le savoir. |
+| **AccessibilityService** (ADR-0015 D-1) | Amont (settings) | Single-source-of-truth `reduce_motion`. Camera lit `get_camera_tilt_mult()` / `get_camera_fov_kick_mult()` / `get_camera_shake_mult()` au `_ready()` + reconnect sur `settings_changed`. Tier 1 baseline MVP. |
 
 **Note de cohérence bidirectionnelle** :
 - **Input System GDD** référence Camera comme consommateur de `mouse_motion` + `mouse_sensitivity` + `mouse_y_inverted` ✅ (déjà présent sections Dependencies + Cross-References).
@@ -424,6 +425,8 @@ Anti-références explicites : Destiny (weapon sway permanent, head-bob marche),
 - **AC-CAM-70** `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** `reduce_motion == true`, **WHEN** Player entre en WallRunning, **THEN** target_roll effectif = `WALL_RUN_TILT_ANGLE * wall_side * 0.25` (= 0.0875 rad au lieu de 0.35).
 - **AC-CAM-71** `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** `reduce_motion == true`, **WHEN** Player dashe, **THEN** `camera3d.fov` converge vers `BASE_FOV + DASH_FOV_KICK * 0.5 = 95°` (peak) au lieu de 100°.
 - **AC-CAM-72** `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** `reduce_motion == true`, **WHEN** `add_shake_roll(0.05)` appelé, **THEN** `shake_offset` reste à `Vector3.ZERO` (shake désactivé, multiplier = 0).
+
+> **Accessibility tier coverage (ADR-0015 D-1)** — Les trois ACs ci-dessus (AC-CAM-70/71/72) correspondent au **Tier 1 baseline** (`reduce_motion` boolean, MVP obligatoire). La source de vérité est `AccessibilityService` (autoload #5, `src/core/accessibility_service.gd`). Les getters consommés par Camera : `get_camera_tilt_mult()` (retourne 0.25 si reduce_motion), `get_camera_fov_kick_mult()` (0.5), `get_camera_shake_mult()` (0.0). Tier 2+ : multipliers individuels exposables via Settings Menu (override hooks `tilt_mult`, `fov_kick_mult`, `shake_mult` déjà dans `AccessibilitySettings`). Tier 3 : MOUSE_SMOOTHING exposable en accessibility mode (cf. Tuning Knobs note).
 
 ### Performance (p50/p99)
 
