@@ -31,6 +31,10 @@ const TIME_SCALE_TOLERANCE: float = 0.0001
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+func before_test() -> void:
+	Engine.time_scale = 1.0
+
+
 func after_test() -> void:
 	Engine.time_scale = 1.0
 

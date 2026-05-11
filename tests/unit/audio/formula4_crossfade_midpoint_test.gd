@@ -47,6 +47,7 @@ func _make_time_callable(seq: Array) -> Callable:
 
 
 func before_test() -> void:
+	Engine.time_scale = 1.0
 	var audio: Node = _get_audio_system()
 	audio._ambience_active_idx = 0
 	audio._crossfade_active = false
@@ -60,6 +61,10 @@ func before_test() -> void:
 			p.stop()
 		p.volume_db = 0.0
 		p.stream = null
+
+
+func after_test() -> void:
+	Engine.time_scale = 1.0
 
 
 # ---------------------------------------------------------------------------
