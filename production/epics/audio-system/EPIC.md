@@ -3,8 +3,8 @@
 > **Layer**: Core
 > **GDD**: design/gdd/audio-system.md (Draft r2.3 — Phase A+B+C+D complete + design-review fresh APPROVED 8 BLOCKING fixes 2026-05-03)
 > **Architecture Module**: Audio System (autoload `AudioSystem` + helper static `AudioBuses` — `src/core/audio_system.gd`)
-> **Status**: Ready
-> **Stories**: 12/12 créées 2026-05-04 (`story-001` … `story-012`) — éligibles `/dev-story` séquentiel ou parallèle (story-001 → story-002 → puis 003-012 selon DAG dependencies)
+> **Status**: Complete (12/12 stories shipped 2026-05-04)
+> **Stories**: 12/12 créées + shippées 2026-05-04 (`story-001` … `story-012`)
 
 ## Overview
 

@@ -3,7 +3,7 @@
 > **Layer**: Feature
 > **GDD**: design/gdd/player-combat-system.md
 > **Architecture Module**: PlayerCombat (architecture.md §Feature Layer)
-> **Status**: Ready
+> **Status**: In Progress (20/22 Complete — story-019 Ready/panel Martin pending, story-021 Closed-Migrated to VFX)
 > **Stories**: 22 created (2026-04-27) — **20 Complete + 1 Ready (019 panel Martin pending) + 1 Closed - Migrated to VFX System 2026-05-04 (021 — AC-CMB-42 résolu via VFX story-003, MAX_DECALS_PER_ROOM révisé 12 → 32 R-VFX-4 LRU ring buffer)** — Sprint 1 Combat close-out 2026-05-04 (story-001+002 doc sync, stories 003-018+020+022 tests passants, story 019 protocole publié pending recrutement, story 021 close-out via migration AC-CMB-42 → AC-VFX-01/02/03/30 owned VFX system)
 
 ## Overview

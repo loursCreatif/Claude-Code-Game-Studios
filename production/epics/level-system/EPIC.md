@@ -3,8 +3,8 @@
 > **Layer**: Core
 > **GDD**: design/gdd/level-system.md
 > **Architecture Module**: LevelSystem (Node3D racine étage `res://scenes/levels/etage_NN.tscn` — voir architecture.md §4.3)
-> **Status**: Ready
-> **Stories**: 22 created — Sprint 1 priority C1 (001-008) + C5 (009) ; C2 (010-012) ; C3 (013-014, 021) ; C4 (015-016, 017) ; C6 (018) ; C7 (019) ; C8 (020) ; V-1/V-5 (022)
+> **Status**: Complete (23/23 stories shipped — Sprint 1 Level epic closed)
+> **Stories**: 23 created + shippées — Sprint 1 priority C1 (001-008) + C5 (009) ; C2 (010-012) ; C3 (013-014, 021) ; C4 (015-016, 017) ; C6 (018) ; C7 (019) ; C8 (020) ; V-1/V-5 (022) ; story-023 (TR-lvl-039 automated gate)
 > **Manifest Version**: 2026-04-23
 > **Engine Risk**: MEDIUM (Jolt CCD EC-8 CLAIM-UNVERIFIED — benchmark prototype Sprint 1 requis ; Forward+/Chrome Zen primitives LOW ; D3D12 indirect via Rendering layer déjà Camera-VR2)
 

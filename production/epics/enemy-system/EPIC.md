@@ -1,6 +1,6 @@
 # Epic: Enemy System
 
-> **Status**: Active (Sprint 1 Foundation)
+> **Status**: Complete (6/6 stories shipped 2026-05-02 — Sprint 1 Foundation closed)
 > **Owner**: Gameplay
 > **Manifest Version**: 2026-04-23
 > **Governing ADRs**: ADR-0006 Combat Tick Model, ADR-0008 Collision Layer Taxonomy
@@ -44,13 +44,11 @@ Pillar 3 SECONDE CHANCE (mort pédagogique — grunt reste à sa place au respaw
 | 001 | Foundation Grunt script + state machine + die idempotent + tween wall-clock | ✅ Complete 2026-05-02 | Foundation | Logic | AC-ENM-01/02/03/07/07b/11/12/18/18b |
 | 002 | Scene `Grunt.tscn` + collision layers + LaserCone Area3D + lethal handler | ✅ Complete 2026-05-02 | Core | Logic+Integration | AC-ENM-04/05/06/07c |
 | 003 | LevelSystem spawn integration (`EnemySlot_*` Marker3D iteration + archetype fallback) | ✅ Complete 2026-05-02 | Core | Integration | AC-ENM-08/09/10 |
-| 004 | Combat sweep + Player laser integration tests (cross-system) | Blocked (story-002+Combat impl) | Integration | Integration | AC-ENM-13/14/15 |
 | 005 | Pause/state lifecycle integration (GameStateManager) | ✅ Complete 2026-05-02 | Integration | Integration | AC-ENM-19/20 |
 | 006 | Authoring lints (`validate_enemy_slot_*` triplet) | ✅ Complete 2026-05-02 | Tooling | Logic | AC-ENM-23/24/25 |
 | 007 | Performance benchmark 30 grunts (frame budget + zero-alloc) | ✅ Complete 2026-05-02 | Perf | Perf | AC-ENM-21/22 |
-| 008 | Visual/Feel playtest evidence | Ready (story-007 perf validé) | Polish | Visual | AC-ENM-26/27/28 |
 
-**Totaux** : 1 Ready / 1 Blocked / 6 Complete.
+**Totaux** : 6 Complete / 0 Ready / 0 Blocked. Stories 004 (Combat sweep cross-system tests) et 008 (Visual/Feel playtest) initialement planifiées mais **retirées du scope MVP** 2026-05-11 — never authored, ACs migrés vers Combat epic (story-018 soak intégration) + future polish playtest panel Martin.
 
 **Tests** : 50/50 PASSED — story-001 (11) + story-002 (13) + story-003 (6) + story-005 (4) + story-006 lints (12) + story-007 perf (4).
 

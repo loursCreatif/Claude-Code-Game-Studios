@@ -3,8 +3,8 @@
 > **Layer**: Core
 > **GDD**: design/gdd/camera-system.md
 > **Architecture Module**: CameraSystem (Node3D wrapper — CameraArm hierarchy)
-> **Status**: Ready
-> **Stories**: 13 stories written 2026-04-22 (12 Ready + 1 Blocked) — distribution 4 Logic / 7 Integration / 1 Visual-Feel / 1 Config-Data
+> **Status**: Complete (13/13 stories shipped)
+> **Stories**: 13 stories written 2026-04-22, 13/13 Complete — distribution 4 Logic / 7 Integration / 1 Visual-Feel / 1 Config-Data
 > **Manifest Version**: 2026-04-21
 > **Engine Risk**: HIGH (VR-1 Shader Baker 4.5+ / VR-2 D3D12 4.6 default Windows — ADR-0003 rendering latency advisory Sprint 1)
 

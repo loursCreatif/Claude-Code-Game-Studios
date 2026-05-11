@@ -1,6 +1,6 @@
 # Epic: Accessibility System
 
-> **Status**: Active (Polish P3)
+> **Status**: Complete (Polish P3 — 1/1 story shipped 2026-05-02)
 > **Owner**: Foundation
 > **Manifest Version**: 2026-04-23
 > **Governing ADR**: ADR-0015 Accessibility Interface Layer (Accepted 2026-05-02)

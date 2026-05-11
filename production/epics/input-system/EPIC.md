@@ -3,8 +3,8 @@
 > **Layer**: Foundation
 > **GDD**: design/gdd/input-system.md
 > **Architecture Module**: InputManager (autoload singleton)
-> **Status**: Ready
-> **Stories**: 10 créées (1 Blocked — ADR-0014)
+> **Status**: Complete (10/10 stories shipped — ADR-0014 unblocked Polish P3)
+> **Stories**: 10 créées + shippées (story-010 settings persistence post-ADR-0014 Accepted)
 > **Manifest Version**: 2026-04-21
 > **Engine Risk**: HIGH (VR-3 dual-focus 4.6 advisory — Sprint 1)
 
