@@ -4,7 +4,8 @@
 
 extends CharacterBody3D
 
-const MOVE_SPEED: float = 10.0
+const MOVE_SPEED: float = 12.0
+const COYOTE_TIME: float = 0.1
 const SPRINT_MULT: float = 1.0
 const JUMP_VELOCITY: float = 7.0
 const AIR_JUMP_VELOCITY: float = 6.5
@@ -95,6 +96,8 @@ func _input(event: InputEvent) -> void:
 			katana.swing()
 			attacked.emit()
 
+var _coyote_timer: float = 0.0
+
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
 	_update_wall_state()
@@ -102,6 +105,9 @@ func _physics_process(delta: float) -> void:
 
 	if is_on_floor():
 		air_jumps_used = 0
+		_coyote_timer = COYOTE_TIME
+	else:
+		_coyote_timer = maxf(0.0, _coyote_timer - delta)
 
 	if is_dashing:
 		_dash_physics(delta)
@@ -125,15 +131,16 @@ func _physics_process(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, wish_dir.x * speed, air_accel)
 			velocity.z = move_toward(velocity.z, wish_dir.z * speed, air_accel)
 
-	# Jump / air jump / wall jump
+	# Jump / air jump / wall jump (avec coyote time 0.1s post-floor).
 	if Input.is_action_just_pressed("jump"):
 		if is_wall_running and wall_normal != Vector3.ZERO:
 			velocity = wall_normal * WALL_JUMP_SIDE
 			velocity.y = WALL_JUMP_UP
 			is_wall_running = false
 			air_jumps_used = 0
-		elif is_on_floor():
+		elif is_on_floor() or _coyote_timer > 0.0:
 			velocity.y = JUMP_VELOCITY
+			_coyote_timer = 0.0
 		elif air_jumps_used < 1:
 			velocity.y = AIR_JUMP_VELOCITY
 			air_jumps_used += 1
@@ -190,6 +197,10 @@ func _update_camera_effects(delta: float) -> void:
 	camera.rotation.z = lerp(camera.rotation.z, target_roll, CAMERA_TILT_LERP_SPEED * delta)
 
 	var target_fov: float = BASE_FOV
+	# FOV dynamique : grow up to +12° quand vitesse haute (flow Mirror's Edge style).
+	var horiz_v: float = Vector2(velocity.x, velocity.z).length()
+	var speed_norm: float = clamp((horiz_v - MOVE_SPEED) / (DASH_SPEED - MOVE_SPEED), 0.0, 1.0)
+	target_fov += speed_norm * 12.0
 	if is_dashing:
 		target_fov = BASE_FOV + CAMERA_DASH_FOV_KICK
 	camera.fov = lerp(camera.fov, target_fov, 14.0 * delta)
