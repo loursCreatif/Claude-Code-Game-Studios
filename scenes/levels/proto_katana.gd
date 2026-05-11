@@ -52,11 +52,24 @@ func _physics_process(delta: float) -> void:
 		if col.has_method("kill"):
 			col.kill()
 			enemy_killed.emit(col)
+			_trigger_kill_flash()
 		elif col.has_method("die"):
 			# Production Grunt utilise die() (Enemy GDD r2 Rule 14).
 			col.die()
 			enemy_killed.emit(col)
+			_trigger_kill_flash()
 
 	if swing_timer <= 0.0:
 		is_swinging = false
 		shape_cast.enabled = false
+
+
+func _trigger_kill_flash() -> void:
+	# Flash blanc 0.1s pour feedback kill MVP.
+	var player: Node = get_parent().get_parent().get_parent()  # Player root
+	var flash: ColorRect = player.get_node_or_null("HUDProto/KillFlash") as ColorRect
+	if flash == null:
+		return
+	flash.color = Color(1, 1, 1, 0.5)
+	var tween: Tween = create_tween()
+	tween.tween_property(flash, "color:a", 0.0, 0.12)

@@ -27,6 +27,9 @@ emission_energy_multiplier = 0.6
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 1
 collision_mask = 30
+; CCD anti-tunneling murs 0.3 m à haute vitesse (dash 28 m/s × dt 0.0167 = 0.47 m/frame).
+motion_mode = 0
+floor_max_angle = 0.785398
 script = ExtResource("1_player")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
@@ -79,3 +82,13 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(1, 1, 1, 0.85)
+
+; Flash blanc full-screen pour feedback kill (0.1s fade out).
+[node name="KillFlash" type="ColorRect" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.0)
