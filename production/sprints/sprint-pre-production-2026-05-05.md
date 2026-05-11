@@ -29,7 +29,7 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 | **combat-system** | Feature | 22 | **19/22** | 1 Ready (019 panel Martin) + 1 Closed-Migrated (021→VFX) + 1 (subtle Status format variance) | Complete (re-affirmé 2026-05-05 `qa-signoff-combat-system-2026-05-05.md` APPROVED WITH CONDITIONS) | `production/epics/combat-system/EPIC.md` |
 | **enemy-system** | Feature | 6 | **6/6** ✅ | — | Complete | `production/epics/enemy-system/EPIC.md` |
 | **level-system** | Feature | 23 | **23/23** ✅ | — | Complete | `production/epics/level-system/EPIC.md` |
-| **credit-economy-system** | Feature | 8 | **7/8** | 1 (story-008 BLOCKED HUD epic absent) | Complete partiel (story-008 bloqué upstream HUD) | `production/epics/credit-economy-system/EPIC.md` |
+| **credit-economy-system** | Feature | 8 | **7/8** | 1 Ready (story-008 Visual/Feel ADVISORY — unblocked 2026-05-04 par HUD-002 Complete, close-out shared evidence avec HUD-006 OR subsume au playtest MVP) | Complete partiel (story-008 Ready en attente convergence playtest HUD-006) | `production/epics/credit-economy-system/EPIC.md` |
 | **shop-system** | Feature | 16 | **15/16** | 1 Deprecated Tier 2+ | Complete | `production/epics/shop-system/EPIC.md` |
 | **upgrade-system** | Feature | 11 | **11/11** ✅ | — | Complete (1 partial AC-UPG-37-bis playtest DEFERRED) | `production/epics/upgrade-system/EPIC.md` |
 | **hud-system** | Feature | 6 | **5/6** | 1 BLOCKED (story-006 playtest manuel Visual/Feel ADVISORY) | In Progress 2026-05-05 — 46/46 PASS cumulé (story-001..005 Complete) | `production/epics/hud-system/EPIC.md` |
@@ -38,7 +38,7 @@ Compléter les fondations Foundation + Core layers du MVP avec coverage tests au
 **Totaux scope sprint Pre-Production** :
 - **Foundation** : 32/32 stories Complete (Input + SaveLoad + Menu + Accessibility) — 0 gap
 - **Core** : 42/43 Complete (Audio + Camera + Movement) — 1 canonical fail Movement post-`b60d809` à diagnostiquer
-- **Feature** : 81/87 Complete (Combat + Enemy + Level + Credit + Shop + Upgrade) — 1 Closed-Migrated + 1 Blocked upstream + 1 Ready panel Martin + 1 Deprecated + 1 partial DEFERRED
+- **Feature** : 81/87 Complete (Combat + Enemy + Level + Credit + Shop + Upgrade) — 1 Closed-Migrated + 1 Ready ADVISORY playtest convergence HUD-006 (credit-008) + 1 Ready panel Martin + 1 Deprecated + 1 partial DEFERRED
 - **Out of scope (Production sprint suivant)** : HUD 0/6 + VFX 0/8 = 14 stories à venir
 
 **Effectifs livrés Pre-Production** : ~155-162 stories complétées + 13 archivées historiques = **~175 stories tracked**.
