@@ -9,6 +9,11 @@ const _CREDIT_SAVE_KEY: String = "total_credits"
 const _UPGRADE_SAVE_KEY: String = "owned_upgrades"
 const _ShopControllerScript: GDScript = preload("res://src/ui/shop/shop_controller.gd")
 
+# Costs canoniques post-9a4cc0b (F-CRD-3 r2 B-2) :
+#   cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × n
+#   double_jump (n=0) = 8 + 20×0 = 8
+#   dash_horizontal (n=1) = 8 + 20×1 = 28
+
 
 func before_test() -> void:
 	SaveLoadSystem.save_string_array(_UPGRADE_SAVE_KEY, [] as Array[StringName])
@@ -93,20 +98,24 @@ func test_shop_controller_source_uses_connect_deferred() -> void:
 
 
 # =============================================================================
-# AC-SHP-16 — solde 19 < 20 → both upgrades not affordable
+# AC-SHP-16 — solde < cost_dj → both upgrades not affordable
 # =============================================================================
 
 func test_affordability_balance_19_both_disabled() -> void:
-	# Arrange
-	_seed_credits(19)
-	var s: Control = _make_shop()    # _ready() → recalc avec total=19
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # n=0 → 8
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP  # n=1 → 28
+
+	# Arrange — balance strictly below cost_dj pour invalider les deux upgrades.
+	var balance: int = cost_dj - 1  # 7 < 8 < 28
+	_seed_credits(balance)
+	var s: Control = _make_shop()    # _ready() → recalc avec total=balance
 
 	# Assert
 	assert_bool(s.is_affordable(&"double_jump")) \
-		.override_failure_message("AC-SHP-16: 19 < 20 cost double_jump → non affordable") \
+		.override_failure_message("AC-SHP-16: %d < %d cost double_jump → non affordable" % [balance, cost_dj]) \
 		.is_false()
 	assert_bool(s.is_affordable(&"dash_horizontal")) \
-		.override_failure_message("AC-SHP-16: 19 < 40 cost dash_horizontal → non affordable") \
+		.override_failure_message("AC-SHP-16: %d < %d cost dash_horizontal → non affordable" % [balance, cost_dash]) \
 		.is_false()
 
 	# Cleanup
@@ -115,14 +124,17 @@ func test_affordability_balance_19_both_disabled() -> void:
 
 
 # =============================================================================
-# AC-SHP-17 — solde 20 + double_jump acheté (net=0) → dash_horizontal disabled
+# AC-SHP-17 — solde cost_dj + double_jump acheté (net=0) → dash_horizontal disabled
 # =============================================================================
 
 func test_affordability_balance_20_buy_dj_then_dash_disabled() -> void:
-	# Arrange
-	_seed_credits(20)
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # 8
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP  # 28
+
+	# Arrange — seed exactly cost_dj pour atteindre net=0 après achat.
+	_seed_credits(cost_dj)
 	var s: Control = _make_shop()
-	# Sanity initial : double_jump affordable (20==20), dash pas (20<40)
+	# Sanity initial : double_jump affordable (8==8), dash pas (8<28)
 	assert_bool(s.is_affordable(&"double_jump")).is_true()
 	assert_bool(s.is_affordable(&"dash_horizontal")).is_false()
 
@@ -130,12 +142,12 @@ func test_affordability_balance_20_buy_dj_then_dash_disabled() -> void:
 	s._on_buy_pressed(&"double_jump", 0)
 	# Le handler DEFERRED ne s'exécute qu'au prochain idle frame.
 	# Ici on simule via call direct au handler (test logic recalc).
-	s._on_credits_changed(CreditEconomy.get_total(), -20, 0)
+	s._on_credits_changed(CreditEconomy.get_total(), -cost_dj, 0)
 
 	# Assert — solde 0, dash non affordable
 	assert_int(CreditEconomy.get_total()).is_equal(0)
 	assert_bool(s.is_affordable(&"dash_horizontal")) \
-		.override_failure_message("AC-SHP-17: solde 0 < 40 → dash_horizontal non affordable") \
+		.override_failure_message("AC-SHP-17: solde 0 < %d → dash_horizontal non affordable" % cost_dash) \
 		.is_false()
 	# double_jump owned → pas affordable=achat (déjà disabled OWNED logic)
 	assert_bool(s.is_affordable(&"double_jump")) \
@@ -152,18 +164,23 @@ func test_affordability_balance_20_buy_dj_then_dash_disabled() -> void:
 # =============================================================================
 
 func test_affordability_balance_60_buy_dj_then_dash_affordable() -> void:
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # 8
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP  # 28
+	var seed: int = cost_dj + cost_dash  # 36 = exactly enough pour les deux
+
 	# Arrange
-	_seed_credits(60)
+	_seed_credits(seed)
 	var s: Control = _make_shop()
 
 	# Act
 	s._on_buy_pressed(&"double_jump", 0)
-	s._on_credits_changed(CreditEconomy.get_total(), -20, 0)
+	s._on_credits_changed(CreditEconomy.get_total(), -cost_dj, 0)
 
-	# Assert — 60-20=40 ; dash cost 40 ; affordable
-	assert_int(CreditEconomy.get_total()).is_equal(40)
+	# Assert — seed-cost_dj reste ; dash affordable (== cost_dash exactement)
+	var expected_remaining: int = seed - cost_dj  # 28
+	assert_int(CreditEconomy.get_total()).is_equal(expected_remaining)
 	assert_bool(s.is_affordable(&"dash_horizontal")) \
-		.override_failure_message("AC-SHP-18: solde 40 >= 40 cost → dash_horizontal affordable") \
+		.override_failure_message("AC-SHP-18: solde %d >= %d cost → dash_horizontal affordable" % [expected_remaining, cost_dash]) \
 		.is_true()
 
 	# Cleanup
@@ -176,15 +193,19 @@ func test_affordability_balance_60_buy_dj_then_dash_affordable() -> void:
 # =============================================================================
 
 func test_affordability_full_chain_two_purchases() -> void:
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # 8
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP  # 28
+	var seed: int = cost_dj + cost_dash  # 36 — exactement pour 2 achats
+
 	# Arrange
-	_seed_credits(60)
+	_seed_credits(seed)
 	var s: Control = _make_shop()
 
 	# Act — 2 achats séquentiels (avec recalc handler après chaque)
 	s._on_buy_pressed(&"double_jump", 0)
-	s._on_credits_changed(CreditEconomy.get_total(), -20, 0)
+	s._on_credits_changed(CreditEconomy.get_total(), -cost_dj, 0)
 	s._on_buy_pressed(&"dash_horizontal", 1)
-	s._on_credits_changed(CreditEconomy.get_total(), -40, 0)
+	s._on_credits_changed(CreditEconomy.get_total(), -cost_dash, 0)
 
 	# Assert
 	assert_int(CreditEconomy.get_total()).is_equal(0)
@@ -209,6 +230,9 @@ func test_affordability_full_chain_two_purchases() -> void:
 ## WHEN credits_changed.emit(15, -85, SPEND_SHOP) puis await get_tree().process_frame,
 ## THEN _credit_display_text == "15", affordability recalculée pour 15.
 func test_credits_changed_deferred_emit_propagates_after_idle_frame() -> void:
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # 8
+	var emit_balance: int = cost_dj - 1  # 7 < 8 → both non affordable
+
 	# Arrange
 	_seed_credits(100)
 	var s: Control = _ShopControllerScript.new()
@@ -218,15 +242,15 @@ func test_credits_changed_deferred_emit_propagates_after_idle_frame() -> void:
 	assert_str(s.get_credit_display_text()).is_equal("100")
 
 	# Act — emit + idle frame (handler DEFERRED s'exécute)
-	CreditEconomy.credits_changed.emit(15, -85, 0)
+	CreditEconomy.credits_changed.emit(emit_balance, emit_balance - 100, 0)
 	await get_tree().process_frame
 	await get_tree().process_frame    # safety : 2 frames pour propagation
 
 	# Assert — state mis à jour POST-DEFERRED
 	assert_str(s.get_credit_display_text()) \
-		.override_failure_message("AC-SHP-12: post-emit DEFERRED + await, display attendu '15', obtenu '%s'" % s.get_credit_display_text()) \
-		.is_equal("15")
-	# 15 < 20 < 40 → both non affordable
+		.override_failure_message("AC-SHP-12: post-emit DEFERRED + await, display attendu '%d', obtenu '%s'" % [emit_balance, s.get_credit_display_text()]) \
+		.is_equal(str(emit_balance))
+	# emit_balance < cost_dj < cost_dash → both non affordable
 	assert_bool(s.is_affordable(&"double_jump")).is_false()
 	assert_bool(s.is_affordable(&"dash_horizontal")).is_false()
 
@@ -245,22 +269,26 @@ func test_credits_changed_deferred_emit_propagates_after_idle_frame() -> void:
 ## WHEN credits_changed handler invoqué directement (simule 1 frame),
 ## THEN _affordable_state mis à jour pour TOUTES les entries non-owned (atomique).
 func test_affordability_single_handler_call_recalcs_all_non_owned() -> void:
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST  # 8
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP  # 28
+	var below_dj: int = cost_dj - 1  # 7 < 8 → both non affordable
+
 	# Arrange
 	_seed_credits(60)
 	var s: Control = _make_shop()
-	# Pré-state : both affordable (60>=20, 60>=40)
+	# Pré-state : both affordable (60>=8, 60>=28)
 	assert_bool(s.is_affordable(&"double_jump")).is_true()
 	assert_bool(s.is_affordable(&"dash_horizontal")).is_true()
 
-	# Act — simulate credits_changed(10) → both should become non-affordable
-	s._on_credits_changed(10, -50, 0)
+	# Act — simulate credits_changed(below_dj) → both should become non-affordable
+	s._on_credits_changed(below_dj, below_dj - 60, 0)
 
 	# Assert — both recalc'd in same handler invocation (EC-SHP-14)
 	assert_bool(s.is_affordable(&"double_jump")) \
-		.override_failure_message("EC-SHP-14: 10 < 20 → double_jump non affordable post-handler") \
+		.override_failure_message("EC-SHP-14: %d < %d → double_jump non affordable post-handler" % [below_dj, cost_dj]) \
 		.is_false()
 	assert_bool(s.is_affordable(&"dash_horizontal")) \
-		.override_failure_message("EC-SHP-14: 10 < 40 → dash_horizontal non affordable post-handler") \
+		.override_failure_message("EC-SHP-14: %d < %d → dash_horizontal non affordable post-handler" % [below_dj, cost_dash]) \
 		.is_false()
 
 	# Cleanup
