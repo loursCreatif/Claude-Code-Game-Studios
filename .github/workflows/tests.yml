@@ -626,6 +626,162 @@ jobs:
           name: audio-anti-patterns-lint-log
           path: production/qa/evidence/audio-anti-patterns-lint-*.log
 
+  lint-credit-economy:
+    # story-007 — anti-pattern static lints credit-economy-system.
+    # Source : .claude/rules/credit-economy-anti-patterns.md (futur) + design/gdd/credit-economy-system.md.
+    # Couvre AC-CRD-20 (try_spend zero async) + AC-CRD-42 (signal credits_changed typed params)
+    # + AC-CRD-44 (public API strictement typée) + AC-CRD-45 (emit uniquement whitelistées).
+    # AC-CRD-43 (SourceKind enum) reste runtime-only gate (GdUnit4 test).
+    # R-CRD-1/4/10/12 + ADR-0001 D-8 D-9 — guard structurel rapide indépendant runtime.
+    # Exception comments : `# lint-credit-ok: <raison>` accepté ligne par ligne.
+    name: Lint — Credit Economy Anti-Patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run credit-economy anti-patterns lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p production/qa/evidence
+          log="production/qa/evidence/credit-economy-lint-$(date +%Y-%m-%d).log"
+          echo "# Credit economy anti-patterns lint — $(date -Iseconds)" > "$log"
+
+          violations=0
+
+          # ---- AC-CRD-20 — try_spend body: zero async patterns (ADR-0001 D-8) ----
+          # Pattern: extract try_spend body (entre `func try_spend` et prochain `func`),
+          # puis grep patterns interdits (await, call_deferred, Thread.start, WorkerThreadPool).
+          if [ -f src/core/credit_economy.gd ]; then
+            # Extract try_spend body via awk
+            try_spend_body=$(awk '
+              /^func[[:space:]]+try_spend[[:space:]]*\(/ {
+                inside = 1
+                next
+              }
+              /^func[[:space:]]+/ { inside = 0 }
+              inside { print NR ":" $0 }
+            ' src/core/credit_economy.gd)
+
+            if [ -z "$try_spend_body" ]; then
+              echo "## AC-CRD-20 try_spend async patterns — FAIL (try_spend not found)" >> "$log"
+              violations=$((violations + 1))
+            else
+              # Check forbidden async patterns in body (exclude pure comment lines)
+              async_matches=$(echo "$try_spend_body" | grep -vE '^\s*#' | \
+                grep -E '\bawait\b|\.call_deferred\s*\(|\bThread\s*\.\s*start\s*\(|\bWorkerThreadPool\s*\.\s*add_task\s*\(' || true)
+              if [ -n "$async_matches" ]; then
+                echo "## AC-CRD-20 try_spend async patterns — FAIL" >> "$log"
+                echo "$async_matches" >> "$log"
+                violations=$((violations + 1))
+              else
+                echo "## AC-CRD-20 try_spend async patterns — PASS (0 forbidden patterns)" >> "$log"
+              fi
+            fi
+          else
+            echo "## AC-CRD-20 try_spend async patterns — SKIP (src/core/credit_economy.gd absent)" >> "$log"
+          fi
+
+          # ---- AC-CRD-42 — signal credits_changed(total: int, delta: int, source: <type>) typed params ----
+          if [ -f src/core/credit_economy.gd ]; then
+            signal_matches=$(grep -nE 'signal\s+credits_changed\s*\(\s*total\s*:\s*int\s*,\s*delta\s*:\s*int\s*,\s*source\s*:\s*\w+' \
+              src/core/credit_economy.gd || true)
+            if [ -n "$signal_matches" ]; then
+              echo "## AC-CRD-42 signal credits_changed typed params — PASS (signal found and typed)" >> "$log"
+            else
+              echo "## AC-CRD-42 signal credits_changed typed params — FAIL (signal declaration missing or malformed)" >> "$log"
+              violations=$((violations + 1))
+            fi
+          else
+            echo "## AC-CRD-42 signal credits_changed typed params — SKIP (src/core/credit_economy.gd absent)" >> "$log"
+          fi
+
+          # ---- AC-CRD-44 — public API signatures strictly typed ----
+          if [ -f src/core/credit_economy.gd ]; then
+            try_spend_sig=$(grep -nE 'func\s+try_spend\s*\(\s*amount\s*:\s*int\s*\)\s*->\s*bool' \
+              src/core/credit_economy.gd || true)
+            get_total_sig=$(grep -nE 'func\s+get_total\s*\(\s*\)\s*->\s*int' \
+              src/core/credit_economy.gd || true)
+
+            api_fail=0
+            if [ -z "$try_spend_sig" ]; then
+              echo "## AC-CRD-44 try_spend signature — FAIL (try_spend(amount: int) -> bool not found)" >> "$log"
+              api_fail=1
+            fi
+            if [ -z "$get_total_sig" ]; then
+              echo "## AC-CRD-44 get_total signature — FAIL (get_total() -> int not found)" >> "$log"
+              api_fail=1
+            fi
+            if [ "$api_fail" -eq 1 ]; then
+              violations=$((violations + 1))
+            else
+              echo "## AC-CRD-44 public API signatures — PASS (all signatures strictly typed)" >> "$log"
+            fi
+          else
+            echo "## AC-CRD-44 public API signatures — SKIP (src/core/credit_economy.gd absent)" >> "$log"
+          fi
+
+          # ---- AC-CRD-45 — credits_changed.emit() only in whitelisted functions ----
+          # Whitelisted functions: _physics_process, try_spend, _on_state_changed, _on_enemy_killed,
+          #                        _on_secret_collected, _hydrate_from_save
+          if [ -f src/core/credit_economy.gd ]; then
+            # Parse line-by-line tracking current function, detect emit outside whitelist
+            emit_violations=$(awk '
+              BEGIN {
+                # Whitelisted functions where emit is allowed
+                whitelist["_physics_process"] = 1
+                whitelist["try_spend"] = 1
+                whitelist["_on_state_changed"] = 1
+                whitelist["_on_enemy_killed"] = 1
+                whitelist["_on_secret_collected"] = 1
+                whitelist["_hydrate_from_save"] = 1
+              }
+              /^func[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/ {
+                match($0, /func[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/, arr)
+                current_func = arr[1]
+              }
+              /^[^[:space:]]/ && !/^func/ {
+                current_func = ""
+              }
+              /credits_changed\.emit\(/ && current_func != "" {
+                # Skip comment-only lines
+                if ($0 !~ /^[[:space:]]*#/) {
+                  if (!(current_func in whitelist)) {
+                    print NR ": [func " current_func "]: " $0
+                  }
+                }
+              }
+            ' src/core/credit_economy.gd)
+
+            if [ -n "$emit_violations" ]; then
+              echo "## AC-CRD-45 emit in whitelisted functions — FAIL" >> "$log"
+              echo "$emit_violations" >> "$log"
+              violations=$((violations + 1))
+            else
+              echo "## AC-CRD-45 emit in whitelisted functions — PASS (0 violations)" >> "$log"
+            fi
+          else
+            echo "## AC-CRD-45 emit in whitelisted functions — SKIP (src/core/credit_economy.gd absent)" >> "$log"
+          fi
+
+          # ---- Verdict ----
+          echo "" >> "$log"
+          echo "TOTAL_VIOLATIONS=$violations" >> "$log"
+          cat "$log"
+          if [ "$violations" -gt 0 ]; then
+            echo "::error::lint-credit-economy FAIL — $violations violation(s) (AC-CRD-20/42/44/45 + ADR-0001)"
+            exit 1
+          fi
+          echo "lint-credit-economy PASS"
+
+      - name: Upload lint log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: credit-economy-lint-log
+          path: production/qa/evidence/credit-economy-lint-*.log
+
   lint-vfx-anti-patterns:
     # story-007 — anti-pattern static lints vfx-system.
     # Source : .claude/rules/vfx-anti-patterns.md.
@@ -1100,7 +1256,7 @@ jobs:
     # 2026-05-10 via class cache pre-build + in-script headless skip auto-PASS).
     # Gates significatifs uniquement sur Tier 1 hardware réel (pattern miroir
     # story-016 VRAM=0=PASS) — CI ubuntu valide structure runner + cache + skip path.
-    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd-gameplay, perf-level-ccd, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
+    needs: [lint-input-hot-paths, lint-input-main-thread, lint-collision-layers, lint-menu-anti-patterns, lint-hud-anti-patterns, lint-audio-anti-patterns, lint-credit-economy, lint-vfx-anti-patterns, lint-level-invariants, perf-level-ccd-gameplay, perf-level-ccd, perf-level-draw-calls, perf-level-memory, perf-level-frame-time]
 
     steps:
       - name: Checkout
