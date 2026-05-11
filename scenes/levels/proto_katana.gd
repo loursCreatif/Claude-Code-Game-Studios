@@ -51,13 +51,17 @@ func _physics_process(delta: float) -> void:
 		hit_this_swing.append(col)
 		if col.has_method("kill"):
 			col.kill()
-			enemy_killed.emit(col)
-			_trigger_kill_flash()
+			_kill_feedback(col)
 		elif col.has_method("die"):
 			# Production Grunt utilise die() (Enemy GDD r2 Rule 14).
 			col.die()
-			enemy_killed.emit(col)
-			_trigger_kill_flash()
+			_kill_feedback(col)
+
+func _kill_feedback(col: Object) -> void:
+	enemy_killed.emit(col)
+	_trigger_kill_flash()
+	_spawn_kill_particles((col as Node3D).global_position if col is Node3D else Vector3.ZERO)
+	_trigger_camera_shake()
 
 	if swing_timer <= 0.0:
 		is_swinging = false
@@ -73,3 +77,40 @@ func _trigger_kill_flash() -> void:
 	flash.color = Color(1, 1, 1, 0.5)
 	var tween: Tween = create_tween()
 	tween.tween_property(flash, "color:a", 0.0, 0.12)
+
+
+func _spawn_kill_particles(pos: Vector3) -> void:
+	# Burst CPUParticles3D MVP — débris rouge/blanc autour du grunt mort.
+	var particles: CPUParticles3D = CPUParticles3D.new()
+	particles.emitting = false
+	particles.amount = 24
+	particles.lifetime = 0.6
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.spread = 180.0
+	particles.gravity = Vector3(0, -9.8, 0)
+	particles.initial_velocity_min = 3.0
+	particles.initial_velocity_max = 7.0
+	particles.scale_amount_min = 0.08
+	particles.scale_amount_max = 0.18
+	particles.color = Color(1.0, 0.95, 0.3, 1)
+	get_tree().current_scene.add_child(particles)
+	particles.global_position = pos + Vector3(0, 1.0, 0)
+	particles.emitting = true
+	# Auto-cleanup après lifetime + epsilon.
+	var timer: SceneTreeTimer = get_tree().create_timer(particles.lifetime + 0.1)
+	timer.timeout.connect(func() -> void: if is_instance_valid(particles): particles.queue_free())
+
+
+func _trigger_camera_shake() -> void:
+	# Quick camera shake — juicy kill feedback MVP.
+	var player: Node = get_parent().get_parent().get_parent()
+	var camera: Node3D = player.get_node_or_null("Camera3D") as Node3D
+	if camera == null:
+		return
+	var orig: Vector3 = camera.position
+	var tween: Tween = create_tween().set_trans(Tween.TRANS_SINE)
+	for i in 3:
+		var offset: Vector3 = Vector3(randf_range(-0.04, 0.04), randf_range(-0.04, 0.04), 0)
+		tween.tween_property(camera, "position", orig + offset, 0.025)
+	tween.tween_property(camera, "position", orig, 0.05)
