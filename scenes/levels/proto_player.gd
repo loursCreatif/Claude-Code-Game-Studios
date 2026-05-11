@@ -97,6 +97,8 @@ func _input(event: InputEvent) -> void:
 			attacked.emit()
 
 var _coyote_timer: float = 0.0
+var _jump_buffer_timer: float = 0.0
+const JUMP_BUFFER_TIME: float = 0.12
 
 func _physics_process(delta: float) -> void:
 	_tick_timers(delta)
@@ -108,6 +110,9 @@ func _physics_process(delta: float) -> void:
 		_coyote_timer = COYOTE_TIME
 	else:
 		_coyote_timer = maxf(0.0, _coyote_timer - delta)
+	_jump_buffer_timer = maxf(0.0, _jump_buffer_timer - delta)
+	if Input.is_action_just_pressed("jump"):
+		_jump_buffer_timer = JUMP_BUFFER_TIME
 
 	if is_dashing:
 		_dash_physics(delta)
@@ -131,19 +136,23 @@ func _physics_process(delta: float) -> void:
 			velocity.x = move_toward(velocity.x, wish_dir.x * speed, air_accel)
 			velocity.z = move_toward(velocity.z, wish_dir.z * speed, air_accel)
 
-	# Jump / air jump / wall jump (avec coyote time 0.1s post-floor).
-	if Input.is_action_just_pressed("jump"):
+	# Jump / air jump / wall jump (coyote time + jump buffer pour forgiving timing).
+	if _jump_buffer_timer > 0.0:
 		if is_wall_running and wall_normal != Vector3.ZERO:
 			velocity = wall_normal * WALL_JUMP_SIDE
 			velocity.y = WALL_JUMP_UP
 			is_wall_running = false
 			air_jumps_used = 0
+			_jump_buffer_timer = 0.0
 		elif is_on_floor() or _coyote_timer > 0.0:
 			velocity.y = JUMP_VELOCITY
 			_coyote_timer = 0.0
-		elif air_jumps_used < 1:
+			_jump_buffer_timer = 0.0
+		elif air_jumps_used < 1 and Input.is_action_just_pressed("jump"):
+			# Air jump uniquement sur input frame (pas buffered — pour éviter consume buffer).
 			velocity.y = AIR_JUMP_VELOCITY
 			air_jumps_used += 1
+			_jump_buffer_timer = 0.0
 
 	# Dash — poll direct pour contourner bug macOS où Shift seul n'émet pas d'InputEvent
 	var shift_now: bool = Input.is_physical_key_pressed(KEY_SHIFT)

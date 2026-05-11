@@ -69,6 +69,20 @@ func _kill_feedback(col: Object) -> void:
 	_spawn_kill_popup(kill_pos)
 	_check_multi_kill_slowmo()
 	_apply_player_knockback()
+	_trigger_hitmarker()
+
+func _trigger_hitmarker() -> void:
+	# Flash hitmarker croix jaune 150ms au kill.
+	var player: Node = get_parent().get_parent().get_parent()
+	var marker: Control = player.get_node_or_null("HUDProto/Hitmarker") as Control
+	if marker == null:
+		return
+	marker.modulate = Color(1, 1, 1, 1)
+	marker.scale = Vector2(0.7, 0.7)
+	marker.pivot_offset = marker.size / 2.0
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(marker, "scale", Vector2.ONE, 0.12)
+	tween.tween_property(marker, "modulate:a", 0.0, 0.18)
 
 func _check_multi_kill_slowmo() -> void:
 	# Étape 11 — Hit-stop : freeze 40ms wall-clock sur chaque kill (punch impact).
