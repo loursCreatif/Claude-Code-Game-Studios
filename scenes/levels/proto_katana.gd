@@ -74,6 +74,16 @@ func _kill_feedback(col: Object) -> void:
 	_trigger_hitmarker()
 	_update_streak()
 	_spawn_credit_pickup(kill_pos)
+	_refresh_dash_on_kill()
+
+func _refresh_dash_on_kill() -> void:
+	# Dash recharge instant sur kill (Apex Legends récompense agression).
+	var player: Node = get_parent().get_parent().get_parent()
+	if player == null:
+		return
+	if player.has_method("get") and "can_dash" in player:
+		player.can_dash = true
+		player.dash_cooldown_timer = 0.0
 
 func _spawn_credit_pickup(pos: Vector3) -> void:
 	# Spawn un Area3D cyan rotating à la position du kill. Player walks over → pickup.
