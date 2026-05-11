@@ -38,6 +38,17 @@ material = SubResource("mat_wall_run_guide")
 size = Vector3(6.0, 4.0, 0.1)
 material = SubResource("mat_wall_run_guide")
 
+; LED strip cyan verticale émissive (accent edge mur — signal wall-runnable)
+[sub_resource type="StandardMaterial3D" id="mat_led_cyan"]
+albedo_color = Color(0.3, 0.95, 1.0, 1)
+emission_enabled = true
+emission = Color(0.3, 0.95, 1.0, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="BoxMesh" id="mesh_led_vstrip"]
+size = Vector3(0.08, 5.0, 0.08)
+material = SubResource("mat_led_cyan")
+
 [node name="ShaftConnector" type="Node3D"]
 
 [node name="WallA" type="StaticBody3D" parent="."]
@@ -72,3 +83,20 @@ visible = false
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 3.0, 0)
 mesh = SubResource("mesh_wall_run_surface")
 visible = false
+
+; LED strips verticales cyan sur edges des walls (signal wall-runnable, image ref)
+[node name="LedA_front" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.05, 3.0, 3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedA_back" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.05, 3.0, -3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedB_front" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.05, 3.0, 3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedB_back" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.05, 3.0, -3.0)
+mesh = SubResource("mesh_led_vstrip")
