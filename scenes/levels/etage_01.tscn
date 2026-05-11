@@ -179,9 +179,29 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.08, 0.05, 6.0)
 material = SubResource("mat_led_yellow_etage")
 
-; Plateformes parkour flottantes — gris béton unifié (cohérence palette).
+; Texture noise procédurale pour concrete (grain subtle).
+[sub_resource type="FastNoiseLite" id="noise_concrete"]
+frequency = 0.08
+fractal_octaves = 3
+fractal_gain = 0.5
+
+[sub_resource type="NoiseTexture2D" id="tex_concrete"]
+width = 256
+height = 256
+seamless = true
+seamless_blend_skirt = 0.1
+color_ramp = SubResource("ramp_concrete")
+noise = SubResource("noise_concrete")
+
+[sub_resource type="Gradient" id="ramp_concrete"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.35, 0.35, 0.38, 1, 0.65, 0.65, 0.68, 1)
+
+; Plateformes parkour flottantes — gris béton unifié + texture noise.
 [sub_resource type="StandardMaterial3D" id="mat_parkour_platform"]
 albedo_color = Color(0.55, 0.55, 0.58, 1)
+albedo_texture = SubResource("tex_concrete")
+uv1_scale = Vector3(2.0, 2.0, 2.0)
 roughness = 0.85
 
 [sub_resource type="BoxShape3D" id="shape_parkour_platform"]
@@ -217,9 +237,11 @@ material = SubResource("mat_gauntlet_wall")
 size = Vector3(0.08, 0.08, 30.0)
 material = SubResource("mat_led_yellow_etage")
 
-; Pylons centraux gauntlet — gris béton unifié (cohérence palette).
+; Pylons centraux gauntlet — gris béton unifié + texture noise.
 [sub_resource type="StandardMaterial3D" id="mat_pylon"]
 albedo_color = Color(0.40, 0.40, 0.44, 1)
+albedo_texture = SubResource("tex_concrete")
+uv1_scale = Vector3(1.5, 1.5, 1.5)
 roughness = 0.85
 
 [sub_resource type="BoxShape3D" id="shape_pylon"]
