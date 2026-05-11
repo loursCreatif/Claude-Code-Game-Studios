@@ -292,6 +292,13 @@ archetype = 0
 ; Mezzanine.tscn fixée (Platform à Y=2.5 local). Pas besoin de override transform ici.
 [node name="Mezzanine_01" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
 
+; Plateformes additionnelles Room_02 pour parkour vertical multi-niveau.
+[node name="Mezzanine_02_higher" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 4.0)
+
+[node name="Mezzanine_03_top" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 3.0, -1.0)
+
 ; --------------------------------------------------------------------------
 ; Room_03 — COMBAT (1), origin (0,2,14)
 ; custom floor + 2 murs wall-run face-to-face + mezzanine

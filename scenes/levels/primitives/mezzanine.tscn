@@ -31,7 +31,7 @@ size = Vector3(4.0, 0.3, 0.5)
 ; --- Meshes ---
 [sub_resource type="BoxMesh" id="mesh_platform"]
 size = Vector3(4.0, 0.3, 4.0)
-material = SubResource("mat_floor")
+material = SubResource("mat_platform_accent")
 
 [sub_resource type="BoxMesh" id="mesh_wall_lr"]
 size = Vector3(0.3, 3.0, 4.0)
@@ -39,7 +39,7 @@ material = SubResource("mat_wall")
 
 [sub_resource type="BoxMesh" id="mesh_ledge"]
 size = Vector3(4.0, 0.3, 0.5)
-material = SubResource("mat_floor")
+material = SubResource("mat_platform_accent")
 
 [node name="Mezzanine" type="Node3D"]
 
