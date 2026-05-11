@@ -25,6 +25,34 @@ func _ready() -> void:
 
 	# Proto player a déjà toutes les abilities par défaut (can_dash=true, double-jump natif).
 
+	# Étape 3/10 — EtageExitTrigger Victory : connecte body_entered au handler local.
+	var exit_trigger: Area3D = get_node_or_null("EtageExitTrigger") as Area3D
+	if exit_trigger != null and not exit_trigger.body_entered.is_connected(_on_etage_exit):
+		exit_trigger.body_entered.connect(_on_etage_exit)
+
+var _victory_triggered: bool = false
+
+func _on_etage_exit(body: Node) -> void:
+	if _victory_triggered:
+		return
+	if not (body is CharacterBody3D):
+		return
+	_victory_triggered = true
+	# Affiche Victory label fade in + scale.
+	var player: Node = find_child("Player", true, false)
+	if player == null:
+		return
+	var label: Label = player.get_node_or_null("HUDProto/VictoryLabel") as Label
+	if label == null:
+		return
+	label.add_theme_font_size_override(&"font_size", 96)
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(label, "modulate:a", 1.0, 0.6)
+	tween.tween_property(label, "scale", Vector2(1.15, 1.15), 0.6).from(Vector2.ONE)
+	# Slow-mo dramatique à la victoire.
+	Engine.time_scale = 0.3
+	get_tree().create_timer(2.0, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+
 func _has_grunts_already() -> bool:
 	return find_child("Grunt_*", true, false) != null
 

@@ -160,6 +160,25 @@ text = "0 km/h"
 horizontal_alignment = 2
 modulate = Color(0.3, 0.85, 0.95, 0.9)
 
+; Victory label — fade in quand Player entre EtageExitTrigger
+[node name="VictoryLabel" type="Label" parent="HUDProto"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -60.0
+offset_right = 300.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "VICTOIRE"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(1.0, 0.85, 0.3, 0.0)
+
 ; Onboarding controls label — fade out après 5s
 [node name="ControlsLabel" type="Label" parent="HUDProto"]
 anchors_preset = 1
