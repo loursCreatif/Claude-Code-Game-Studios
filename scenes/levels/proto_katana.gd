@@ -60,8 +60,41 @@ func _physics_process(delta: float) -> void:
 func _kill_feedback(col: Object) -> void:
 	enemy_killed.emit(col)
 	_trigger_kill_flash()
-	_spawn_kill_particles((col as Node3D).global_position if col is Node3D else Vector3.ZERO)
+	var kill_pos: Vector3 = (col as Node3D).global_position if col is Node3D else Vector3.ZERO
+	_spawn_kill_particles(kill_pos)
 	_trigger_camera_shake()
+	_increment_kill_counter()
+	_spawn_kill_popup(kill_pos)
+
+func _increment_kill_counter() -> void:
+	var player: Node = get_parent().get_parent().get_parent()
+	var counter: Label = player.get_node_or_null("HUDProto/KillCounter") as Label
+	if counter == null:
+		return
+	var current: int = counter.text.split("  ")[-1].to_int()
+	counter.text = "KILLS  %d" % (current + 1)
+	# Pulse scale
+	var tween: Tween = create_tween().set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	counter.pivot_offset = counter.size / 2.0
+	counter.scale = Vector2(1.3, 1.3)
+	tween.tween_property(counter, "scale", Vector2.ONE, 0.25)
+
+func _spawn_kill_popup(world_pos: Vector3) -> void:
+	# Popup 3D "+1" qui flotte vers le haut puis fade out.
+	var label: Label3D = Label3D.new()
+	label.text = "+1"
+	label.font_size = 64
+	label.modulate = Color(1.0, 0.95, 0.3, 1)
+	label.outline_size = 8
+	label.outline_modulate = Color(0, 0, 0, 1)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	get_tree().current_scene.add_child(label)
+	label.global_position = world_pos + Vector3(0, 1.8, 0)
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y + 1.2, 0.8)
+	tween.tween_property(label, "modulate:a", 0.0, 0.8)
+	tween.chain().tween_callback(label.queue_free)
 
 	if swing_timer <= 0.0:
 		is_swinging = false
