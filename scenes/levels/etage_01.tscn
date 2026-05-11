@@ -418,6 +418,68 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
 mesh = SubResource("mesh_pylon_led")
 
 ; ==========================================================================
+; Escalier ascendant final — vers Boss area (Z=76-82, Y=0.5→2.0).
+; ==========================================================================
+[node name="BossStairs" type="Node3D" parent="."]
+
+[node name="Step_01" type="StaticBody3D" parent="BossStairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 76.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_01"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_01"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="Step_02" type="StaticBody3D" parent="BossStairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 78.5)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_02"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_02"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_02"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="Step_03" type="StaticBody3D" parent="BossStairs"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 81.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_03"]
+mesh = SubResource("mesh_parkour_platform")
+
+[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_03"]
+shape = SubResource("shape_parkour_platform")
+
+[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
+mesh = SubResource("mesh_parkour_led_edge")
+
+; ==========================================================================
 ; Cover columns combat arena (Z=55-72) — combat tactique.
 ; ==========================================================================
 [node name="CoverColumns" type="Node3D" parent="."]
@@ -1126,9 +1188,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.2, 68.0)
 [node name="EnemySlot_06" type="Marker3D" parent="SpawnMarkers"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.2, 72.0)
 
-; Boss du Room_09 terminal — challenge final avant exit (Z=80)
+; Boss du Room_09 terminal — sur la dernière marche élévée (Y=2 absolute).
 [node name="EnemySlot_07_boss" type="Marker3D" parent="SpawnMarkers"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 80.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 81.0)
 
 ; Checkpoint anchors — appairés avec CheckpointVolume_NN, distance ≤ 10 m (AC-LVL-19)
 ; CheckpointAnchor_01 : volume (0,1.8,13), anchor (0,2.2,13) → dist ≈ 0.4 m ✓
