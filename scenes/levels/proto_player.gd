@@ -6,6 +6,9 @@ extends CharacterBody3D
 
 const MOVE_SPEED: float = 13.0
 const COYOTE_TIME: float = 0.12
+const SLIDE_SPEED: float = 22.0
+const SLIDE_DURATION: float = 0.9
+const SLIDE_CAPSULE_HEIGHT: float = 0.9
 const SPRINT_MULT: float = 1.0
 const JUMP_VELOCITY: float = 7.0
 const AIR_JUMP_VELOCITY: float = 6.5
@@ -138,6 +141,10 @@ func _input(event: InputEvent) -> void:
 
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
+var _is_sliding: bool = false
+var _slide_timer: float = 0.0
+var _slide_dir: Vector3 = Vector3.ZERO
+var _ctrl_was_pressed: bool = false
 const JUMP_BUFFER_TIME: float = 0.12
 
 func _physics_process(delta: float) -> void:
@@ -199,6 +206,18 @@ func _physics_process(delta: float) -> void:
 	var shift_now: bool = Input.is_physical_key_pressed(KEY_SHIFT)
 	var shift_just_pressed: bool = shift_now and not shift_was_pressed
 	shift_was_pressed = shift_now
+
+	# Slide — Ctrl maintenu + au sol + vitesse > 8 m/s.
+	var ctrl_now: bool = Input.is_physical_key_pressed(KEY_CTRL)
+	var ctrl_just_pressed: bool = ctrl_now and not _ctrl_was_pressed
+	_ctrl_was_pressed = ctrl_now
+	var current_horiz_speed: float = Vector2(velocity.x, velocity.z).length()
+	if not _is_sliding and ctrl_just_pressed and is_on_floor() and current_horiz_speed > 8.0:
+		_start_slide(wish_dir)
+	if _is_sliding:
+		_slide_timer -= delta
+		if _slide_timer <= 0.0 or not ctrl_now or not is_on_floor():
+			_end_slide()
 	if (shift_just_pressed or Input.is_action_just_pressed("dash")) and can_dash:
 		_start_dash(wish_dir)
 
@@ -306,3 +325,28 @@ func respawn() -> void:
 func die() -> void:
 	died.emit()
 	respawn()
+
+
+func _start_slide(wish_dir: Vector3) -> void:
+	var dir: Vector3 = wish_dir
+	if dir.length() < 0.01:
+		dir = -transform.basis.z
+	dir.y = 0.0
+	dir = dir.normalized()
+	_slide_dir = dir
+	_is_sliding = true
+	_slide_timer = SLIDE_DURATION
+	velocity.x = dir.x * SLIDE_SPEED
+	velocity.z = dir.z * SLIDE_SPEED
+	# Camera plus basse pendant slide.
+	if camera:
+		camera.position.y = 0.20
+	# Camera shake léger
+	if katana and katana.has_method("camera_shake_at"):
+		katana.camera_shake_at(0.02, 2)
+
+func _end_slide() -> void:
+	_is_sliding = false
+	_slide_timer = 0.0
+	if camera:
+		camera.position.y = 0.65
