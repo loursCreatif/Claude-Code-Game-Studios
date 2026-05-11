@@ -31,7 +31,7 @@ size = Vector3(0.3, 5.0, 6.0)
 ; --- Meshes ---
 [sub_resource type="BoxMesh" id="mesh_wall_ab"]
 size = Vector3(0.3, 5.0, 6.0)
-material = SubResource("mat_wall")
+material = SubResource("mat_wall_run_guide")
 
 ; WallRunSurface : 6×4×0.1 m (visuel, collé contre la face interne du mur)
 [sub_resource type="BoxMesh" id="mesh_wall_run_surface"]
