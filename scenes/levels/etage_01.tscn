@@ -179,14 +179,18 @@ material = SubResource("mat_led_yellow_etage")
 size = Vector3(0.08, 0.05, 6.0)
 material = SubResource("mat_led_yellow_etage")
 
-; Étape 9/10 — Skybox plus immersif Chrome Spire (bleu profond → cyan horizon → violet ground).
+; Skybox Chrome Spire aligné refs (navy zenith → cyan turquoise horizon → violet bas).
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
-sky_top_color = Color(0.03, 0.05, 0.10, 1)
-sky_horizon_color = Color(0.18, 0.42, 0.55, 1)
-ground_bottom_color = Color(0.04, 0.02, 0.08, 1)
-ground_horizon_color = Color(0.30, 0.12, 0.35, 1)
-sun_angle_max = 30.0
-sun_curve = 0.15
+sky_top_color = Color(0.02, 0.04, 0.12, 1)
+sky_horizon_color = Color(0.20, 0.50, 0.68, 1)
+sky_curve = 0.25
+sky_energy_multiplier = 1.2
+ground_bottom_color = Color(0.08, 0.04, 0.18, 1)
+ground_horizon_color = Color(0.42, 0.18, 0.55, 1)
+ground_curve = 0.10
+ground_energy_multiplier = 0.8
+sun_angle_max = 25.0
+sun_curve = 0.18
 
 [sub_resource type="Sky" id="sky_res"]
 sky_material = SubResource("sky_mat")
