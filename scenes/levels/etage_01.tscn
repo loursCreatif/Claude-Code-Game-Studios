@@ -1,0 +1,723 @@
+; Etage 01 — Chrome Ascent — Level 1
+; Source design spec : design/levels/etage-01-design.md (variante Positions Z corrigées)
+; ADR-0011 D-2 hiérarchie canonique, ADR-0008 collision layers
+; 9 rooms, 3 checkpoints, 3 secrets (AC-LVL-46 ≥ 3), onboarding anchors
+; collision_layer=8  : LAYER_ENVIRONMENT (layer 4, bit 3, décimal 8)
+; collision_layer=16 : LAYER_INTERACTIVE (layer 5, bit 4, décimal 16)
+; collision_mask=1   : LAYER_PLAYER (layer 1, bit 0, décimal 1)
+[gd_scene format=3 uid="uid://etage_01"]
+
+[ext_resource type="Script" path="res://src/gameplay/level/room.gd" id="1_room_script"]
+[ext_resource type="Script" path="res://src/gameplay/level/secret_lure_marker.gd" id="2_secret_lure_script"]
+[ext_resource type="PackedScene" uid="uid://primitive_mezzanine" path="res://scenes/levels/primitives/mezzanine.tscn" id="3_mezzanine"]
+[ext_resource type="PackedScene" uid="uid://primitive_atrium" path="res://scenes/levels/primitives/atrium.tscn" id="4_atrium"]
+[ext_resource type="PackedScene" uid="uid://primitive_shaft_connector" path="res://scenes/levels/primitives/shaft_connector.tscn" id="5_shaft_connector"]
+[ext_resource type="PackedScene" uid="uid://primitive_vertical_shaft_room" path="res://scenes/levels/primitives/vertical_shaft_room.tscn" id="6_vertical_shaft_room"]
+[ext_resource type="PackedScene" uid="uid://camera_player_001" path="res://src/gameplay/player/Player.tscn" id="7_player"]
+[ext_resource type="Script" path="res://scenes/levels/etage_01_init.gd" id="8_init"]
+
+; --- Shapes inline ---
+; Floor_01 shape : 4×0.3×6 m corridor Room_01
+[sub_resource type="BoxShape3D" id="shape_floor_01"]
+size = Vector3(4.0, 0.3, 6.0)
+
+; Wall left Room_01
+[sub_resource type="BoxShape3D" id="shape_wall_01_l"]
+size = Vector3(0.3, 4.0, 6.0)
+
+; Wall right Room_01
+[sub_resource type="BoxShape3D" id="shape_wall_01_r"]
+size = Vector3(0.3, 4.0, 6.0)
+
+; Wall back Room_01
+[sub_resource type="BoxShape3D" id="shape_wall_01_b"]
+size = Vector3(4.0, 4.0, 0.3)
+
+; Ceiling Room_01
+[sub_resource type="BoxShape3D" id="shape_ceil_01"]
+size = Vector3(4.0, 0.3, 6.0)
+
+; Floor Room_09 : 6×0.3×6 m terminal
+[sub_resource type="BoxShape3D" id="shape_floor_09"]
+size = Vector3(6.0, 0.3, 6.0)
+
+; Wall left Room_09
+[sub_resource type="BoxShape3D" id="shape_wall_09_l"]
+size = Vector3(0.3, 4.0, 6.0)
+
+; Wall right Room_09
+[sub_resource type="BoxShape3D" id="shape_wall_09_r"]
+size = Vector3(0.3, 4.0, 6.0)
+
+; Wall back Room_09
+[sub_resource type="BoxShape3D" id="shape_wall_09_b"]
+size = Vector3(6.0, 4.0, 0.3)
+
+; Ceiling Room_09
+[sub_resource type="BoxShape3D" id="shape_ceil_09"]
+size = Vector3(6.0, 0.3, 6.0)
+
+; WallRunWall_01 Room_03 : 0.3×4.5×4.0 m face-to-face (height 4.5 > 4.0 requis, longueur 4.0 > 3.0 requis)
+[sub_resource type="BoxShape3D" id="shape_wallrun_03_a"]
+size = Vector3(0.3, 4.5, 4.0)
+
+; WallRunWall_02 Room_03 : face opposée
+[sub_resource type="BoxShape3D" id="shape_wallrun_03_b"]
+size = Vector3(0.3, 4.5, 4.0)
+
+; Floor Room_03 (custom, pas de primitive)
+[sub_resource type="BoxShape3D" id="shape_floor_03"]
+size = Vector3(12.0, 0.3, 12.0)
+
+; Room triggers (Area3D shapes)
+; RoomTrigger_01 — doorway 4×4×0.5 m (is_doorway=true, largeur max(4,0.5)=4.0 > 3.6 ✓)
+[sub_resource type="BoxShape3D" id="shape_rt01"]
+size = Vector3(4.0, 4.0, 0.5)
+
+; RoomTrigger_02..09 — zones de salle 4×4×6 m (generiques, pas is_doorway)
+[sub_resource type="BoxShape3D" id="shape_rt02"]
+size = Vector3(8.0, 4.0, 6.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt03"]
+size = Vector3(12.0, 6.0, 12.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt04"]
+size = Vector3(8.0, 6.0, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt05"]
+size = Vector3(12.0, 6.0, 10.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt06"]
+size = Vector3(6.0, 12.0, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt07"]
+size = Vector3(8.0, 8.0, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt08"]
+size = Vector3(6.0, 4.0, 8.0)
+
+[sub_resource type="BoxShape3D" id="shape_rt09"]
+size = Vector3(6.0, 4.0, 6.0)
+
+; CheckpointVolume shapes (1×2×1 m)
+[sub_resource type="BoxShape3D" id="shape_cpv01"]
+size = Vector3(2.0, 2.0, 2.0)
+
+[sub_resource type="BoxShape3D" id="shape_cpv02"]
+size = Vector3(2.0, 2.0, 2.0)
+
+[sub_resource type="BoxShape3D" id="shape_cpv03"]
+size = Vector3(2.0, 2.0, 2.0)
+
+; SecretCollectVolume shapes (2×2×2 m)
+[sub_resource type="BoxShape3D" id="shape_scv01"]
+size = Vector3(2.0, 2.0, 2.0)
+
+[sub_resource type="BoxShape3D" id="shape_scv02"]
+size = Vector3(2.0, 2.0, 2.0)
+
+[sub_resource type="BoxShape3D" id="shape_scv03"]
+size = Vector3(2.0, 2.0, 2.0)
+
+; WorldBoundsVolume : centre (0, 8, 42), taille (30, 40, 100)
+[sub_resource type="BoxShape3D" id="shape_wbv"]
+size = Vector3(30.0, 40.0, 100.0)
+
+; EtageExitTrigger : 6×3×1 m
+[sub_resource type="BoxShape3D" id="shape_exit"]
+size = Vector3(6.0, 3.0, 1.0)
+
+; --- Visible meshes (MVP : valider gameplay avant story-022 Chrome Zen shaders) ---
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.4, 0.42, 0.45, 1)
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+[sub_resource type="BoxMesh" id="mesh_floor_01"]
+size = Vector3(4.0, 0.3, 6.0)
+material = SubResource("mat_floor")
+[sub_resource type="BoxMesh" id="mesh_wall_01_lr"]
+size = Vector3(0.3, 4.0, 6.0)
+material = SubResource("mat_wall")
+[sub_resource type="BoxMesh" id="mesh_wall_01_back"]
+size = Vector3(4.0, 4.0, 0.3)
+material = SubResource("mat_wall")
+[sub_resource type="BoxMesh" id="mesh_ceiling_01"]
+size = Vector3(4.0, 0.3, 6.0)
+material = SubResource("mat_wall")
+
+; DEBUG : grand plancher de secours visible pour valider rendu + collision
+[sub_resource type="BoxMesh" id="mesh_debug_floor"]
+size = Vector3(50.0, 1.0, 100.0)
+material = SubResource("mat_floor")
+[sub_resource type="BoxShape3D" id="shape_debug_floor"]
+size = Vector3(50.0, 1.0, 100.0)
+
+; --- Environment & Sky (copié du proto movement-katana pour visibilité MVP) ---
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.05, 0.07, 0.12, 1)
+sky_horizon_color = Color(0.15, 0.1, 0.2, 1)
+ground_bottom_color = Color(0.02, 0.02, 0.03, 1)
+ground_horizon_color = Color(0.1, 0.05, 0.15, 1)
+
+[sub_resource type="Sky" id="sky_res"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env_main"]
+background_mode = 2
+sky = SubResource("sky_res")
+ambient_light_source = 3
+ambient_light_color = Color(0.6, 0.7, 0.9, 1)
+ambient_light_energy = 0.25
+
+; ==========================================================================
+; SCÈNE
+; ==========================================================================
+
+[node name="Etage01" type="Node3D"]
+script = ExtResource("8_init")
+
+; ==========================================================================
+; WorldEnvironment + lumière directionnelle (MVP visibility)
+; ==========================================================================
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env_main")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866, -0.354, 0.354, 0, 0.707, 0.707, -0.5, -0.612, 0.612, 0, 20, 40)
+light_color = Color(0.95, 0.97, 1, 1)
+light_energy = 1.1
+shadow_enabled = true
+
+; ==========================================================================
+; DEBUG : grand plancher 50×100 m à Y=-0.5 pour rendu + safety net
+; ==========================================================================
+[node name="DebugFloor" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 30)
+collision_layer = 8
+collision_mask = 0
+
+[node name="DebugFloorMesh" type="MeshInstance3D" parent="DebugFloor"]
+mesh = SubResource("mesh_debug_floor")
+
+[node name="DebugFloorShape" type="CollisionShape3D" parent="DebugFloor"]
+shape = SubResource("shape_debug_floor")
+
+; ==========================================================================
+; Player — élevé à Y=3 pour avoir la vue dégagée + valider rendu
+; ==========================================================================
+[node name="Player" parent="." instance=ExtResource("7_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.0, 2)
+
+; ==========================================================================
+; StaticEnvironment
+; ==========================================================================
+
+[node name="StaticEnvironment" type="Node3D" parent="."]
+
+; --------------------------------------------------------------------------
+; Room_01 — TRAVERSAL (0), origin (0,0,0), 4×4×6 m custom
+; --------------------------------------------------------------------------
+[node name="Room_01" type="Node3D" parent="StaticEnvironment"]
+script = ExtResource("1_room_script")
+archetype = 0
+
+[node name="Floor_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="FloorMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_01/Floor_01"]
+mesh = SubResource("mesh_floor_01")
+
+[node name="FloorShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/Floor_01"]
+shape = SubResource("shape_floor_01")
+
+[node name="WallLeft_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.15, 2.0, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallLeftMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_01/WallLeft_01"]
+mesh = SubResource("mesh_wall_01_lr")
+
+[node name="WallLeftShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/WallLeft_01"]
+shape = SubResource("shape_wall_01_l")
+
+[node name="WallRight_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.15, 2.0, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallRightMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_01/WallRight_01"]
+mesh = SubResource("mesh_wall_01_lr")
+
+[node name="WallRightShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/WallRight_01"]
+shape = SubResource("shape_wall_01_r")
+
+[node name="WallBack_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, -0.15)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallBackMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_01/WallBack_01"]
+mesh = SubResource("mesh_wall_01_back")
+
+[node name="WallBackShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/WallBack_01"]
+shape = SubResource("shape_wall_01_b")
+
+[node name="Ceiling_01" type="StaticBody3D" parent="StaticEnvironment/Room_01"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.15, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CeilingMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_01/Ceiling_01"]
+
+[node name="CeilingShape" type="CollisionShape3D" parent="StaticEnvironment/Room_01/Ceiling_01"]
+shape = SubResource("shape_ceil_01")
+
+; --------------------------------------------------------------------------
+; Room_02 — TRAVERSAL (0), origin (0,1.5,8), mezzanine primitive
+; --------------------------------------------------------------------------
+[node name="Room_02" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 8.0)
+script = ExtResource("1_room_script")
+archetype = 0
+
+[node name="Mezzanine_01" parent="StaticEnvironment/Room_02" instance=ExtResource("3_mezzanine")]
+
+; --------------------------------------------------------------------------
+; Room_03 — COMBAT (1), origin (0,2,14)
+; custom floor + 2 murs wall-run face-to-face + mezzanine
+; --------------------------------------------------------------------------
+[node name="Room_03" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 14.0)
+script = ExtResource("1_room_script")
+archetype = 1
+
+[node name="Floor_03" type="StaticBody3D" parent="StaticEnvironment/Room_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 0.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="FloorMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_03/Floor_03"]
+
+[node name="FloorShape" type="CollisionShape3D" parent="StaticEnvironment/Room_03/Floor_03"]
+shape = SubResource("shape_floor_03")
+
+; WallRunWall_01 — mur gauche wall-run, local X=-3.5, centré Z=0
+; size 0.3×4.5×4.0 → height 4.5 ≥ 4.0 ✓, length max(0.3,4.0)=4.0 ≥ 3.0 ✓
+[node name="WallRunWall_01" type="StaticBody3D" parent="StaticEnvironment/Room_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 2.25, 0.0)
+collision_layer = 8
+collision_mask = 0
+metadata/wall_run_enabled = true
+
+[node name="WallRunWall01Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_03/WallRunWall_01"]
+
+[node name="WallRunWall01Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_03/WallRunWall_01"]
+shape = SubResource("shape_wallrun_03_a")
+
+; WallRunWall_02 — mur droit wall-run, local X=+3.5, espacement 6 m face-to-face (EnemySlot à X=2)
+[node name="WallRunWall_02" type="StaticBody3D" parent="StaticEnvironment/Room_03"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.5, 2.25, 0.0)
+collision_layer = 8
+collision_mask = 0
+metadata/wall_run_enabled = true
+
+[node name="WallRunWall02Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_03/WallRunWall_02"]
+
+[node name="WallRunWall02Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_03/WallRunWall_02"]
+shape = SubResource("shape_wallrun_03_b")
+
+[node name="Mezzanine_02" parent="StaticEnvironment/Room_03" instance=ExtResource("3_mezzanine")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.0, 2.0)
+
+; --------------------------------------------------------------------------
+; Room_04 — TRAVERSAL (0), origin (0,4,26), shaft_connector
+; --------------------------------------------------------------------------
+[node name="Room_04" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0, 26.0)
+script = ExtResource("1_room_script")
+archetype = 0
+
+[node name="ShaftConnector_01" parent="StaticEnvironment/Room_04" instance=ExtResource("5_shaft_connector")]
+
+; --------------------------------------------------------------------------
+; Room_05 — COMBAT (1), origin (0,5,38), mezzanine
+; --------------------------------------------------------------------------
+[node name="Room_05" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, 38.0)
+script = ExtResource("1_room_script")
+archetype = 1
+
+[node name="Mezzanine_03" parent="StaticEnvironment/Room_05" instance=ExtResource("3_mezzanine")]
+
+; --------------------------------------------------------------------------
+; Room_06 — SHAFT (2), origin (0,6,48), vertical_shaft_room
+; --------------------------------------------------------------------------
+[node name="Room_06" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.0, 48.0)
+script = ExtResource("1_room_script")
+archetype = 2
+
+[node name="VerticalShaftRoom_01" parent="StaticEnvironment/Room_06" instance=ExtResource("6_vertical_shaft_room")]
+
+; --------------------------------------------------------------------------
+; Room_07 — SECRET_HUB (3), origin (0,16,58), atrium + mezzanine
+; --------------------------------------------------------------------------
+[node name="Room_07" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.0, 58.0)
+script = ExtResource("1_room_script")
+archetype = 3
+
+[node name="Atrium_01" parent="StaticEnvironment/Room_07" instance=ExtResource("4_atrium")]
+
+[node name="Mezzanine_04" parent="StaticEnvironment/Room_07" instance=ExtResource("3_mezzanine")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 0.0)
+
+; --------------------------------------------------------------------------
+; Room_08 — TRAVERSAL (0), origin (0,17,68), shaft_connector
+; --------------------------------------------------------------------------
+[node name="Room_08" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.0, 68.0)
+script = ExtResource("1_room_script")
+archetype = 0
+
+[node name="ShaftConnector_02" parent="StaticEnvironment/Room_08" instance=ExtResource("5_shaft_connector")]
+
+; --------------------------------------------------------------------------
+; Room_09 — TRAVERSAL (0), origin (0,17,78), 6×4×6 m custom
+; --------------------------------------------------------------------------
+[node name="Room_09" type="Node3D" parent="StaticEnvironment"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.0, 78.0)
+script = ExtResource("1_room_script")
+archetype = 0
+
+[node name="Floor_09" type="StaticBody3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.15, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="FloorMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/Floor_09"]
+
+[node name="FloorShape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/Floor_09"]
+shape = SubResource("shape_floor_09")
+
+[node name="WallLeft_09" type="StaticBody3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.15, 2.0, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallLeftMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/WallLeft_09"]
+
+[node name="WallLeftShape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/WallLeft_09"]
+shape = SubResource("shape_wall_09_l")
+
+[node name="WallRight_09" type="StaticBody3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.15, 2.0, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallRightMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/WallRight_09"]
+
+[node name="WallRightShape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/WallRight_09"]
+shape = SubResource("shape_wall_09_r")
+
+[node name="WallBack_09" type="StaticBody3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, -0.15)
+collision_layer = 8
+collision_mask = 0
+
+[node name="WallBackMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/WallBack_09"]
+
+[node name="WallBackShape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/WallBack_09"]
+shape = SubResource("shape_wall_09_b")
+
+[node name="Ceiling_09" type="StaticBody3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.15, 3.0)
+collision_layer = 8
+collision_mask = 0
+
+[node name="CeilingMesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/Ceiling_09"]
+
+[node name="CeilingShape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/Ceiling_09"]
+shape = SubResource("shape_ceil_09")
+
+; ==========================================================================
+; InteractiveVolumes
+; ==========================================================================
+
+[node name="InteractiveVolumes" type="Node3D" parent="."]
+
+; --- RoomTrigger_01 --- doorway sortie Room_01 (is_doorway=true, width 4.0 ≥ 3.6 ✓)
+[node name="RoomTrigger_01" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 6.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+metadata/is_doorway = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_01"]
+shape = SubResource("shape_rt01")
+
+; --- RoomTrigger_02 ---
+[node name="RoomTrigger_02" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 11.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_02"]
+shape = SubResource("shape_rt02")
+
+; --- RoomTrigger_03 ---
+[node name="RoomTrigger_03" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, 20.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_03"]
+shape = SubResource("shape_rt03")
+
+; --- RoomTrigger_04 ---
+[node name="RoomTrigger_04" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.0, 30.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_04"]
+shape = SubResource("shape_rt04")
+
+; --- RoomTrigger_05 ---
+[node name="RoomTrigger_05" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.0, 43.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_05"]
+shape = SubResource("shape_rt05")
+
+; --- RoomTrigger_06 ---
+[node name="RoomTrigger_06" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 11.0, 52.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_06"]
+shape = SubResource("shape_rt06")
+
+; --- RoomTrigger_07 ---
+[node name="RoomTrigger_07" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.0, 62.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_07"]
+shape = SubResource("shape_rt07")
+
+; --- RoomTrigger_08 ---
+[node name="RoomTrigger_08" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 19.0, 72.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_08"]
+shape = SubResource("shape_rt08")
+
+; --- RoomTrigger_09 ---
+[node name="RoomTrigger_09" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 19.0, 81.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/RoomTrigger_09"]
+shape = SubResource("shape_rt09")
+
+; --- CheckpointVolume_01 — avant Room_03 ---
+[node name="CheckpointVolume_01" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.8, 13.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/CheckpointVolume_01"]
+shape = SubResource("shape_cpv01")
+
+; --- CheckpointVolume_02 — entrée Room_06 ---
+[node name="CheckpointVolume_02" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.2, 47.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/CheckpointVolume_02"]
+shape = SubResource("shape_cpv02")
+
+; --- CheckpointVolume_03 — entrée Room_09 ---
+[node name="CheckpointVolume_03" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.2, 78.5)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/CheckpointVolume_03"]
+shape = SubResource("shape_cpv03")
+
+; --- SecretCollectVolume_01 — sommet shaft Room_06 ---
+[node name="SecretCollectVolume_01" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.0, 53.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/SecretCollectVolume_01"]
+shape = SubResource("shape_scv01")
+
+; --- SecretCollectVolume_02 — sommet Atrium Room_07 ---
+[node name="SecretCollectVolume_02" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 36.0, 61.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/SecretCollectVolume_02"]
+shape = SubResource("shape_scv02")
+
+; --- SecretCollectVolume_03 — secret Room_08, required_ability=none (AC-LVL-46 ≥ 3 secrets) ---
+[node name="SecretCollectVolume_03" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.0, 72.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/SecretCollectVolume_03"]
+shape = SubResource("shape_scv03")
+
+; --- WorldBoundsVolume --- BoxShape3D obligatoire (ADR-0011 REQ-9)
+[node name="WorldBoundsVolume" type="Area3D" parent="InteractiveVolumes"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.0, 42.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveVolumes/WorldBoundsVolume"]
+shape = SubResource("shape_wbv")
+
+; ==========================================================================
+; SpawnMarkers
+; ==========================================================================
+
+[node name="SpawnMarkers" type="Node3D" parent="."]
+
+; PlayerStart unique — (0, 0.1, 2) — AC-LVL-18
+[node name="PlayerStart" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 2.0)
+
+; Enemy slots
+[node name="EnemySlot_01" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 2.0, 22.0)
+
+[node name="EnemySlot_02" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 5.0, 42.0)
+
+[node name="EnemySlot_03" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 5.0, 44.0)
+
+[node name="EnemySlot_04" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.5, 62.0)
+
+; Checkpoint anchors — appairés avec CheckpointVolume_NN, distance ≤ 10 m (AC-LVL-19)
+; CheckpointAnchor_01 : volume (0,1.8,13), anchor (0,2.2,13) → dist ≈ 0.4 m ✓
+[node name="CheckpointAnchor_01" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 13.0)
+
+; CheckpointAnchor_02 : volume (0,6.2,47), anchor (0,6.5,47) → dist ≈ 0.3 m ✓
+[node name="CheckpointAnchor_02" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 6.5, 47.0)
+
+; CheckpointAnchor_03 : volume (0,17.2,78.5), anchor (0,17.5,78.5) → dist ≈ 0.3 m ✓
+[node name="CheckpointAnchor_03" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.5, 78.5)
+
+; Secret Lure Markers (triplets requis AC-LVL-53)
+; Secret_01 : wall_run — sommet shaft Room_06 — lure visible depuis le bas
+[node name="SecretLureMarker_01" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.0, 52.0)
+script = ExtResource("2_secret_lure_script")
+required_ability = &"wall_run"
+
+; Secret_02 : dash — sommet Atrium Room_07
+[node name="SecretLureMarker_02" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 35.0, 60.0)
+script = ExtResource("2_secret_lure_script")
+required_ability = &"dash"
+
+; Secret_03 : none — Room_08, caché derrière le shaft connector (AC-LVL-46 count ≥ 3)
+[node name="SecretLureMarker_03" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.0, 70.0)
+script = ExtResource("2_secret_lure_script")
+required_ability = &"none"
+
+; Secret Anchors (Content Anchors — triplet AC-LVL-53)
+[node name="SecretAnchor_01" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 16.2, 53.0)
+
+[node name="SecretAnchor_02" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 36.2, 61.0)
+
+[node name="SecretAnchor_03" type="Marker3D" parent="SpawnMarkers"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20.2, 72.0)
+
+; ==========================================================================
+; OnboardingAnchors — étage 1 uniquement (ADR-0011 D-2, AC-LVL-54)
+; ==========================================================================
+
+[node name="OnboardingAnchors" type="Node3D" parent="."]
+
+; FirstEnemySightline : (0, 2, 16) absolu
+; PlayerStart (0, 0.1, 2) → distance = sqrt(0 + (2-0.1)^2 + (16-2)^2) = sqrt(3.61 + 196) = sqrt(199.61) ≈ 14.13 m ≤ 15 m ✓
+[node name="FirstEnemySightline" type="Marker3D" parent="OnboardingAnchors"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, 16.0)
+
+; SafeZoneCenter : (-3, 2, 15) absolu
+; Distance EnemySlot_01 (2, 2, 22) → sqrt(25 + 0 + 49) = sqrt(74) ≈ 8.6 m ≥ 6 m ✓
+[node name="SafeZoneCenter" type="Marker3D" parent="OnboardingAnchors"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 2.0, 15.0)
+
+; ==========================================================================
+; EtageExitTrigger — top-level direct (ADR-0011 D-2, fires-once AC-LVL-24)
+; Position (0, 17, 84) — delta Y depuis PlayerStart (0.1) = 16.9 m ∈ [15, 60] ✓ (AC-LVL-48)
+; ==========================================================================
+
+[node name="EtageExitTrigger" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 17.0, 84.0)
+collision_layer = 16
+collision_mask = 1
+monitorable = false
+monitoring = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="EtageExitTrigger"]
+shape = SubResource("shape_exit")
