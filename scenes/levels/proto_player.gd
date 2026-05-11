@@ -161,10 +161,10 @@ func _tick_timers(delta: float) -> void:
 		if dash_timer <= 0.0:
 			is_dashing = false
 			velocity = dash_dir * MOVE_SPEED
-	if not can_dash:
-		dash_cooldown_timer -= delta
-		if dash_cooldown_timer <= 0.0:
-			can_dash = true
+	# Nouvelle règle : dash recharge UNIQUEMENT au contact du sol (pas de cooldown temps).
+	if not can_dash and is_on_floor() and not is_dashing:
+		can_dash = true
+		dash_cooldown_timer = 0.0
 
 func _update_wall_state() -> void:
 	var hit_left: bool = wall_ray_left.is_colliding()
@@ -216,7 +216,9 @@ func _start_dash(wish_dir: Vector3) -> void:
 	is_dashing = true
 	dash_timer = DASH_DURATION
 	can_dash = false
-	dash_cooldown_timer = DASH_COOLDOWN
+	# Nouvelle règle : dash en l'air = 1 max (recharge au sol seulement).
+	# Cooldown timer placeholder pour HUD bar vide jusqu'à atterrissage.
+	dash_cooldown_timer = DASH_COOLDOWN * 999.0
 	# Étape 7/10 — Camera shake léger au dash pour punch.
 	if katana and katana.has_method("camera_shake_at"):
 		katana.camera_shake_at(0.025, 2)
