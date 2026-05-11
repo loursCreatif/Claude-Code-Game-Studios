@@ -241,6 +241,11 @@ func get_onboarding_anchors() -> Dictionary: return _queries.get_onboarding_anch
 
 # Internal state accessors — usage handlers composition uniquement.
 func _get_scene_root() -> Node3D: return _current_scene_root
+## Proxy vers `LevelPlayerTracker.discover_player_start()` — préserve l'API publique
+## utilisée par les tests unitaires existants (TD-008 split). Délégation pure.
+func _discover_player_start(root: Node3D) -> Vector3: return _player_tracker.discover_player_start(root)
+
+
 func _get_last_valid_position() -> Vector3: return _player_tracker.get_last_valid_position()
 func _get_out_of_world_emitted() -> bool: return _player_tracker.get_out_of_world_emitted()
 func _set_out_of_world_emitted(value: bool) -> void: _player_tracker.set_out_of_world_emitted(value)

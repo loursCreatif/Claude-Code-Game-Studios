@@ -286,6 +286,13 @@ func _unhandled_input(event: InputEvent) -> void:
 # Public methods
 # ---------------------------------------------------------------------------
 
+## Proxy vers `InputLatencyTracker.record_sample()` — préserve l'API privée utilisée
+## par les tests unitaires existants (TD-008 split). Délégation pure zero-alloc.
+func _record_latency_sample(value_ms: float, ts_usec: int) -> void:
+	_latency.record_sample(value_ms, ts_usec)
+	last_input_to_publish_latency_ms = _latency.last_latency_ms
+
+
 ## Retourne true si [param action] a été pressée ce tick (edge-triggered).
 ## API canonique de polling gameplay (TR-inp-001, ADR-0004 D-1).
 ## Retourne false si le manager est désactivé.

@@ -225,18 +225,25 @@ func test_combat_shapecast_origin_updated_per_tick_during_swinging() -> void:
 # AC-5 — Ownership grep : `_prev_position` writes uniquement dans combat_system.gd
 # ---------------------------------------------------------------------------
 
-## AC-5 : aucun fichier `.gd` hors `src/gameplay/combat/combat_system.gd` n'écrit
+## AC-5 : aucun fichier `.gd` hors `src/gameplay/combat/` n'écrit
 ## `._prev_position` (assignment ou augmented assignment).
+##
+## Note TD-008 split : tous les fichiers `src/gameplay/combat/*.gd` sont des
+## composition handlers appartenant à CombatSystem (combat_system.gd +
+## combat_tick_handler.gd + combat_hit_handler.gd + combat_lifecycle_handler.gd +
+## combat_slow_mo_handler.gd). L'invariant ADR-0006 D-3 reste préservé : seul
+## CombatSystem (et ses handlers internes) écrit `_prev_position` — pas de
+## consommateur externe (camera/VFX/audio/level).
 ##
 ## Pattern recherché : `\._prev_position\s*=` (assignment direct).
 ## Lignes commentées (`#`) exemptées.
 func test_no_external_writes_to_combat_prev_position() -> void:
-	var combat_path: String = "res://src/gameplay/combat/combat_system.gd"
+	var combat_dir: String = "res://src/gameplay/combat/"
 	var regex: RegEx = RegEx.new()
 	regex.compile("\\._prev_position\\s*=")
 
 	var violations: Array[String] = []
-	_scan_dir_recursive(SRC_DIR, regex, combat_path, violations)
+	_scan_dir_recursive(SRC_DIR, regex, combat_dir, violations)
 
 	assert_int(violations.size()) \
 		.override_failure_message(
@@ -246,11 +253,13 @@ func test_no_external_writes_to_combat_prev_position() -> void:
 		.is_equal(0)
 
 
-## Scan récursif du dossier `src/` à la recherche du pattern, en excluant `excluded_path`.
+## Scan récursif du dossier `src/` à la recherche du pattern, en excluant tout
+## fichier sous `excluded_dir_prefix` (préfixe de path — autorise un dossier entier
+## pour les composition handlers, pattern TD-008).
 func _scan_dir_recursive(
 		dir_path: String,
 		regex: RegEx,
-		excluded_path: String,
+		excluded_dir_prefix: String,
 		violations: Array[String]
 ) -> void:
 	var dir: DirAccess = DirAccess.open(dir_path)
@@ -265,8 +274,8 @@ func _scan_dir_recursive(
 			continue
 		var sub_path: String = dir_path + entry
 		if dir.current_is_dir():
-			_scan_dir_recursive(sub_path + "/", regex, excluded_path, violations)
-		elif entry.ends_with(".gd") and sub_path != excluded_path:
+			_scan_dir_recursive(sub_path + "/", regex, excluded_dir_prefix, violations)
+		elif entry.ends_with(".gd") and not sub_path.begins_with(excluded_dir_prefix):
 			var file: FileAccess = FileAccess.open(sub_path, FileAccess.READ)
 			if file == null:
 				entry = dir.get_next()

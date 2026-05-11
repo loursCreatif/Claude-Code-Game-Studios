@@ -179,6 +179,9 @@ func _check_file_for_pattern(
 		var stripped: String = line.strip_edges()
 		if stripped.begins_with("#"):
 			continue
+		# Skip lignes annotées `lint-vfx-pool-ok` (parité shell lint vfx-anti-patterns.md)
+		if line.find("lint-vfx-pool-ok") != -1:
+			continue
 		if pattern.search(line) != null:
 			out_violations.append("%s:%d: %s" % [file_path, line_num, stripped])
 	f.close()

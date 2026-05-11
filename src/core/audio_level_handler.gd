@@ -78,8 +78,12 @@ func connect_gsm_signals(root: Node) -> void:
 		return
 	if not gsm.has_signal(&"state_changed"):
 		return
-	if not gsm.state_changed.is_connected(_on_state_changed):
-		gsm.state_changed.connect(_on_state_changed, CONNECT_DEFERRED)
+	# Connecte AudioSystem._on_state_changed (proxy qui délègue à _level._on_state_changed)
+	# au lieu de notre propre _on_state_changed handler. Préserve l'invariant que la
+	# connexion appartient au Node AudioSystem (pas au RefCounted handler) pour les
+	# tests d'idempotence existants (test_connect_gsm_signals_idempotent).
+	if not gsm.state_changed.is_connected(_audio._on_state_changed):
+		gsm.state_changed.connect(_audio._on_state_changed, CONNECT_DEFERRED)
 
 
 # ---------------------------------------------------------------------------
