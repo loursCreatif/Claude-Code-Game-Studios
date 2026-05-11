@@ -56,6 +56,24 @@ func _on_etage_exit(body: Node) -> void:
 func _has_grunts_already() -> bool:
 	return find_child("Grunt_*", true, false) != null
 
+func _process(_delta: float) -> void:
+	# Grunts AI tracking : tourne leur FacingPivot vers le Player.
+	var player: Node3D = find_child("Player", true, false) as Node3D
+	if player == null:
+		return
+	for grunt: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if not (grunt is Node3D):
+			continue
+		var pivot: Node3D = grunt.get_node_or_null("%FacingPivot") as Node3D
+		if pivot == null:
+			continue
+		var to_player: Vector3 = player.global_position - (grunt as Node3D).global_position
+		to_player.y = 0.0
+		if to_player.length_squared() < 0.01:
+			continue
+		var target_yaw: float = atan2(to_player.x, to_player.z) + PI
+		pivot.global_rotation.y = lerp_angle(pivot.global_rotation.y, target_yaw, 0.05)
+
 func _dispose_main_menu_if_present() -> void:
 	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
 	# get_tree().current_scene et les inputs ne seraient plus routés correctement.
