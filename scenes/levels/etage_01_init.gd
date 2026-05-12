@@ -6,6 +6,47 @@ extends Node3D
 func _ready() -> void:
 	InputManager.set_mouse_captured(true)
 	_spawn_boss_marker()
+	_start_ambient_music()
+
+func _start_ambient_music() -> void:
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.stream = _create_drone()
+	player.volume_db = -12.0
+	player.bus = &"Master"
+	add_child(player)
+	player.play()
+
+func _create_drone() -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 22050
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	var sample_count: int = 22050 * 8
+	stream.loop_begin = 0
+	stream.loop_end = sample_count
+	var bytes: PackedByteArray = PackedByteArray()
+	bytes.resize(sample_count * 2)
+	for i: int in range(sample_count):
+		var t: float = float(i) / 22050.0
+		var s: float = 0.0
+		# Drone bass A1 (55Hz) + octave A2 (110Hz)
+		s += sin(t * TAU * 55.0) * 0.32
+		s += sin(t * TAU * 110.0) * 0.16
+		# Modulated A3 (220Hz) — slow vibrato
+		s += sin(t * TAU * 220.0 + sin(t * 0.4) * 0.35) * 0.08
+		# Pad E2 (82Hz) + B2 (123Hz) for chord
+		s += sin(t * TAU * 82.0) * 0.10
+		s += sin(t * TAU * 123.0) * 0.06
+		# Subtle high shimmer C4 (261Hz) with slow fade
+		s += sin(t * TAU * 261.0) * 0.04 * (0.5 + 0.5 * sin(t * 0.25))
+		# Very low rumble noise
+		s += (randf() - 0.5) * 0.015
+		# Clamp + convert 16-bit signed
+		var sample: int = int(clamp(s, -1.0, 1.0) * 32600.0)
+		bytes[i * 2] = sample & 0xFF
+		bytes[i * 2 + 1] = (sample >> 8) & 0xFF
+	stream.data = bytes
+	return stream
 
 func _spawn_boss_marker() -> void:
 	# Label3D "BOSS" flottant rouge au-dessus de la zone boss (Z=80 Y=4).
