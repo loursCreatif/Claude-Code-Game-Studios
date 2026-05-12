@@ -65,11 +65,8 @@ var _tilt_mult: float = 1.0
 var _fov_kick_mult: float = 1.0
 var _shake_mult: float = 1.0
 
-# Perf ring buffers (story 012, GDD AC-CAM-80/81, ADR-0004 D-8 zero-alloc runtime).
-var _process_cost_samples: PackedFloat32Array = PackedFloat32Array()
-var _process_cost_write_idx: int = 0
-var _latency_samples: PackedFloat32Array = PackedFloat32Array()
-var _latency_write_idx: int = 0
+# Perf ring buffers — délégués à CameraPerfMetrics (TD-008 SPLIT #3, story 012).
+var _perf_metrics: CameraPerfMetrics = null
 
 # Settings persistence (story 013, ADR-0014).
 var settings: CameraSettings = null
@@ -77,12 +74,12 @@ var suppress_settings_load: bool = false
 
 
 func _ready() -> void:
-	# Story 012: pré-alloue ring buffers AVANT early-return (écriture _process ne sort jamais
-	# hors-bounds même si vars injectées post-_ready).
-	if _process_cost_samples.size() == 0:
-		_process_cost_samples.resize(PROCESS_COST_CAPACITY)
-	if _latency_samples.size() == 0:
-		_latency_samples.resize(LATENCY_CAPACITY)
+	# Story 012 / TD-008 SPLIT #3: délégation ring buffers à CameraPerfMetrics.
+	# Pré-allocation AVANT early-return (écriture _process ne sort jamais hors-bounds
+	# même si vars injectées post-_ready).
+	if _perf_metrics == null:
+		_perf_metrics = CameraPerfMetrics.new()
+	_perf_metrics.init(PROCESS_COST_CAPACITY, LATENCY_CAPACITY)
 
 	if _camera_effects == null:
 		assert(PITCH_LIMIT < PI / 2.0, "CameraSystem: PITCH_LIMIT must stay strictly under PI/2")
@@ -155,8 +152,7 @@ func _process(delta: float) -> void:
 	_update_fov_dash(delta)
 	_update_shake(delta)
 	var elapsed_ms: float = float(Time.get_ticks_usec() - t_start) / 1000.0
-	_process_cost_samples[_process_cost_write_idx] = elapsed_ms
-	_process_cost_write_idx = (_process_cost_write_idx + 1) % PROCESS_COST_CAPACITY
+	_perf_metrics.record_process_cost(elapsed_ms)
 
 
 ## Story 011 / GDD Edge Case: détecte NaN sur camera_effects.rotation.z. AC-CAM-NAN-1.
@@ -336,8 +332,7 @@ func _on_mouse_motion(delta: Vector2) -> void:
 	_camera_arm.rotation.x = clamp(
 		_camera_arm.rotation.x + pitch_delta, -PITCH_LIMIT, PITCH_LIMIT)
 	var latency_ms: float = float(Time.get_ticks_usec() - t_event) / 1000.0
-	_latency_samples[_latency_write_idx] = latency_ms
-	_latency_write_idx = (_latency_write_idx + 1) % LATENCY_CAPACITY
+	_perf_metrics.record_latency(latency_ms)
 
 
 # Public getters — node refs (story 001)
@@ -376,26 +371,15 @@ func _load_settings() -> void:
 
 
 # Public API — perf instrumentation (story 012, GDD AC-CAM-80/81)
+# Délègue à CameraPerfMetrics (TD-008 SPLIT #3). API publique préservée.
 
 ## Retourne {p50, p99} du coût _process en ms. GDD AC-CAM-80: p50 ≤ 0.2 ms, p99 ≤ 0.4 ms.
 func get_process_cost_percentiles() -> Dictionary:
-	return _compute_percentiles(_process_cost_samples)
+	return _perf_metrics.get_process_cost_percentiles()
 
 ## Retourne {p50, p99} de la latence mouse_motion→rotation en ms. GDD AC-CAM-81: p99 ≤ 16 ms.
 func get_mouse_latency_percentiles() -> Dictionary:
-	return _compute_percentiles(_latency_samples)
-
-## Tri sur duplicate() — zero-alloc côté caller. n==0 → zeros.
-func _compute_percentiles(samples: PackedFloat32Array) -> Dictionary:
-	var n: int = samples.size()
-	if n == 0:
-		return {"p50": 0.0, "p99": 0.0}
-	var sorted: PackedFloat32Array = samples.duplicate()
-	sorted.sort()
-	return {
-		"p50": sorted[int(float(n) * 0.50)],
-		"p99": sorted[int(float(n) * 0.99)],
-	}
+	return _perf_metrics.get_mouse_latency_percentiles()
 
 
 # Public API — aim_forward (story 004, TR-cam-002, ADR-0002 Formula 5 + VC-4)

@@ -6,7 +6,7 @@
 >
 > Mise à jour : alimentée par `/story-done`, `/code-review`, `/architecture-review`, `/tech-debt`.
 >
-> **Dernière mise à jour** : 2026-05-11 (PM·2) — TD-017 RESOLVED (7 agents accessibility-specialist parallèles) + nouvelle session Cluster B reviews WIP étage 1 + GDScript fixes `run_level_lint.gd` / `test_load_etage_01.gd → debug_load_etage_01.gd`.
+> **Dernière mise à jour** : 2026-05-12 (godot-specialist) — TD-008 audit read-only complet : plan `production/tech-debt/td-008-split-plan-2026-05-12.md` créé — 5 DONE / 3 SPLIT possible / 2 DEFER. TD-010 RESOLVED : `AutoloadResetHelper` composition pattern + opt-in 4 suites pollution (`story_009_respawn_fade_flash_test` + `test_movement_signals_typed_contract` migrées ; `main_menu_boot_test` + `no_alloc_play_2d_test` déjà migrées).
 
 ## Format
 
@@ -19,61 +19,37 @@
 
 ---
 
-### TD-008 — audio_system.gd + camera_system.gd + movement_controller.gd : fichiers > 300 lignes — OPEN
+### TD-008 — fichiers > 300 lignes — PARTIALLY RESOLVED (audit 2026-05-12)
 
 | Champ | Valeur |
 |-------|--------|
-| **Date** | 2026-05-11 |
+| **Date** | 2026-05-11 → **Audit 2026-05-12** |
 | **Origine** | scan wc -l src/ (CLAUDE.md : files under 300 lines) |
 | **Sévérité** | ADVISORY |
 | **Priorité** | P3 nice-to-have |
-| **Coût** | M–L (4-12h par fichier) |
-| **Fichiers** | `audio_system.gd` (1149 l.) · `camera_system.gd` (990 l.) · `movement_controller.gd` (917 l.) · `level_system.gd` (893 l.) · `combat_system.gd` (864 l.) · `vfx_system.gd` (777 l.) · `input_manager.gd` (658 l.) · `shop_controller.gd` (401 l.) · `credit_economy.gd` (349 l.) |
+| **Coût résiduel** | S (2-3 h shop) + S (3-4 h credit) + M (camera optionnel) |
+| **Plan** | `production/tech-debt/td-008-split-plan-2026-05-12.md` |
 | **Sprint suggéré** | Production (opportuniste, à ne pas bloquer livraison) |
 
-**Description** : 9 fichiers dépassent le seuil 300 lignes (standard CLAUDE.md). Les systèmes Core/Foundation sont par nature denses (autoloads monolithiques par conception ADR). Le split n'est pas nécessairement applicable sans un ADR de refactoring (ex. AudioSystem : ADR-0009 impose un autoload unique). Évaluer au cas par cas.
+**Résultat audit 2026-05-12** : le split a été massivement réalisé lors des epics précédentes (21 modules helpers extraits). Comptages réels vs registre :
 
-**Note** : Les 4 plus gros (`audio_system`, `camera_system`, `movement_controller`, `level_system`) ont tous des ADRs ratifiés justifiant leur structure. Le split n'est envisageable qu'en extrayant des helper modules stateless (ex. formules, sous-états).
+| Fichier | Registre | Actuel | Verdict |
+|---------|----------|--------|---------|
+| `audio_system.gd` | 1 149 l. | 544 l. | DONE (3 handlers extraits) |
+| `movement_controller.gd` | 917 l. | 652 l. | DEFER — hot-path ADR-0005 D-4 non-délégable |
+| `level_system.gd` | 893 l. | 301 l. | DONE (4 handlers extraits) |
+| `combat_system.gd` | 864 l. | 299 l. | DONE (4 handlers extraits, sous seuil) |
+| `vfx_system.gd` | 777 l. | 306 l. | DONE (5 handlers extraits) |
+| `input_manager.gd` | 658 l. | 439 l. | DEFER — hot-path ADR-0004 D-8 zero-alloc |
+| `camera_system.gd` | 990 l. | 410 l. | SPLIT possible — `camera_perf_metrics.gd` (~50 l.) |
+| `shop_controller.gd` | 401 l. | 401 l. | SPLIT recommandé — `shop_animations.gd` (~116 l.) |
+| `credit_economy.gd` | 349 l. | 349 l. | SPLIT possible — `credit_signal_handlers.gd` (~178 l.) |
+
+**Résidu actionnable** : 3 fichiers (shop > camera > credit). 5 DONE. 2 DEFER ADR-bound.
 
 **Trigger re-prio** : si la complexité cyclomatique dépasse 10 dans une méthode identifiée en code review, passer P2 et créer une story dédiée.
 
 ---
-
-### TD-009 — level_frame_time_runner.gd : accès membres privés LevelSystem — OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-11 |
-| **Origine** | scan tests/ (grep TECH-DEBT) |
-| **Sévérité** | ADVISORY |
-| **Priorité** | P3 nice-to-have |
-| **Coût** | S (2-4h) |
-| **Fichier** | `tests/performance/level_frame_time_runner.gd` ligne 331 |
-| **Sprint suggéré** | Sprint 1 Production (si AC-LVL-42 story-023 scope le permet) |
-
-**Description** : Le runner de performance accède à `_state` et `_connect_room_triggers` (membres privés de `LevelSystem`) directement — encapsulation breach documentée. Corriger en exposant une API test-only (`inject_state_for_test` à la manière de `inject_pressed_for_test` InputManager) ou en passant par le signal `room_entered`.
-
-**Trigger re-prio** : si `LevelSystem` est refactorisé et que les membres privés sont renommés/supprimés, ce test casse silencieusement (pas de type checking GDScript sur accès dynamique).
-
----
-
-### TD-010 — Tests cross-suite pollution (4 suites) — DEFER OPEN
-
-| Champ | Valeur |
-|-------|--------|
-| **Date** | 2026-05-09 → DEFER |
-| **Origine** | Story W-4 diagnostic (`production/tech-debt/story-w4-test-infra-autoload-reset-between-suites.md`) |
-| **Sévérité** | ADVISORY |
-| **Priorité** | P2 important |
-| **Coût** | S (3-5h) — base class + 4 opt-in suites |
-| **Fichiers** | `tests/helpers/` (à créer) + 4 suites : `main_menu_boot_test.gd` · `no_alloc_play_2d_test.gd` · `story_009_respawn_fade_flash_test.gd` · `test_movement_signals_typed_contract.gd` |
-| **Sprint suggéré** | Sprint 1 Production (post-régressions per-epic résolues) |
-
-**Description** : 4 / 1117 tests échouent en sweep complet mais passent en isolation — vraies pollutions cross-suite (0.36 % volume). Cause : `GSM._current_state`, `AudioSystem` pool, `VFX._flash_active`, signal refcount non restaurés entre suites. Plan : `AutoloadResetTestSuite` base class avec snapshot/restore dans `before_test/after_test`.
-
-**ACs** : voir `production/tech-debt/story-w4-test-infra-autoload-reset-between-suites.md`.
-
-**Trigger re-prio** : si les régressions per-epic sont toutes résolues et que les 4 pollutions persistent, passer P1 bloquant smoke run complet.
 
 ---
 
@@ -150,6 +126,24 @@
 ---
 
 ## Résolu récemment
+
+---
+
+### TD-009 — level_frame_time_runner.gd : accès membres privés LevelSystem — RESOLVED 2026-05-12
+
+| Champ | Valeur |
+|-------|--------|
+| **Date** | 2026-05-11 → **Resolved 2026-05-12** |
+| **Origine** | scan tests/ (grep TECH-DEBT) |
+| **Sévérité** | ADVISORY |
+| **Coût** | S (2-4h estimé → XS effectif — API déjà présente) |
+| **Fichiers** | `src/gameplay/level/level_system.gd` · `src/gameplay/level/level_trigger_handler.gd` · `tests/performance/level_frame_time_runner.gd` |
+
+**Action appliquée 2026-05-12** (commit hash : TBD — Martin valide) :
+- `LevelSystemScript.prepare_for_perf_runner(root: Node3D)` : API debug-only (no-op release) qui passe `_state = ACTIVE` et délègue à `_triggers.connect_room_triggers_only(root)`. Pattern miroir `inject_pressed_for_test` (InputManager) + `_simulate_load_elapsed_ms` (LevelSystem story-004).
+- `LevelTriggerHandler.connect_room_triggers_only(root: Node3D)` : méthode publique encapsulant `_connect_room_triggers` — permet l'appel depuis `prepare_for_perf_runner` sans breach.
+- `level_frame_time_runner.gd` L333 : remplace les anciens accès `_state`/`_connect_room_triggers` par `_level_system.prepare_for_perf_runner(_current_fixture)`.
+- Zéro accès membre privé résiduel dans le runner.
 
 ---
 

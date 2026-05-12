@@ -13,6 +13,10 @@
 
 extends GdUnitTestSuite
 
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
+
 # ---------------------------------------------------------------------------
 # Scene preload
 # ---------------------------------------------------------------------------
@@ -44,6 +48,21 @@ class SignalSpy extends RefCounted:
 	func record_v3_v3(a: Vector3, b: Vector3) -> void:
 		count += 1
 		last_args = [a, b]
+
+
+# ---------------------------------------------------------------------------
+# Setup / teardown — AutoloadResetHelper composition (TD-010 opt-in)
+# ---------------------------------------------------------------------------
+
+func before_test() -> void:
+	# Snapshot autoloads (GSM + Engine + AudioSystem + VFXSystem) avant mutations
+	# pour éviter pollution cross-suite par signal refcount accumulé (TD-010).
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
+
+
+func after_test() -> void:
+	# Restaure autoloads — isole GSM._current_state muté par die()/respawn() (TD-010).
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------
