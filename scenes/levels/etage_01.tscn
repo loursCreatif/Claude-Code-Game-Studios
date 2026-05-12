@@ -69,6 +69,13 @@ size = Vector3(0.3, 4.5, 4.0)
 [sub_resource type="BoxShape3D" id="shape_floor_03"]
 size = Vector3(12.0, 0.3, 12.0)
 
+; WallRunWall Room_05 COMBAT — face-to-face X=±5, identiques à Room_03 (height 4.5 ≥ 4.0, length 4.0 ≥ 3.0)
+[sub_resource type="BoxShape3D" id="shape_wallrun_05_a"]
+size = Vector3(0.3, 4.5, 4.0)
+
+[sub_resource type="BoxShape3D" id="shape_wallrun_05_b"]
+size = Vector3(0.3, 4.5, 4.0)
+
 ; Room triggers (Area3D shapes)
 ; RoomTrigger_01 — doorway 4×4×0.5 m (is_doorway=true, largeur max(4,0.5)=4.0 > 3.6 ✓)
 [sub_resource type="BoxShape3D" id="shape_rt01"]
@@ -185,6 +192,10 @@ frequency = 0.08
 fractal_octaves = 3
 fractal_gain = 0.5
 
+[sub_resource type="Gradient" id="ramp_concrete"]
+offsets = PackedFloat32Array(0, 1)
+colors = PackedColorArray(0.35, 0.35, 0.38, 1, 0.65, 0.65, 0.68, 1)
+
 [sub_resource type="NoiseTexture2D" id="tex_concrete"]
 width = 256
 height = 256
@@ -192,10 +203,6 @@ seamless = true
 seamless_blend_skirt = 0.1
 color_ramp = SubResource("ramp_concrete")
 noise = SubResource("noise_concrete")
-
-[sub_resource type="Gradient" id="ramp_concrete"]
-offsets = PackedFloat32Array(0, 1)
-colors = PackedColorArray(0.35, 0.35, 0.38, 1, 0.65, 0.65, 0.68, 1)
 
 ; Plateformes parkour flottantes — gris béton unifié + texture noise.
 [sub_resource type="StandardMaterial3D" id="mat_parkour_platform"]
@@ -351,340 +358,364 @@ shadow_enabled = false
 ; ==========================================================================
 ; WALL-RUN GAUNTLET : 2 longs murs cyan parallèles Z=20→50, X=±5
 ; Le Player peut wall-run continuous 30m de long.
+; Déplacé sous StaticEnvironment (B3 fix — hors hiérarchie top-level ADR-0011 D-2)
+; Multi-rooms (Z=20→50 couvre Room_03..Room_05) → parent StaticEnvironment direct.
+; Transform identité préservée (parent était root, origin conservée).
 ; ==========================================================================
-[node name="GauntletWalls" type="Node3D" parent="."]
+[node name="GauntletWalls" type="Node3D" parent="StaticEnvironment"]
 
 ; Lights atmosphériques au plafond du gauntlet (3 spots cyan pour profondeur)
-[node name="GauntletLight_01" type="OmniLight3D" parent="GauntletWalls"]
+[node name="GauntletLight_01" type="OmniLight3D" parent="StaticEnvironment/GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 27.0)
 light_color = Color(0.40, 0.90, 1.0, 1)
 light_energy = 1.8
 omni_range = 8.0
 
-[node name="GauntletLight_02" type="OmniLight3D" parent="GauntletWalls"]
+[node name="GauntletLight_02" type="OmniLight3D" parent="StaticEnvironment/GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 36.0)
 light_color = Color(0.40, 0.90, 1.0, 1)
 light_energy = 1.8
 omni_range = 8.0
 
-[node name="GauntletLight_03" type="OmniLight3D" parent="GauntletWalls"]
+[node name="GauntletLight_03" type="OmniLight3D" parent="StaticEnvironment/GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 45.0)
 light_color = Color(0.40, 0.90, 1.0, 1)
 light_energy = 1.8
 omni_range = 8.0
 
-[node name="GauntletLeft" type="StaticBody3D" parent="GauntletWalls"]
+[node name="GauntletLeft" type="StaticBody3D" parent="StaticEnvironment/GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.0, 2.5, 35.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletLeft"]
 mesh = SubResource("mesh_gauntlet_wall")
 
-[node name="Shape" type="CollisionShape3D" parent="GauntletWalls/GauntletLeft"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/GauntletWalls/GauntletLeft"]
 shape = SubResource("shape_gauntlet_wall")
 
-[node name="LedTop" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletLeft"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 2.40, 0)
 mesh = SubResource("mesh_gauntlet_led")
 
-[node name="LedBot" type="MeshInstance3D" parent="GauntletWalls/GauntletLeft"]
+[node name="LedBot" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletLeft"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, -2.40, 0)
 mesh = SubResource("mesh_gauntlet_led")
 
-[node name="GauntletRight" type="StaticBody3D" parent="GauntletWalls"]
+[node name="GauntletRight" type="StaticBody3D" parent="StaticEnvironment/GauntletWalls"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 2.5, 35.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletRight"]
 mesh = SubResource("mesh_gauntlet_wall")
 
-[node name="Shape" type="CollisionShape3D" parent="GauntletWalls/GauntletRight"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/GauntletWalls/GauntletRight"]
 shape = SubResource("shape_gauntlet_wall")
 
-[node name="LedTop" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletRight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 2.40, 0)
 mesh = SubResource("mesh_gauntlet_led")
 
-[node name="LedBot" type="MeshInstance3D" parent="GauntletWalls/GauntletRight"]
+[node name="LedBot" type="MeshInstance3D" parent="StaticEnvironment/GauntletWalls/GauntletRight"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, -2.40, 0)
 mesh = SubResource("mesh_gauntlet_led")
 
 ; ==========================================================================
 ; Pylons gauntlet — 3 obstacles au sol qui forcent le wall-run.
+; Déplacé sous StaticEnvironment (B3 fix — ADR-0011 D-2).
+; Transform identité préservée (parent était root).
 ; ==========================================================================
-[node name="GauntletPylons" type="Node3D" parent="."]
+[node name="GauntletPylons" type="Node3D" parent="StaticEnvironment"]
 
-[node name="Pylon_01" type="StaticBody3D" parent="GauntletPylons"]
+[node name="Pylon_01" type="StaticBody3D" parent="StaticEnvironment/GauntletPylons"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 26.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_01"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_01"]
 mesh = SubResource("mesh_pylon")
 
-[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_01"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/GauntletPylons/Pylon_01"]
 shape = SubResource("shape_pylon")
 
-[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_01"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
 mesh = SubResource("mesh_pylon_led")
 
-[node name="Pylon_02" type="StaticBody3D" parent="GauntletPylons"]
+[node name="Pylon_02" type="StaticBody3D" parent="StaticEnvironment/GauntletPylons"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 35.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_02"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_02"]
 mesh = SubResource("mesh_pylon")
 
-[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_02"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/GauntletPylons/Pylon_02"]
 shape = SubResource("shape_pylon")
 
-[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_02"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
 mesh = SubResource("mesh_pylon_led")
 
-[node name="Pylon_03" type="StaticBody3D" parent="GauntletPylons"]
+[node name="Pylon_03" type="StaticBody3D" parent="StaticEnvironment/GauntletPylons"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 44.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="GauntletPylons/Pylon_03"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_03"]
 mesh = SubResource("mesh_pylon")
 
-[node name="Shape" type="CollisionShape3D" parent="GauntletPylons/Pylon_03"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/GauntletPylons/Pylon_03"]
 shape = SubResource("shape_pylon")
 
-[node name="LedTop" type="MeshInstance3D" parent="GauntletPylons/Pylon_03"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/GauntletPylons/Pylon_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.48, 0.97)
 mesh = SubResource("mesh_pylon_led")
 
 ; ==========================================================================
 ; Escalier ascendant final — vers Boss area (Z=76-82, Y=0.5→2.0).
+; Déplacé sous StaticEnvironment/Room_09 (B3 fix — ADR-0011 D-2).
+; Room_09 origin = (0,0,78). BossStairs transform = (0,0,-78) pour
+; annuler le décalage Room et conserver les positions globales des enfants.
 ; ==========================================================================
-[node name="BossStairs" type="Node3D" parent="."]
+[node name="BossStairs" type="Node3D" parent="StaticEnvironment/Room_09"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -78.0)
 
 ; Lights rouge danger ambient sur la zone boss
-[node name="BossLight_01" type="OmniLight3D" parent="BossStairs"]
+[node name="BossLight_01" type="OmniLight3D" parent="StaticEnvironment/Room_09/BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 4.0, 78.0)
 light_color = Color(1.0, 0.20, 0.20, 1)
 light_energy = 2.0
 omni_range = 7.0
 
-[node name="BossLight_02" type="OmniLight3D" parent="BossStairs"]
+[node name="BossLight_02" type="OmniLight3D" parent="StaticEnvironment/Room_09/BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 4.0, 82.0)
 light_color = Color(1.0, 0.20, 0.20, 1)
 light_energy = 2.0
 omni_range = 7.0
 
-[node name="Step_01" type="StaticBody3D" parent="BossStairs"]
+[node name="Step_01" type="StaticBody3D" parent="StaticEnvironment/Room_09/BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 76.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_01"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_01"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_01"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/BossStairs/Step_01"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_01"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_01"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="Step_02" type="StaticBody3D" parent="BossStairs"]
+[node name="Step_02" type="StaticBody3D" parent="StaticEnvironment/Room_09/BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 78.5)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_02"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_02"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_02"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/BossStairs/Step_02"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_02"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_02"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="Step_03" type="StaticBody3D" parent="BossStairs"]
+[node name="Step_03" type="StaticBody3D" parent="StaticEnvironment/Room_09/BossStairs"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 81.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="BossStairs/Step_03"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_03"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="BossStairs/Step_03"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_09/BossStairs/Step_03"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="BossStairs/Step_03"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="BossStairs/Step_03"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/Room_09/BossStairs/Step_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 ; ==========================================================================
 ; Cover columns combat arena (Z=55-72) — combat tactique.
+; Déplacé sous StaticEnvironment/Room_07 (B3 fix — ADR-0011 D-2).
+; Room_07 origin = (0,0,58). CoverColumns transform = (0,0,-58) pour
+; conserver les positions globales des enfants (Col_01 Z=58 global).
+; FIXME: Col_03 à Z=70 déborde sur Room_08 (Z=68) — acceptable MVP
+; (un node ne peut appartenir qu'à une room, Room_07 SECRET_HUB est la plus proche).
 ; ==========================================================================
-[node name="CoverColumns" type="Node3D" parent="."]
+[node name="CoverColumns" type="Node3D" parent="StaticEnvironment/Room_07"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -58.0)
 
-[node name="Col_01" type="StaticBody3D" parent="CoverColumns"]
+[node name="Col_01" type="StaticBody3D" parent="StaticEnvironment/Room_07/CoverColumns"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.5, 1.25, 58.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_01"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_01"]
 mesh = SubResource("mesh_cover_col")
 
-[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_01"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_01"]
 shape = SubResource("shape_cover_col")
 
-[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_01"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 mesh = SubResource("mesh_cover_col_led")
 
-[node name="Col_02" type="StaticBody3D" parent="CoverColumns"]
+[node name="Col_02" type="StaticBody3D" parent="StaticEnvironment/Room_07/CoverColumns"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1.25, 64.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_02"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_02"]
 mesh = SubResource("mesh_cover_col")
 
-[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_02"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_02"]
 shape = SubResource("shape_cover_col")
 
-[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_02"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 mesh = SubResource("mesh_cover_col_led")
 
-[node name="Col_03" type="StaticBody3D" parent="CoverColumns"]
+[node name="Col_03" type="StaticBody3D" parent="StaticEnvironment/Room_07/CoverColumns"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 70.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="CoverColumns/Col_03"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_03"]
 mesh = SubResource("mesh_cover_col")
 
-[node name="Shape" type="CollisionShape3D" parent="CoverColumns/Col_03"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_03"]
 shape = SubResource("shape_cover_col")
 
-[node name="LedTop" type="MeshInstance3D" parent="CoverColumns/Col_03"]
+[node name="LedTop" type="MeshInstance3D" parent="StaticEnvironment/Room_07/CoverColumns/Col_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.23, 0)
 mesh = SubResource("mesh_cover_col_led")
 
 ; ==========================================================================
 ; Parkour platforms — zigzag vertical entre Room_04 (Z=26) et Room_05 (Z=38)
+; Déplacé sous StaticEnvironment (B3 fix — ADR-0011 D-2).
+; PP_01 Z=9 (Room_02), PP_02 Z=13 (Room_03), PP_03 Z=55 (Room_07), PP_04 Z=75 (Room_08)
+; Couvre 4 rooms → parent StaticEnvironment direct. Transform identité préservée.
 ; ==========================================================================
-[node name="ParkourPlatforms" type="Node3D" parent="."]
+[node name="ParkourPlatforms" type="Node3D" parent="StaticEnvironment"]
 
-[node name="PP_01" type="StaticBody3D" parent="ParkourPlatforms"]
+[node name="PP_01" type="StaticBody3D" parent="StaticEnvironment/ParkourPlatforms"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 9.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_01"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_01"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/ParkourPlatforms/PP_01"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_01"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_01"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="PP_02" type="StaticBody3D" parent="ParkourPlatforms"]
+[node name="PP_02" type="StaticBody3D" parent="StaticEnvironment/ParkourPlatforms"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 13.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_02"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_02"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/ParkourPlatforms/PP_02"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_02"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_02"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="PP_03" type="StaticBody3D" parent="ParkourPlatforms"]
+[node name="PP_03" type="StaticBody3D" parent="StaticEnvironment/ParkourPlatforms"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 55.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_03"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_03"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/ParkourPlatforms/PP_03"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_03"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_03"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="PP_04" type="StaticBody3D" parent="ParkourPlatforms"]
+[node name="PP_04" type="StaticBody3D" parent="StaticEnvironment/ParkourPlatforms"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 75.0)
 collision_layer = 8
 collision_mask = 0
 
-[node name="Mesh" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+[node name="Mesh" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_04"]
 mesh = SubResource("mesh_parkour_platform")
 
-[node name="Shape" type="CollisionShape3D" parent="ParkourPlatforms/PP_04"]
+[node name="Shape" type="CollisionShape3D" parent="StaticEnvironment/ParkourPlatforms/PP_04"]
 shape = SubResource("shape_parkour_platform")
 
-[node name="LedN" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+[node name="LedN" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_04"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, -1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
-[node name="LedS" type="MeshInstance3D" parent="ParkourPlatforms/PP_04"]
+[node name="LedS" type="MeshInstance3D" parent="StaticEnvironment/ParkourPlatforms/PP_04"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 1.25)
 mesh = SubResource("mesh_parkour_led_edge")
 
 ; ==========================================================================
 ; Spire tower au fond — point focal lointain (Chrome Spire silhouette).
-; Z=120 au-delà du level (Player Z=2..84), Y=15 → s'élève dramatiquement.
+; Z=130 au-delà du level (Player Z=2..84), Y=15 → s'élève dramatiquement.
+; Déplacé sous StaticEnvironment (B3 fix — ADR-0011 D-2).
+; Décoratif global (aucune room ne couvre Z=130) → parent StaticEnvironment direct.
+; Transform identité préservée (parent était root).
 ; ==========================================================================
-[node name="SpireTowerBase" type="MeshInstance3D" parent="."]
+[node name="SpireTowerBase" type="MeshInstance3D" parent="StaticEnvironment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15.0, 130.0)
 mesh = SubResource("mesh_spire_base")
 
-[node name="SpireTowerTip" type="MeshInstance3D" parent="."]
+[node name="SpireTowerTip" type="MeshInstance3D" parent="StaticEnvironment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 36.0, 130.0)
 mesh = SubResource("mesh_spire_tip")
 
-[node name="SpireLED" type="MeshInstance3D" parent="."]
+[node name="SpireLED" type="MeshInstance3D" parent="StaticEnvironment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 42.3, 130.0)
 mesh = SubResource("mesh_spire_led")
 
 ; Ambient dust particles — atmosphère immersive (poussière flottante Chrome Spire).
-[node name="AmbientDust" type="CPUParticles3D" parent="."]
+; Déplacé sous StaticEnvironment (B3 fix — ADR-0011 D-2).
+; Particules globales (emission_box_extents 15×8×45 m) → parent StaticEnvironment direct.
+; Transform identité préservée.
+[node name="AmbientDust" type="CPUParticles3D" parent="StaticEnvironment"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.0, 40.0)
 emitting = false
 amount = 40
@@ -703,6 +734,9 @@ color = Color(0.85, 0.92, 1.0, 0.25)
 
 ; ==========================================================================
 ; DEBUG : safety floor MVP (comble les trous entre Mezzanine/ShaftConnector).
+; Déplacé sous StaticEnvironment (B3 fix — ADR-0011 D-2).
+; Safety floor global (100×1×120 m) → parent StaticEnvironment direct.
+; Transform identité préservée.
 ; ==========================================================================
 [node name="DebugFloor" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 40)
@@ -927,6 +961,29 @@ visible = false
 [node name="Mezzanine_03c" parent="StaticEnvironment/Room_05" instance=ExtResource("3_mezzanine")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 3.0, -2.0)
 visible = false
+
+; WallRunWall_01 Room_05 COMBAT — mur gauche, local X=-5.0, Y=2.25, Z=0 (centre de la room)
+; size 0.3×4.5×4.0 → height 4.5 ≥ 4.0 ✓, length 4.0 ≥ 3.0 ✓ (AC-LVL-15)
+; Aligné avec GauntletLeft (X=-5.0 absolu = X=-5.0 local car Room_05 origin X=0)
+[node name="WallRunWall_01" type="StaticBody3D" parent="StaticEnvironment/Room_05"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5.0, 2.25, 0.0)
+collision_layer = 8
+collision_mask = 0
+metadata/wall_run_enabled = true
+
+[node name="WallRunWall01Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_05/WallRunWall_01"]
+shape = SubResource("shape_wallrun_05_a")
+
+; WallRunWall_02 Room_05 COMBAT — mur droit, local X=+5.0, Y=2.25, Z=0
+; Aligné avec GauntletRight (X=+5.0 absolu)
+[node name="WallRunWall_02" type="StaticBody3D" parent="StaticEnvironment/Room_05"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.0, 2.25, 0.0)
+collision_layer = 8
+collision_mask = 0
+metadata/wall_run_enabled = true
+
+[node name="WallRunWall02Shape" type="CollisionShape3D" parent="StaticEnvironment/Room_05/WallRunWall_02"]
+shape = SubResource("shape_wallrun_05_b")
 
 ; --------------------------------------------------------------------------
 ; Room_06 — SHAFT (2), origin (0,6,48), vertical_shaft_room
