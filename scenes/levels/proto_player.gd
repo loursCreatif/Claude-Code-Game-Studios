@@ -419,6 +419,7 @@ func take_damage(amount: int) -> void:
 	_hp_regen_cooldown = HP_REGEN_DELAY
 	_hp_regen_accum = 0.0
 	_update_hp_bar()
+	_show_damage_indicator()
 	# Flash rouge écran.
 	var flash: ColorRect = get_node_or_null("HUDProto/KillFlash") as ColorRect
 	if flash != null:
@@ -532,3 +533,36 @@ func record_run_score(kills: int, wave: int) -> void:
 	if improved:
 		_save_highscore()
 		_update_highscore_label()
+
+
+func _show_damage_indicator() -> void:
+	# Trouve le grunt vivant le plus proche (= attacker probable), flash la bordure HUD correspondante.
+	var nearest: Node3D = null
+	var best_dist: float = 999.0
+	for g: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if not (g is Node3D):
+			continue
+		if g.has_method("is_dead") and g.is_dead():
+			continue
+		var d: float = global_position.distance_to((g as Node3D).global_position)
+		if d < best_dist:
+			best_dist = d
+			nearest = g as Node3D
+	if nearest == null:
+		return
+	# Direction relative au Player (transform local).
+	var to_attacker: Vector3 = nearest.global_position - global_position
+	to_attacker.y = 0.0
+	var local_dir: Vector3 = transform.basis.inverse() * to_attacker.normalized()
+	# Détermine quelle bordure flash : N (devant), S (derrière), E (droite), W (gauche).
+	var border_name: String = "DmgN"
+	if absf(local_dir.x) > absf(local_dir.z):
+		border_name = "DmgE" if local_dir.x > 0.0 else "DmgW"
+	else:
+		border_name = "DmgN" if local_dir.z < 0.0 else "DmgS"
+	var border: ColorRect = get_node_or_null("HUDProto/" + border_name) as ColorRect
+	if border == null:
+		return
+	border.color = Color(1, 0.10, 0.15, 0.55)
+	var tween: Tween = create_tween()
+	tween.tween_property(border, "color:a", 0.0, 0.9)

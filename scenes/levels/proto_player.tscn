@@ -236,6 +236,45 @@ offset_right = 40.0
 offset_bottom = 22.0
 color = Color(1, 0.95, 0.3, 1)
 
+; Damage indicators — 4 bordures rouges flash selon direction attaquant
+[node name="DmgN" type="ColorRect" parent="HUDProto"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 28.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgS" type="ColorRect" parent="HUDProto"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -28.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgW" type="ColorRect" parent="HUDProto"]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 28.0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgE" type="ColorRect" parent="HUDProto"]
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -28.0
+grow_vertical = 2
+grow_horizontal = 0
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
 ; Flash blanc full-screen pour feedback kill (0.1s fade out).
 [node name="KillFlash" type="ColorRect" parent="HUDProto"]
 anchors_preset = 15
