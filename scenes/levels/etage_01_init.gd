@@ -20,31 +20,53 @@ func _create_drone() -> AudioStreamWAV:
 	var stream: AudioStreamWAV = AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = 22050
+	stream.stereo = true
 	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	var sample_count: int = 22050 * 8
+	# 16s loop pour mélodie sparse (Am: A4, E5, C5, A4 — 4s par note)
+	var sample_count: int = 22050 * 16
 	stream.loop_begin = 0
 	stream.loop_end = sample_count
+	# Stereo : 2 channels interleaved L R L R, 16-bit chacun = 4 bytes par sample frame
 	var bytes: PackedByteArray = PackedByteArray()
-	bytes.resize(sample_count * 2)
+	bytes.resize(sample_count * 4)
+	# Mélodie : 4 notes Am sur 16s (A4=440, C5=523, E5=659, A4=440)
+	var melody_freqs: PackedFloat32Array = PackedFloat32Array([440.0, 523.25, 659.25, 440.0])
 	for i: int in range(sample_count):
 		var t: float = float(i) / 22050.0
-		var s: float = 0.0
-		# Drone bass A1 (55Hz) + octave A2 (110Hz)
-		s += sin(t * TAU * 55.0) * 0.32
-		s += sin(t * TAU * 110.0) * 0.16
-		# Modulated A3 (220Hz) — slow vibrato
-		s += sin(t * TAU * 220.0 + sin(t * 0.4) * 0.35) * 0.08
-		# Pad E2 (82Hz) + B2 (123Hz) for chord
-		s += sin(t * TAU * 82.0) * 0.10
-		s += sin(t * TAU * 123.0) * 0.06
-		# Subtle high shimmer C4 (261Hz) with slow fade
-		s += sin(t * TAU * 261.0) * 0.04 * (0.5 + 0.5 * sin(t * 0.25))
-		# Very low rumble noise
-		s += (randf() - 0.5) * 0.015
-		# Clamp + convert 16-bit signed
-		var sample: int = int(clamp(s, -1.0, 1.0) * 32600.0)
-		bytes[i * 2] = sample & 0xFF
-		bytes[i * 2 + 1] = (sample >> 8) & 0xFF
+		# Breathing volume modulation (slow 0.1 Hz envelope)
+		var breath: float = 0.7 + 0.3 * sin(t * TAU * 0.0625)
+		# Common bass drone (mono)
+		var bass: float = 0.0
+		bass += sin(t * TAU * 55.0) * 0.32  # A1
+		bass += sin(t * TAU * 110.0) * 0.16  # A2
+		bass += sin(t * TAU * 220.0 + sin(t * 0.4) * 0.35) * 0.08  # A3 vibrato
+		# Pad ouvert
+		var pad_l: float = sin(t * TAU * 82.0) * 0.12  # E2 (left wider)
+		var pad_r: float = sin(t * TAU * 123.0) * 0.10  # B2 (right wider)
+		# Shimmer high
+		var shimmer: float = sin(t * TAU * 261.0) * 0.05 * (0.5 + 0.5 * sin(t * 0.25))
+		# Mélodie sparse : 1 note par 4s avec attack-decay envelope
+		var note_idx: int = int(t / 4.0) % 4
+		var note_freq: float = melody_freqs[note_idx]
+		var note_t: float = fmod(t, 4.0)
+		var note_env: float = 0.0
+		if note_t < 2.0:
+			note_env = (note_t / 0.3 if note_t < 0.3 else 1.0 - (note_t - 0.3) / 1.7) * 0.18
+		note_env = maxf(note_env, 0.0)
+		var melody: float = sin(note_t * TAU * note_freq) * note_env
+		# Sub noise pour grain
+		var noise: float = (randf() - 0.5) * 0.012
+		# Mix per channel — wider stereo with different pad emphasis
+		var sL: float = (bass + pad_l + shimmer * 0.7 + melody * 0.9 + noise) * breath
+		var sR: float = (bass + pad_r + shimmer + melody + noise) * breath
+		# 16-bit signed clamp
+		var iL: int = int(clamp(sL, -1.0, 1.0) * 32600.0)
+		var iR: int = int(clamp(sR, -1.0, 1.0) * 32600.0)
+		var base: int = i * 4
+		bytes[base] = iL & 0xFF
+		bytes[base + 1] = (iL >> 8) & 0xFF
+		bytes[base + 2] = iR & 0xFF
+		bytes[base + 3] = (iR >> 8) & 0xFF
 	stream.data = bytes
 	return stream
 
