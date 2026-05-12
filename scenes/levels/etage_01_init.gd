@@ -7,6 +7,31 @@ func _ready() -> void:
 	InputManager.set_mouse_captured(true)
 	_spawn_boss_marker()
 	_start_ambient_music()
+	_disable_hidden_collisions()
+
+func _disable_hidden_collisions() -> void:
+	# Pour chaque node visible=false, désactive collision_layer de tous ses StaticBody3D enfants.
+	# Évite "murs invisibles" sur les primitives masquées (Mezzanine/ShaftConnector/Atrium clutter).
+	var to_check: Array[Node] = []
+	to_check.append(self)
+	while not to_check.is_empty():
+		var n: Node = to_check.pop_back()
+		# Si node 3D visible=false, désactive collisions descendantes.
+		if n is VisualInstance3D and not (n as VisualInstance3D).visible:
+			_recursive_disable_collision(n)
+			continue
+		if n is Node3D and not (n as Node3D).visible:
+			_recursive_disable_collision(n)
+			continue
+		for c: Node in n.get_children():
+			to_check.append(c)
+
+func _recursive_disable_collision(node: Node) -> void:
+	if node is StaticBody3D:
+		(node as StaticBody3D).collision_layer = 0
+		(node as StaticBody3D).collision_mask = 0
+	for c: Node in node.get_children():
+		_recursive_disable_collision(c)
 
 func _start_ambient_music() -> void:
 	var player: AudioStreamPlayer = AudioStreamPlayer.new()
