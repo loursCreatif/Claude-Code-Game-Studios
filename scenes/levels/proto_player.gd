@@ -64,6 +64,24 @@ func _ready() -> void:
 		var fade_tween: Tween = create_tween()
 		fade_tween.tween_interval(7.0)
 		fade_tween.tween_property(label, "modulate:a", 0.0, 1.5)
+	_play_tutorial_sequence()
+
+func _play_tutorial_sequence() -> void:
+	var tl: Label = get_node_or_null("HUDProto/TutorialLabel") as Label
+	if tl == null:
+		return
+	var messages: PackedStringArray = PackedStringArray([
+		"Tue les ennemis rouges  (clic gauche)",
+		"Cours sur les murs cyan  pour wall-run",
+		"Atteins l'EXIT au fond pour gagner",
+	])
+	var tw: Tween = create_tween()
+	for i: int in range(messages.size()):
+		var msg: String = messages[i]
+		tw.tween_callback(func() -> void: tl.text = msg)
+		tw.tween_property(tl, "modulate:a", 1.0, 0.4)
+		tw.tween_interval(3.5)
+		tw.tween_property(tl, "modulate:a", 0.0, 0.6)
 	# Setup dash trail particles (n'emit que pendant is_dashing).
 	_dash_trail = CPUParticles3D.new()
 	_dash_trail.emitting = false
