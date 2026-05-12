@@ -105,6 +105,12 @@ func _validate_scene(path: String) -> Array[String]:
 		instance.queue_free()
 		return ["la racine de la scène n'est pas Node3D : %s (classe: %s)" % [path, instance.get_class()]]
 
+	# Attache au SceneTree pour que get_global_transform() / get_path() fonctionnent
+	# pendant la validation. Sans ça, tous les checks positionnels (Y plancher,
+	# distances onboarding, wall-run height, door width F1, etage height F5)
+	# retournent 0 spurieusement.
+	root.add_child(root_3d)
+
 	var errors: Array[String] = LevelLintScript.validate_scene_hierarchy(root_3d)
 	var archetype_errors: Array[String] = LevelLintScript.validate_room_archetypes(root_3d)
 	errors.append_array(archetype_errors)
@@ -142,7 +148,11 @@ func _validate_scene(path: String) -> Array[String]:
 	var tuning_errors: Array[String] = LevelLintScript.validate_tuning_knobs_present()
 	errors.append_array(tuning_errors)
 
-	root_3d.queue_free()
+	# `free()` synchrone (pas `queue_free()` différé) — évite l'accumulation de
+	# scènes dans le SceneTree entre étages successifs, qui ferait lire des
+	# transforms parasites par les checks positionnels de la scène suivante.
+	root.remove_child(root_3d)
+	root_3d.free()
 	return errors
 
 

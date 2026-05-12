@@ -1,4 +1,4 @@
-# Tests integration Story-018 — AC-CMB-37 cycle soak (unit-testable subset).
+# Tests integration Story-018 — AC-CMB-35b/37 soak combat (6 méthodes).
 #
 # Couvre AC-CMB-37 (1000 cycles Idle→Swinging→Idle avec MEMORY_STATIC + OBJECT_COUNT delta) :
 #   (a) `_hit_this_swing.is_empty()` après chaque retour Idle
@@ -6,10 +6,15 @@
 #   (c) `_cooldown_timer == 0.0` après chaque expiration
 #   (d) `Performance.MEMORY_STATIC` after 1000 cycles ≤ avant + 500 KB
 #   (e) `Performance.OBJECT_COUNT` delta ≤ +5
+#   (f) zéro push_error / push_warning pendant SOAK_CYCLES cycles (stderr clean)
 #
-# Hors scope unit (DEFERRED bench script) :
-#   - AC-CMB-35b (1) worst case ShapeCast p99 sur Jolt — `tests/perf/combat_integration_soak.gd`
-#   - AC-CMB-35b (2) soak frametime global avec rendering — bench Godot CLI
+# Couvre AC-CMB-35b (frametime soak combat-only — pas de rendering headless) :
+#   (1) Worst case ShapeCast p99 — 100 swings × ACTIVE_TICKS = 800 samples ≤ 16.6 ms
+#   (2) Soak frametime global — 1000 frames _physics_process consécutifs, p50 ≤ 12.0 ms / p99 ≤ 16.6 ms
+#
+# DEFERRED rendering full stack :
+#   - draw_calls ≤ 500 (headless RenderingServer absent — bench full Godot CLI requis)
+#   - p50/p99 frame complète (incl. rendering pass) — testbed Tier 1 hardware
 #
 # Framework : GdUnit4 (extends GdUnitTestSuite).
 # Story   : production/epics/combat-system/story-018-integration-soak-frametime-memory-objects.md
@@ -17,6 +22,10 @@
 # GDD     : design/gdd/player-combat-system.md AC-CMB-35b/37
 
 extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
 
 
 # ---------------------------------------------------------------------------
@@ -36,20 +45,43 @@ const MEMORY_DELTA_TOLERANCE_BYTES: int = 500 * 1024
 ## Tolérance OBJECT_COUNT delta : +5 (AC-CMB-37 e).
 const OBJECT_COUNT_DELTA_TOLERANCE: int = 5
 
+## AC-CMB-35b : threshold p99 frame budget 60 fps = 16.6 ms.
+const FRAMETIME_P99_THRESHOLD_MS: float = 16.6
+
+## AC-CMB-35b (2) : threshold p50 soak global = 12.0 ms (laisse headroom rendering hors combat).
+const FRAMETIME_P50_THRESHOLD_MS: float = 12.0
+
+## AC-CMB-35b (1) : nombre de swings consécutifs (worst case sweep).
+const WORST_CASE_SWING_COUNT: int = 100
+
+## AC-CMB-35b (2) : nombre de frames soak global (16.7 sec @ 60 Hz).
+const SOAK_FRAME_COUNT: int = 1000
+
+## Path log frametime (cohérent avec story-017 microbench log).
+const FRAMETIME_LOG_PATH: String = "res://tests/perf/combat-integration-frametime-log.md"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+func before_test() -> void:
+	# Defense-in-depth — reset time_scale AVANT snapshot pour neutraliser pollution
+	# cross-suite (pattern miroir commit 4228597 sur death_respawn_lifecycle_test).
+	Engine.time_scale = 1.0
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
+
+
 func after_test() -> void:
 	Engine.time_scale = 1.0
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 func _make_combat() -> CombatSystem:
 	var packed: PackedScene = load(SCENE_PATH) as PackedScene
 	assert_object(packed).is_not_null()
 
-	var player: CharacterBody3D = CharacterBody3D.new()
+	var player: CharacterBody3D = auto_free(CharacterBody3D.new())
 	add_child(player)
 	var combat: CombatSystem = packed.instantiate() as CombatSystem
 	player.add_child(combat)
@@ -95,7 +127,6 @@ func test_combat_soak_cycles_reset_invariants_after_each_swing() -> void:
 			) \
 			.is_equal(0.0)
 
-	combat.get_parent().queue_free()
 
 
 # ---------------------------------------------------------------------------
@@ -155,4 +186,194 @@ func test_combat_soak_cycles_memory_and_object_count_within_tolerance() -> void:
 		) \
 		.is_less_equal(OBJECT_COUNT_DELTA_TOLERANCE)
 
-	combat.get_parent().queue_free()
+
+
+# ---------------------------------------------------------------------------
+# AC-CMB-35b (1) — Worst case ShapeCast p99 (100 swings × 8 ticks actifs)
+# ---------------------------------------------------------------------------
+
+## Mesure frametime `_physics_process()` pendant les ticks SWINGING actifs uniquement
+## (où `_collect_swing_hits` exécute le sweep complet : intersect + 3 substeps + dedup).
+## 800 samples (100 swings × ACTIVE_TICKS=8). Threshold AC-CMB-35b p99 ≤ 16.6 ms.
+##
+## INFORMATIONAL BASELINE — dev laptop. Tier 1 hardware sign-off DEFERRED CI infra.
+func test_combat_worst_case_shapecast_p99_under_16_6ms() -> void:
+	var combat: CombatSystem = _make_combat()
+	var samples: PackedInt64Array = PackedInt64Array()
+	samples.resize(WORST_CASE_SWING_COUNT * CombatSystem.ACTIVE_TICKS)
+
+	var sample_idx: int = 0
+	for _swing: int in range(WORST_CASE_SWING_COUNT):
+		while combat._cooldown_timer > 0.0:
+			combat._physics_process(DELTA_60HZ)
+		combat.attacked()
+		for _t: int in range(CombatSystem.ACTIVE_TICKS):
+			var t0: int = Time.get_ticks_usec()
+			combat._physics_process(DELTA_60HZ)
+			var t1: int = Time.get_ticks_usec()
+			samples[sample_idx] = t1 - t0
+			sample_idx += 1
+
+	samples.sort()
+	var p50_us: int = samples[int(samples.size() * 0.5)]
+	var p99_us: int = samples[int(samples.size() * 0.99)]
+	var max_us: int = samples[samples.size() - 1]
+	var p50_ms: float = float(p50_us) / 1000.0
+	var p99_ms: float = float(p99_us) / 1000.0
+	var max_ms: float = float(max_us) / 1000.0
+
+	_append_frametime_log_entry("Worst case ShapeCast (100x8)", samples.size(), p50_ms, p99_ms, max_ms, -1)
+
+	assert_float(p99_ms) \
+		.override_failure_message(
+			"AC-CMB-35b (1) FAIL: worst case ShapeCast p99=%.3f ms > %.1f ms threshold. " \
+			% [p99_ms, FRAMETIME_P99_THRESHOLD_MS] \
+			+ "p50=%.3f ms / max=%.3f ms — voir log %s" \
+			% [p50_ms, max_ms, FRAMETIME_LOG_PATH]
+		) \
+		.is_less_equal(FRAMETIME_P99_THRESHOLD_MS)
+
+
+
+# ---------------------------------------------------------------------------
+# AC-CMB-35b (2) — Soak frametime global (1000 frames consécutifs)
+# ---------------------------------------------------------------------------
+
+## Mesure 1000 frames `_physics_process()` consécutifs avec swings réguliers (1 swing
+## toutes les 100 frames). Threshold AC-CMB-35b p50 ≤ 12.0 ms / p99 ≤ 16.6 ms.
+## draw_calls capturé best-effort (headless RenderingServer absent → 0).
+##
+## INFORMATIONAL BASELINE — dev laptop. Tier 1 hardware sign-off DEFERRED CI infra.
+func test_combat_soak_global_1000_frames_p50_p99_under_thresholds() -> void:
+	var combat: CombatSystem = _make_combat()
+	var samples: PackedInt64Array = PackedInt64Array()
+	samples.resize(SOAK_FRAME_COUNT)
+	var draw_calls_max: int = 0
+
+	for i: int in range(SOAK_FRAME_COUNT):
+		if i % 100 == 0 and combat._state == CombatSystem.State.IDLE \
+				and combat._cooldown_timer == 0.0:
+			combat.attacked()
+
+		var t0: int = Time.get_ticks_usec()
+		combat._physics_process(DELTA_60HZ)
+		var t1: int = Time.get_ticks_usec()
+		samples[i] = t1 - t0
+
+		var dc: int = int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		draw_calls_max = maxi(draw_calls_max, dc)
+
+	samples.sort()
+	var p50_us: int = samples[int(samples.size() * 0.5)]
+	var p99_us: int = samples[int(samples.size() * 0.99)]
+	var max_us: int = samples[samples.size() - 1]
+	var p50_ms: float = float(p50_us) / 1000.0
+	var p99_ms: float = float(p99_us) / 1000.0
+	var max_ms: float = float(max_us) / 1000.0
+
+	_append_frametime_log_entry("Soak global (1000 frames)", samples.size(), p50_ms, p99_ms, max_ms, draw_calls_max)
+
+	assert_float(p50_ms) \
+		.override_failure_message(
+			"AC-CMB-35b (2) FAIL: soak p50=%.3f ms > %.1f ms threshold. " \
+			% [p50_ms, FRAMETIME_P50_THRESHOLD_MS] \
+			+ "p99=%.3f ms / max=%.3f ms — voir log" % [p99_ms, max_ms]
+		) \
+		.is_less_equal(FRAMETIME_P50_THRESHOLD_MS)
+
+	assert_float(p99_ms) \
+		.override_failure_message(
+			"AC-CMB-35b (2) FAIL: soak p99=%.3f ms > %.1f ms threshold. " \
+			% [p99_ms, FRAMETIME_P99_THRESHOLD_MS] \
+			+ "p50=%.3f ms / max=%.3f ms — voir log" % [p50_ms, max_ms]
+		) \
+		.is_less_equal(FRAMETIME_P99_THRESHOLD_MS)
+
+
+
+# ---------------------------------------------------------------------------
+# AC-CMB-37 (f) — Zéro push_error / push_warning pendant le soak
+# ---------------------------------------------------------------------------
+
+## AC-CMB-37 (f) : pendant SOAK_CYCLES cycles Idle→SWINGING→Idle, aucun
+## push_error() ni push_warning() ne doit être émis (stderr clean).
+##
+## Implémentation : GodotGdErrorMonitor (GdUnit4) installé via OS.add_logger().
+## _logger._is_report_push_errors forcé à true indépendamment des GdUnitSettings
+## (pattern miroir de GodotGdErrorMonitorTest, ligne 16/40 — test officiel GdUnit4).
+## monitor.start() vide le log ; monitor.log_entries() renvoie les entrées capturées.
+##
+## Story type : Integration — gate BLOCKING (AC-CMB-37 f).
+## Output : tests/integration/combat/
+func test_combat_soak_cycles_zero_stderr_warnings_and_errors() -> void:
+	var monitor := GodotGdErrorMonitor.new()
+	# Force la capture quelle que soit la valeur du ProjectSetting REPORT_PUSH_ERRORS
+	# (défaut false en CI — pattern officiel GodotGdErrorMonitorTest l.16/40).
+	monitor._logger._is_report_push_errors = true
+
+	var combat: CombatSystem = _make_combat()
+
+	monitor.start()
+
+	for _cycle: int in range(SOAK_CYCLES):
+		combat.attacked()
+		for _t: int in range(CombatSystem.ACTIVE_TICKS):
+			combat._physics_process(DELTA_60HZ)
+		while combat._cooldown_timer > 0.0:
+			combat._physics_process(DELTA_60HZ)
+
+	monitor.stop()
+
+	var entries: Array[ErrorLogEntry] = monitor.log_entries()
+
+	var messages: Array[String] = []
+	for entry: ErrorLogEntry in entries:
+		messages.append(entry._message)
+
+	assert_array(entries) \
+		.override_failure_message(
+			"AC-CMB-37 (f): push_error/push_warning détecté pendant %d cycles soak. " \
+			% SOAK_CYCLES \
+			+ "Messages: %s" % str(messages)
+		) \
+		.is_empty()
+
+
+# ---------------------------------------------------------------------------
+# Helper — frametime log entry
+# ---------------------------------------------------------------------------
+
+## Append entry au log frametime combat (cohérent avec story-017 microbench log).
+## draw_calls_max = -1 quand non applicable (worst case test ne sample pas draw_calls).
+func _append_frametime_log_entry(setup_label: String, sample_count: int, p50_ms: float, p99_ms: float, max_ms: float, draw_calls_max: int) -> void:
+	var os_name: String = OS.get_name()
+	var processor_name: String = OS.get_processor_name()
+	var processor_count: int = OS.get_processor_count()
+	var hardware_label: String = "%s — %s (%d cores) — INFORMATIONAL BASELINE (NOT certified Tier 1 — CI infra DEFERRED — see hardware-spec-testbeds.md)" \
+			% [os_name, processor_name, processor_count]
+
+	var verdict: String = "PASS" if p99_ms <= FRAMETIME_P99_THRESHOLD_MS else "**FAIL**"
+	var draw_calls_line: String = ""
+	if draw_calls_max >= 0:
+		draw_calls_line = "- **draw_calls_max** : %d (DEFERRED full bench Godot CLI — headless RenderingServer)\n" % draw_calls_max
+
+	var entry: String = (
+		"\n## Run %s — %s\n\n" % [Time.get_datetime_string_from_system(), setup_label] +
+		"- **Hardware** : %s\n" % hardware_label +
+		"- **Godot version** : 4.6 (project pinned)\n" +
+		"- **Physics** : Jolt 4.6 default\n" +
+		"- **Samples** : %d\n" % sample_count +
+		"- **p50** : %.3f ms\n" % p50_ms +
+		"- **p99** : %.3f ms (threshold ≤ %.1f ms)\n" % [p99_ms, FRAMETIME_P99_THRESHOLD_MS] +
+		"- **max** : %.3f ms\n" % max_ms +
+		draw_calls_line +
+		"- **Verdict** : %s\n" % verdict
+	)
+	var log_file: FileAccess = FileAccess.open(FRAMETIME_LOG_PATH, FileAccess.READ_WRITE)
+	if log_file == null:
+		log_file = FileAccess.open(FRAMETIME_LOG_PATH, FileAccess.WRITE)
+	if log_file != null:
+		log_file.seek_end()
+		log_file.store_string(entry)
+		log_file.close()
+

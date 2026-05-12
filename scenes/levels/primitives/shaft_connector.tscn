@@ -3,31 +3,100 @@
 ; Contenu : 2 walls face-to-face (physique) + 2 wall-run surfaces (visuels seuls)
 ;   = 4 MeshInstance3D / 2 StaticBody3D.
 ; Les wall-run surfaces sont MeshInstance3D sans StaticBody3D (guidage visuel joueur).
-; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Layer collision : LAYER_ENVIRONMENT (layer 4, décimal 8 — bit 3 set, conforme ADR-0008 D-2).
 ; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_shaft_connector"]
+
+; --- Materials MVP ---
+; TODO story-022 : remplacer par SubResource ShaderMaterial chrome_zen_flat
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.35, 0.37, 0.40, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
+; Accent cyan vif pour signaler wall-run-able (MVP playtest visibility).
+albedo_color = Color(0.3, 0.85, 0.95, 1)
+emission_enabled = true
+emission = Color(0.3, 0.85, 0.95, 1)
+emission_energy_multiplier = 0.3
+
+; --- Shapes ---
+; WallA/WallB : 0.3×5×6 m (hauteur 5 m > 4.0 F8, longueur 6 m > 3.0 F8)
+[sub_resource type="BoxShape3D" id="shape_wall_ab"]
+size = Vector3(0.3, 5.0, 6.0)
+
+; --- Meshes ---
+[sub_resource type="BoxMesh" id="mesh_wall_ab"]
+size = Vector3(0.3, 5.0, 6.0)
+material = SubResource("mat_wall_run_guide")
+
+; WallRunSurface : 6×4×0.1 m (visuel, collé contre la face interne du mur)
+[sub_resource type="BoxMesh" id="mesh_wall_run_surface"]
+size = Vector3(6.0, 4.0, 0.1)
+material = SubResource("mat_wall_run_guide")
+
+; LED strip cyan verticale émissive (accent edge mur — signal wall-runnable)
+[sub_resource type="StandardMaterial3D" id="mat_led_cyan"]
+albedo_color = Color(0.3, 0.95, 1.0, 1)
+emission_enabled = true
+emission = Color(0.3, 0.95, 1.0, 1)
+emission_energy_multiplier = 2.5
+
+[sub_resource type="BoxMesh" id="mesh_led_vstrip"]
+size = Vector3(0.08, 5.0, 0.08)
+material = SubResource("mat_led_cyan")
 
 [node name="ShaftConnector" type="Node3D"]
 
 [node name="WallA" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 3.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallAMesh" type="MeshInstance3D" parent="WallA"]
+mesh = SubResource("mesh_wall_ab")
 
 [node name="WallAShape" type="CollisionShape3D" parent="WallA"]
+shape = SubResource("shape_wall_ab")
 
 [node name="WallB" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 3.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallBMesh" type="MeshInstance3D" parent="WallB"]
+mesh = SubResource("mesh_wall_ab")
 
 [node name="WallBShape" type="CollisionShape3D" parent="WallB"]
+shape = SubResource("shape_wall_ab")
 
+; WallRunSurface meshes : visuels seuls (pas de collision) — confusing MVP, masqués.
 [node name="WallRunSurfaceA" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.8, 3.0, 0)
+mesh = SubResource("mesh_wall_run_surface")
+visible = false
 
 [node name="WallRunSurfaceB" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.8, 3.0, 0)
+mesh = SubResource("mesh_wall_run_surface")
+visible = false
+
+; LED strips verticales cyan sur edges des walls (signal wall-runnable, image ref)
+[node name="LedA_front" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.05, 3.0, 3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedA_back" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.05, 3.0, -3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedB_front" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.05, 3.0, 3.0)
+mesh = SubResource("mesh_led_vstrip")
+
+[node name="LedB_back" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.05, 3.0, -3.0)
+mesh = SubResource("mesh_led_vstrip")

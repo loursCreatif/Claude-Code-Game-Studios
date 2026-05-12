@@ -117,6 +117,13 @@ func test_first_enemy_sightline_obstructed_raycast_fails() -> void:
 		) \
 		.is_false()
 
+	# Free immédiat du 1er setup AVANT le 2nd : auto_free n'opère qu'en fin de test.
+	# Si on ne free pas immédiatement, le mur du 1er setup persiste dans le World3D
+	# partagé du SceneTree de la suite, polluant le raycast clear du 2nd setup.
+	root_wall.free()
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
 	# --- Edge case : sans mur (ligne libre) ---
 	var root_clear: Node3D = _make_scene_root()
 	var player_start_clear: Marker3D = _add_marker("PlayerStart", Vector3(0.0, 1.0, 0.0), root_clear)

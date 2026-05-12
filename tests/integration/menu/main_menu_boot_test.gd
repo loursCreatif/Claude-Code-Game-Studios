@@ -11,14 +11,27 @@ extends GdUnitTestSuite
 ## (pas de watch_signals/monitor API utilisable depuis SYNC GdUnit4).
 
 const MAIN_MENU_SCENE: PackedScene = preload("res://scenes/menus/main_menu.tscn")
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
 
 var _menu: Control
+var _autoload_snap: Dictionary = {}
 
 
 func before_test() -> void:
+	# Snapshot autoloads (GSM + Engine + AudioSystem + VFXSystem) avant mutations
+	# spécifiques au test pour éviter pollution cross-suite (TD-010).
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
+	# Force GSM à MENU après snapshot — la restauration after_test() remettra la valeur
+	# d'avant (qui peut être MENU ou autre selon l'ordre de run). Le snapshot est déjà pris.
+	GameStateManager._current_state = GameStateManager.State.MENU
+
 	_menu = MAIN_MENU_SCENE.instantiate()
 	auto_free(_menu)
 	add_child(_menu)
+
+
+func after_test() -> void:
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 func test_main_menu_boot_state_is_menu() -> void:

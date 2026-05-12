@@ -57,7 +57,7 @@ func test_load_etage_rejected_when_active() -> void:
 	# Act + Assert — push_error capturé avant halt assert(false)
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=ACTIVE)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=ACTIVE)")
 
 	# Assert post-rejet — état et etage_id inchangés (AC-LVL-4)
 	assert_int(level.get_state()) \
@@ -87,7 +87,7 @@ func test_load_etage_rejected_when_loading() -> void:
 	# Act + Assert — second load_etage pendant LOADING doit être rejeté
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=LOADING)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=LOADING)")
 
 	# Assert post-rejet — état LOADING préservé, etage_id reste celui du load initial (1)
 	assert_int(level.get_state()) \
@@ -119,7 +119,7 @@ func test_load_etage_rejected_when_unloading() -> void:
 	# Act + Assert — load_etage pendant UNLOADING doit être rejeté
 	assert_error(
 		func() -> void: level.load_etage(2)
-	).is_push_error("concurrent load rejected — unload first (state=UNLOADING)")
+	).is_runtime_error("Assertion failed: concurrent load rejected — unload first (state=UNLOADING)")
 
 	# Assert post-rejet — état UNLOADING préservé, etage_id encore 1 (réinitialisé au prochain tick)
 	assert_int(level.get_state()) \
@@ -156,33 +156,37 @@ func test_unload_emits_signal_before_queue_free() -> void:
 		.override_failure_message("AC-LVL-5: _current_scene_root ne doit pas être null en ACTIVE") \
 		.is_not_null()
 
-	var signal_received: bool = false
-	var signal_etage_id: int = -1
-	var scene_queued_at_signal: bool = true  # pessimiste — doit être false si spec respectée
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives
+	# (bool/int snapshot au lieu de référence — confirmé Godot 4.6 empirique 2026-05-09).
+	var captured: Dictionary = {
+		"signal_received": false,
+		"signal_etage_id": -1,
+		"scene_queued_at_signal": true,  # pessimiste — doit être false si spec respectée
+	}
 
 	# Connexion SYNC (mode par défaut) — handler appelé pendant l'emit, avant le retour
 	# de level_unloading.emit(). À ce moment, queue_free() n'a pas encore été appelé.
 	level.level_unloading.connect(func(eid: int) -> void:
-		signal_received = true
-		signal_etage_id = eid
+		captured["signal_received"] = true
+		captured["signal_etage_id"] = eid
 		# Au moment du signal : queue_free() n'a PAS encore été appelé (ordre spec :
 		# emit → queue_free → null). Donc is_queued_for_deletion() doit être false.
-		scene_queued_at_signal = scene_root_ref.is_queued_for_deletion()
+		captured["scene_queued_at_signal"] = scene_root_ref.is_queued_for_deletion()
 	)
 
 	# Act — signal synchrone : émis et reçu pendant cet appel
 	level.unload_current()
 
 	# Assert immédiat — signal reçu pendant l'appel à unload_current()
-	assert_bool(signal_received) \
+	assert_bool(captured["signal_received"]) \
 		.override_failure_message("AC-LVL-5: signal level_unloading doit avoir été émis (sync)") \
 		.is_true()
-	assert_int(signal_etage_id) \
+	assert_int(captured["signal_etage_id"]) \
 		.override_failure_message("AC-LVL-5: level_unloading.etage_id doit être 1") \
 		.is_equal(1)
 
 	# Assert — au moment du signal, la scène n'était PAS encore libérée (signal AVANT queue_free)
-	assert_bool(scene_queued_at_signal) \
+	assert_bool(captured["scene_queued_at_signal"]) \
 		.override_failure_message("AC-LVL-5: scène ne doit PAS être queued_for_deletion pendant l'émission du signal") \
 		.is_false()
 
@@ -191,8 +195,10 @@ func test_unload_emits_signal_before_queue_free() -> void:
 		.override_failure_message("AC-LVL-5: état doit être UNLOADING immédiatement après unload_current()") \
 		.is_equal(LevelSystemScript.LevelState.UNLOADING)
 
-	# Attendre un tick physique pour que UNLOADING → UNLOADED se complète dans _physics_process
-	await get_tree().physics_frame
+	# Forcer le tick _physics_process direct pour que UNLOADING → UNLOADED se complète.
+	# Note headless Godot 4.6 : `await get_tree().physics_frame` ne pump pas systématiquement
+	# le `_physics_process` de tous les nodes via GdUnit4 cmdtool — direct call est déterministe.
+	level._physics_process(0.0)
 
 	# Assert — état final UNLOADED et etage_id réinitialisé
 	assert_int(level.get_state()) \

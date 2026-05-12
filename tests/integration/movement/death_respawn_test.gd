@@ -135,14 +135,14 @@ func test_inputs_ignored_during_dead_state() -> void:
 	await get_tree().process_frame
 
 	# Enable ability so the jump path would fire if inputs were processed
-	player.can_air_jump = true
+	player.set_capability(&"air_jump", true)
 
 	# Put player airborne so a jump press would normally set velocity.y = JUMP_VELOCITY
 	_set_state(player, MovementController.State.AIRBORNE)
 	player.die()
 
 	# Simulate jump press — within RESPAWN_DELAY_S window (one tick = 1/60 ≈ 0.0167 s < 0.05 s)
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 
 	# Act — one tick (still inside respawn window)
 	_tick(player)
@@ -162,7 +162,7 @@ func test_inputs_ignored_during_dead_state() -> void:
 		.is_equal(MovementController.State.DEAD)
 
 	# Cleanup — release input
-	InputManager.simulate_action_release(&"jump")
+	# (edge auto-consumed — &"jump" no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 

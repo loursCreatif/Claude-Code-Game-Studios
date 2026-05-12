@@ -1,0 +1,19 @@
+{
+  "date": "2026-05-09",
+  "latency_ms": {
+    "budget_p99": 16.0,
+    "note": "handler-internal only (hardware latency pending ADR-0004 D-8 timestamp API)",
+    "p99": 0.0,
+    "ring_buffer_capacity": 1000,
+    "samples_count": 1100
+  },
+  "process_cost_ms": {
+    "budget_p50": 0.2,
+    "budget_p99": 0.4,
+    "p50": 0.00100000004749745,
+    "p99": 0.0020000000949949,
+    "ring_buffer_capacity": 240,
+    "samples_count": 360
+  },
+  "story": "story-012-perf-instrumentation-ring-buffer"
+}

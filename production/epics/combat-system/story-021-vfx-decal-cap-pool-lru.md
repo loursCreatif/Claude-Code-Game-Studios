@@ -1,12 +1,14 @@
 # Story 021: VFX decal cap pool LRU contract
 
 > **Epic**: Player Combat System
-> **Status**: Blocked
+> **Status**: Closed - Migrated to VFX System 2026-05-04
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
 
-> **BLOCKED**: VFX System non implémenté. AC-CMB-42 reclassé ADVISORY r6 D-r4-1 (sera promue BLOCKING dès VFX System GDD disponible). Ownership : `combat-system` est l'**émetteur du contract** (`MAX_DECALS_PER_ROOM = 12` cap), VFX System implémente le pool LRU. Cette story conserve la traçabilité côté Combat. Aussi BLOCKED runner GPU Tier 1 (non headless) pour mesure frame time Forward+ post-Decal.
+> **UNBLOCKED 2026-05-04** : VFX System GDD créé (`design/gdd/vfx-system.md` Designed r1 solo auto-approve) + epic VFX créé (`production/epics/vfx-system/EPIC.md`, 8/8 stories Ready). AC-CMB-42 (decal cap par room) **migré → AC-VFX-01/02/03/30 owned** dans VFX story-003 (`production/epics/vfx-system/story-003-decal-cap-lru-eviction.md`). VFX GDD r1 résout le contract avec `MAX_DECALS_PER_ROOM = 32` (R-VFX-4 + Formula 1 LRU ring buffer) — valeur révisée 12 → 32 par cohérence Chrome Zen "salle marquée" Pillar 2 (8-32 safe range Tuning Knob VFX). Cette story combat-021 reste **Closed/Migrated** — référence cross-cutting historique (Combat émetteur du contract initial, VFX implémente le pool LRU + résout cap final). 4 obligations Combat→VFX couvertes par AC-VFX-30 : (1) CONNECT_DEFERRED signals R-VFX-3 + AC-VFX-23 (VFX story-001) ; (2) zero mutation enemy/player AC-VFX-24 (VFX story-007 lint outbound) ; (3) trail swing_started→swing_ended AC-VFX-13/14 (VFX story-002) ; (4) flash blanc + splash sang `enemy_killed` AC-VFX-06 + AC-VFX-11 (VFX story-002 + story-004).
+
+> **HISTORICAL BLOCKED context** (résolu 2026-05-04) : VFX System non implémenté. AC-CMB-42 reclassé ADVISORY r6 D-r4-1 (sera promue BLOCKING dès VFX System GDD disponible). Ownership : `combat-system` est l'**émetteur du contract** (`MAX_DECALS_PER_ROOM = 12` cap initial), VFX System implémente le pool LRU. Cette story conserve la traçabilité côté Combat. Aussi BLOCKED runner GPU Tier 1 (non headless) pour mesure frame time Forward+ post-Decal.
 
 ## Context
 

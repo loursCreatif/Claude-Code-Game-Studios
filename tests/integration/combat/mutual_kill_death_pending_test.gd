@@ -18,6 +18,8 @@
 
 extends GdUnitTestSuite
 
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -27,13 +29,23 @@ const SCENE_PATH: String = "res://src/gameplay/combat/combat_system.tscn"
 const DELTA_60HZ: float = 1.0 / 60.0
 const TIME_SCALE_TOLERANCE: float = 0.0001
 
+var _autoload_snap: Dictionary = {}
+
 
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
 
+func before_test() -> void:
+	# Defense-in-depth — reset time_scale BEFORE snapshot pour neutraliser pollution
+	# cross-suite (pattern miroir commit 4228597 sur death_respawn_lifecycle_test).
+	Engine.time_scale = 1.0
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
+
+
 func after_test() -> void:
 	Engine.time_scale = 1.0
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------

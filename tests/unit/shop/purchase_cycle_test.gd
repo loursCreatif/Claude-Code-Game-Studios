@@ -49,22 +49,24 @@ func _make_shop() -> Control:
 # AC-SHP-6 — try_spend(40) appelé 1 fois pour dash_horizontal affordable
 # =============================================================================
 
-## GIVEN solde 50 (>= 40 cost dash_horizontal),
+## GIVEN solde 50 (>= 28 cost dash_horizontal),
 ## WHEN _on_buy_pressed(&"dash_horizontal", 1),
-## THEN total_credits passe de 50 à 10 (try_spend(40) executé).
+## THEN total_credits passe de 50 à 22 (try_spend(28) executé).
 func test_purchase_cycle_dash_horizontal_affordable_spends_40() -> void:
 	# Arrange
 	_seed_credits(50)
 	var s: Control = _make_shop()
 	var initial: int = CreditEconomy.get_total()
+	# cost_n=1 = BASE_UPGRADE_COST(8) + TIER_COST_STEP(20) * 1 = 28
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP * 1
 
 	# Act
 	s._on_buy_pressed(&"dash_horizontal", 1)
 
-	# Assert — try_spend(40) appliqué
+	# Assert — try_spend(28) appliqué
 	assert_int(CreditEconomy.get_total()) \
-		.override_failure_message("AC-SHP-6: total après try_spend(40) attendu %d, obtenu %d" % [initial - 40, CreditEconomy.get_total()]) \
-		.is_equal(initial - 40)
+		.override_failure_message("AC-SHP-6: total après try_spend(%d) attendu %d, obtenu %d" % [cost_dash, initial - cost_dash, CreditEconomy.get_total()]) \
+		.is_equal(initial - cost_dash)
 
 	# Cleanup
 	s.free()
@@ -74,7 +76,7 @@ func test_purchase_cycle_dash_horizontal_affordable_spends_40() -> void:
 # AC-SHP-7 — try_spend true → _owned_upgrades.has(id) immédiatement (no await)
 # =============================================================================
 
-## GIVEN solde 30 >= 20 cost double_jump,
+## GIVEN solde 30 >= 8 cost double_jump,
 ## WHEN _on_buy_pressed(&"double_jump", 0),
 ## THEN _owned_upgrades.has(&"double_jump") true post-call (atomic SYNC).
 func test_purchase_cycle_owned_upgrades_marked_immediately_after_spend() -> void:
@@ -160,12 +162,13 @@ func test_purchase_cycle_apply_upgrade_called_real_autoload_dash() -> void:
 # AC-SHP-11 — solde insuffisant → aucune mutation (early DISABLED guard)
 # =============================================================================
 
-## GIVEN solde 15 < cost 20,
+## GIVEN solde 5 < cost 8 (double_jump),
 ## WHEN _on_buy_pressed(&"double_jump", 0),
 ## THEN total inchangé, _owned_upgrades vide, Upgrade non muté.
 func test_purchase_cycle_insufficient_balance_no_mutation() -> void:
 	# Arrange
-	_seed_credits(15)
+	# cost_n=0 = BASE_UPGRADE_COST(8) → solde 5 insuffisant
+	_seed_credits(5)
 	var s: Control = _make_shop()
 	var initial_total: int = CreditEconomy.get_total()
 
@@ -194,7 +197,7 @@ func test_purchase_cycle_insufficient_balance_no_mutation() -> void:
 # AC-SHP-48 (Sprint 1 ready — chain unblocked) — cycle exécuté 2x reste idempotent
 # =============================================================================
 
-## GIVEN solde large + cycle exécuté 1 fois sur double_jump,
+## GIVEN solde large + cycle exécuté 1 fois sur double_jump (cost=8),
 ## WHEN _on_buy_pressed appelé une 2e fois sur même id,
 ## THEN deuxième appel est silent no-op (étape 1 guard) — Upgrade pas re-muté,
 ## try_spend pas re-appelé (total inchangé entre les 2 calls).
@@ -227,17 +230,20 @@ func test_purchase_cycle_idempotent_already_owned_silent_noop() -> void:
 ## Smoke test full cycle 6 steps : double_jump achetable + dash_horizontal achetable.
 func test_purchase_cycle_full_chain_two_upgrades_in_sequence() -> void:
 	# Arrange
-	_seed_credits(100)    # >= 20 + 40 = 60 minimum
+	# cost_n=0(double_jump)=8, cost_n=1(dash_horizontal)=28 → total dépensé=36
+	_seed_credits(100)    # >= 8 + 28 = 36 minimum
 	var s: Control = _make_shop()
+	var cost_dj: int = CreditEconomy.BASE_UPGRADE_COST
+	var cost_dash: int = CreditEconomy.BASE_UPGRADE_COST + CreditEconomy.TIER_COST_STEP
 
 	# Act — buy both
 	s._on_buy_pressed(&"double_jump", 0)
 	s._on_buy_pressed(&"dash_horizontal", 1)
 
-	# Assert — both owned + total décrémenté de 60
+	# Assert — both owned + total décrémenté de (cost_dj + cost_dash)
 	assert_int(CreditEconomy.get_total()) \
-		.override_failure_message("Full cycle: total attendu 100-60=40, obtenu %d" % CreditEconomy.get_total()) \
-		.is_equal(40)
+		.override_failure_message("Full cycle: total attendu 100-%d=%d, obtenu %d" % [cost_dj + cost_dash, 100 - cost_dj - cost_dash, CreditEconomy.get_total()]) \
+		.is_equal(100 - cost_dj - cost_dash)
 	var owned: Array[StringName] = s.get_owned_upgrades()
 	assert_bool(&"double_jump" in owned).is_true()
 	assert_bool(&"dash_horizontal" in owned).is_true()

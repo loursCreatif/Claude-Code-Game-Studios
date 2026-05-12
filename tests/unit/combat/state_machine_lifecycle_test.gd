@@ -189,9 +189,10 @@ func test_combat_swinging_tick_seven_transitions_to_idle_emits_swing_ended() -> 
 		.override_failure_message("AC-CMB-04 précondition: _active_tick doit être 7 avant le tick final") \
 		.is_equal(7)
 
-	# Capturer le signal swing_ended via un compteur
-	var swing_ended_count: int = 0
-	combat.swing_ended.connect(func() -> void: swing_ended_count += 1)
+	# Capturer le signal swing_ended via un compteur — GDScript lambda capture-by-value
+	# requiert un Array container (Array est passé par référence), pas un int local.
+	var swing_ended_count: Array[int] = [0]
+	combat.swing_ended.connect(func() -> void: swing_ended_count[0] += 1)
 
 	var shape_cast: ShapeCast3D = combat.get_node_or_null("ShapeCast3D") as ShapeCast3D
 
@@ -219,7 +220,7 @@ func test_combat_swinging_tick_seven_transitions_to_idle_emits_swing_ended() -> 
 		.is_false()
 
 	# swing_ended émis exactement une fois
-	assert_int(swing_ended_count) \
+	assert_int(swing_ended_count[0]) \
 		.override_failure_message("AC-CMB-04: swing_ended doit être émis exactement 1 fois") \
 		.is_equal(1)
 

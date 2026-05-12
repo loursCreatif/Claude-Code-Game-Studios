@@ -1,12 +1,14 @@
 # Story 019: Combat feel playtest protocol + Visual/Feel ACs
 
 > **Epic**: Player Combat System
-> **Status**: Blocked
+> **Status**: **Ready** (Gap 5 résolu 2026-05-04 — protocole publié `production/qa/protocols/combat-feel-interview.md`. Reste : Martin recrute panel ≥ 5 testeurs naïfs × 3 sessions pour produire evidence ADVISORY.)
 > **Layer**: Feature
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23
 
-> **BLOCKED**: Gap 5 — `production/qa/protocols/combat-feel-interview.md` non créé. Owner : `qa-lead`. Bloque AC-CMB-31/32/33/34 jusqu'au protocole publié.
+> **UNBLOCKED 2026-05-04** : Gap 5 résolu — protocole d'entretien playtest publié à `production/qa/protocols/combat-feel-interview.md`. Le doc contient : 15 questions structurées en 5 axes (description spontanée → kill mouvement vs statique → slow-mo perception → Likert r6 REC-02 → open-ended), listes lexicales canoniques (IN-FLOW rythmique × 6, VIDE-OU-MANQUE × 8, MOTS BANNIS × 7), procédure codage verbatim, critères pass/fail quantifiés par AC (AC-CMB-31 : ≥ 4 IN-FLOW distincts par testeur + ≥ 80% panel utilise ≥ 2 spontanément + 0 mot banni ; AC-CMB-32 : ≥ 80% décrit kill-mouvement contexte mouvement, 3 sessions distinctes ; AC-CMB-33 : ≥ 80% utilise ≥ 1 mot vide-ou-manque sur kill statique ; AC-CMB-34 : médiane Likert ≥ 4, ≥ 70% testeurs ≥ 4/5), template evidence doc, anti-références red flags creative-director. Pattern hérité `feel-movement-session.md` story-017 Pillar 1.
+>
+> **Reste à exécuter** (hors blocker — coordination Martin) : recruter panel ≥ 5 testeurs naïfs francophones natifs × 3 sessions distinctes (~5h coordination + ~2h codage post). Evidence livrée dans `production/qa/evidence/combat-feel-playtest-[YYYY-MM-DD]-session-N.md`. AC-CMB-31/32/33/34 fermés à 3 sessions PASS sur les 4 ACs, sign-off qa-lead + creative-director.
 
 ## Context
 

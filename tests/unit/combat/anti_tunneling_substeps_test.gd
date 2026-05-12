@@ -134,16 +134,16 @@ func test_combat_compute_substep_segment_interpolates_linearly() -> void:
 	var seg0: Array[Vector3] = combat._compute_substep_segment(0, prev, current, aim)
 	assert_vector(seg0[0]) \
 		.override_failure_message("AC-3 substep 0 from doit être prev + offset") \
-		.is_equal_approx(prev + offset, 0.001)
+		.is_equal_approx(prev + offset, Vector3.ONE * 0.001)
 	assert_vector(seg0[1]) \
 		.override_failure_message("AC-3 substep 0 to doit être lerp(prev, current, 1/3) + offset") \
-		.is_equal_approx(prev.lerp(current, 1.0 / 3.0) + offset, 0.001)
+		.is_equal_approx(prev.lerp(current, 1.0 / 3.0) + offset, Vector3.ONE * 0.001)
 
 	# Substep 2 (dernier)
 	var seg2: Array[Vector3] = combat._compute_substep_segment(2, prev, current, aim)
 	assert_vector(seg2[1]) \
 		.override_failure_message("AC-3 substep 2 to doit être current + offset (fin de trajectoire)") \
-		.is_equal_approx(current + offset, 0.001)
+		.is_equal_approx(current + offset, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -160,10 +160,10 @@ func test_combat_compute_substep_segment_immobile_player_overlapping_substeps() 
 		var seg: Array[Vector3] = combat._compute_substep_segment(i, pos, pos, aim)
 		assert_vector(seg[0]) \
 			.override_failure_message("AC-3 immobile substep %d from = pos + offset" % i) \
-			.is_equal_approx(expected, 0.001)
+			.is_equal_approx(expected, Vector3.ONE * 0.001)
 		assert_vector(seg[1]) \
 			.override_failure_message("AC-3 immobile substep %d to = pos + offset" % i) \
-			.is_equal_approx(expected, 0.001)
+			.is_equal_approx(expected, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 

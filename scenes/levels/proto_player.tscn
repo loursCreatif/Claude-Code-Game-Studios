@@ -1,0 +1,478 @@
+; Proto Player imported from prototypes/movement-katana — Mac-compatible
+; (uses Input.is_physical_key_pressed direct, bypass action map).
+[gd_scene load_steps=6 format=3 uid="uid://proto_player_etage01"]
+
+[ext_resource type="Script" path="res://scenes/levels/proto_player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scenes/levels/proto_katana.gd" id="2_katana"]
+
+[sub_resource type="CapsuleShape3D" id="CapsulePlayer"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleShape3D" id="CapsuleKatana"]
+radius = 0.9
+height = 2.6
+
+[sub_resource type="BoxMesh" id="BoxKatana"]
+size = Vector3(0.08, 0.08, 1.8)
+
+[sub_resource type="StandardMaterial3D" id="MatKatana"]
+albedo_color = Color(0.85, 0.95, 1.0, 1)
+metallic = 0.9
+roughness = 0.05
+emission_enabled = true
+emission = Color(0.30, 0.85, 1.0, 1)
+emission_energy_multiplier = 2.0
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_layer = 1
+collision_mask = 30
+; CCD anti-tunneling murs 0.3 m à haute vitesse (dash 28 m/s × dt 0.0167 = 0.47 m/frame).
+motion_mode = 0
+; Floor max angle 60° (anti-blocage aux edges plateforme).
+floor_max_angle = 1.0472
+; Auto-step plateformes : grimpe les bords ≤ 0.3 m sans saut (fluidité parkour).
+floor_snap_length = 0.3
+; floor_constant_speed FALSE : évite stutters aux transitions plateforme.
+floor_constant_speed = false
+floor_block_on_wall = false
+slide_on_ceiling = true
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsulePlayer")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+current = true
+fov = 90.0
+
+[node name="Katana" type="Node3D" parent="Camera3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, -0.35, -0.45)
+script = ExtResource("2_katana")
+
+[node name="Mesh" type="MeshInstance3D" parent="Camera3D/Katana"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
+mesh = SubResource("BoxKatana")
+material_override = SubResource("MatKatana")
+
+[node name="ShapeCast3D" type="ShapeCast3D" parent="Camera3D/Katana"]
+shape = SubResource("CapsuleKatana")
+target_position = Vector3(0, 0, -2.6)
+; mask=2 (LAYER_ENEMY ADR-0008 D-2) — détecte Grunt body production.
+collision_mask = 2
+enabled = false
+
+[node name="WallRayLeft" type="RayCast3D" parent="."]
+target_position = Vector3(-1.3, 0, 0)
+collision_mask = 8
+
+[node name="WallRayRight" type="RayCast3D" parent="."]
+target_position = Vector3(1.3, 0, 0)
+collision_mask = 8
+
+; Crosshair MVP — ColorRect 6×6 centre écran via CanvasLayer
+[node name="HUDProto" type="CanvasLayer" parent="."]
+layer = 40
+
+; HP bar — barre rouge BAS CENTRE (au-dessus du dash bar)
+[node name="HpBg" type="ColorRect" parent="HUDProto"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -50.0
+offset_right = 100.0
+offset_bottom = -38.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(0.1, 0.05, 0.05, 0.5)
+
+[node name="HpFill" type="ColorRect" parent="HUDProto/HpBg"]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 200.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.95, 0.20, 0.20, 0.95)
+
+; High score display — bas gauche, montre BEST KILLS / WAVE persisté
+[node name="HighScoreLabel" type="Label" parent="HUDProto"]
+anchors_preset = 3
+anchor_left = 0.0
+anchor_top = 1.0
+anchor_right = 0.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -68.0
+offset_right = 360.0
+offset_bottom = -32.0
+grow_vertical = 0
+mouse_filter = 2
+text = "BEST  K0  V1"
+modulate = Color(0.85, 0.75, 0.4, 0.75)
+
+; Game over overlay — dim rouge + label
+[node name="GameOverOverlay" type="ColorRect" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.30, 0.02, 0.04, 0.85)
+visible = false
+
+[node name="GameOverLabel" type="Label" parent="HUDProto/GameOverOverlay"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -80.0
+offset_right = 300.0
+offset_bottom = 80.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "GAME OVER
+R pour relancer"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(1.0, 0.15, 0.15, 1)
+
+; Pause overlay — dim full-screen + Label
+[node name="PauseOverlay" type="ColorRect" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.02, 0.02, 0.06, 0.75)
+visible = false
+process_mode = 3
+
+[node name="PauseLabel" type="Label" parent="HUDProto/PauseOverlay"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -240.0
+offset_top = -50.0
+offset_right = 240.0
+offset_bottom = 50.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "PAUSE
+Échap pour reprendre"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(0.3, 0.85, 0.95, 1)
+process_mode = 3
+
+[node name="Crosshair" type="ColorRect" parent="HUDProto"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -3.0
+offset_top = -3.0
+offset_right = 3.0
+offset_bottom = 3.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.85)
+
+; Hitmarker — 4 segments en croix qui flash au kill
+[node name="Hitmarker" type="Control" parent="HUDProto"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+modulate = Color(1, 1, 1, 0.0)
+
+[node name="HitN" type="ColorRect" parent="HUDProto/Hitmarker"]
+offset_left = 18.0
+offset_top = 0.0
+offset_right = 22.0
+offset_bottom = 14.0
+color = Color(1, 0.95, 0.3, 1)
+
+[node name="HitS" type="ColorRect" parent="HUDProto/Hitmarker"]
+offset_left = 18.0
+offset_top = 26.0
+offset_right = 22.0
+offset_bottom = 40.0
+color = Color(1, 0.95, 0.3, 1)
+
+[node name="HitW" type="ColorRect" parent="HUDProto/Hitmarker"]
+offset_left = 0.0
+offset_top = 18.0
+offset_right = 14.0
+offset_bottom = 22.0
+color = Color(1, 0.95, 0.3, 1)
+
+[node name="HitE" type="ColorRect" parent="HUDProto/Hitmarker"]
+offset_left = 26.0
+offset_top = 18.0
+offset_right = 40.0
+offset_bottom = 22.0
+color = Color(1, 0.95, 0.3, 1)
+
+; Damage indicators — 4 bordures rouges flash selon direction attaquant
+[node name="DmgN" type="ColorRect" parent="HUDProto"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 28.0
+grow_horizontal = 2
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgS" type="ColorRect" parent="HUDProto"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -28.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgW" type="ColorRect" parent="HUDProto"]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 28.0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+[node name="DmgE" type="ColorRect" parent="HUDProto"]
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -28.0
+grow_vertical = 2
+grow_horizontal = 0
+mouse_filter = 2
+color = Color(1, 0.10, 0.15, 0.0)
+
+; Flash blanc full-screen pour feedback kill (0.1s fade out).
+[node name="KillFlash" type="ColorRect" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0.0)
+
+; Kill counter — coin haut gauche
+[node name="KillCounter" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 280.0
+offset_bottom = 56.0
+mouse_filter = 2
+text = "KILLS  0"
+modulate = Color(0.95, 0.92, 0.85, 1)
+
+; Credit counter — sous KILLS, accent cyan
+[node name="CreditCounter" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 200.0
+offset_top = 12.0
+offset_right = 440.0
+offset_bottom = 56.0
+mouse_filter = 2
+text = "CRÉDITS  0"
+modulate = Color(0.3, 0.95, 1.0, 1)
+
+; Wave counter — droite haut, accent rouge orange
+[node name="WaveCounter" type="Label" parent="HUDProto"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -240.0
+offset_top = 12.0
+offset_right = -16.0
+offset_bottom = 50.0
+grow_horizontal = 0
+mouse_filter = 2
+text = "VAGUE  1"
+horizontal_alignment = 2
+modulate = Color(1.0, 0.55, 0.20, 1)
+
+; Kill streak — sous le kill counter, fade out quand reset
+[node name="StreakLabel" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 16.0
+offset_top = 80.0
+offset_right = 360.0
+offset_bottom = 130.0
+mouse_filter = 2
+text = ""
+modulate = Color(1.0, 0.65, 0.15, 1.0)
+
+; Session timer — sous le kill counter
+[node name="TimerLabel" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 16.0
+offset_top = 44.0
+offset_right = 280.0
+offset_bottom = 80.0
+mouse_filter = 2
+text = "00:00"
+modulate = Color(0.75, 0.85, 1.0, 0.9)
+
+; Dash cooldown bar — bas centre, fill 0→1 pendant cooldown
+[node name="DashCooldownBg" type="ColorRect" parent="HUDProto"]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -22.0
+offset_right = 100.0
+offset_bottom = -14.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+color = Color(0.1, 0.1, 0.12, 0.5)
+
+[node name="DashCooldownFill" type="ColorRect" parent="HUDProto/DashCooldownBg"]
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 200.0
+grow_horizontal = 0
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.3, 0.85, 0.95, 0.9)
+
+; Exit indicator — distance + direction vers EtageExitTrigger
+[node name="ExitIndicator" type="Label" parent="HUDProto"]
+anchors_preset = 2
+anchor_top = 0.0
+offset_left = 16.0
+offset_top = 130.0
+offset_right = 400.0
+offset_bottom = 170.0
+mouse_filter = 2
+text = "→ EXIT 0m"
+modulate = Color(0.3, 0.85, 0.95, 0.85)
+
+; Speed display (km/h) — feedback flow Mirror's Edge style
+[node name="SpeedLabel" type="Label" parent="HUDProto"]
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -200.0
+offset_top = -80.0
+offset_right = -16.0
+offset_bottom = -32.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+text = "0 km/h"
+horizontal_alignment = 2
+modulate = Color(0.3, 0.85, 0.95, 0.9)
+
+; Victory label — fade in quand Player entre EtageExitTrigger
+[node name="VictoryLabel" type="Label" parent="HUDProto"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -60.0
+offset_right = 300.0
+offset_bottom = 60.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+text = "VICTOIRE"
+horizontal_alignment = 1
+vertical_alignment = 1
+modulate = Color(1.0, 0.85, 0.3, 0.0)
+
+; Speed lines vignette — radial lines apparaît quand vitesse haute
+[node name="SpeedLinesContainer" type="Control" parent="HUDProto"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="SpeedVignette" type="ColorRect" parent="HUDProto/SpeedLinesContainer"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.0, 0.0, 0.05, 0.0)
+
+; Tutorial messages — 3 indices séquentiels au premier lancement
+[node name="TutorialLabel" type="Label" parent="HUDProto"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -320.0
+offset_top = 100.0
+offset_right = 320.0
+offset_bottom = 160.0
+grow_horizontal = 2
+mouse_filter = 2
+text = ""
+horizontal_alignment = 1
+modulate = Color(0.95, 0.95, 0.95, 0.0)
+
+; Onboarding controls label — fade out après 5s
+[node name="ControlsLabel" type="Label" parent="HUDProto"]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -360.0
+offset_top = 16.0
+offset_right = -16.0
+offset_bottom = 220.0
+grow_horizontal = 0
+mouse_filter = 2
+text = "ZQSD  bouger
+Souris  regarder
+Espace  saut (×2 = double-jump)
+Shift  dash
+Clic gauche  katana
+Échap  libérer la souris"
+horizontal_alignment = 2
+modulate = Color(1, 1, 1, 0.85)

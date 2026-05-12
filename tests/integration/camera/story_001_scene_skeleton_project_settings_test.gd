@@ -198,23 +198,23 @@ func test_project_godot_contains_rendering_settings() -> void:
 		.override_failure_message("Could not load project.godot — error code: %d" % err) \
 		.is_equal(OK)
 
-	# Assert — renderer/rendering_method = "forward_plus"
-	assert_bool(config.has_section_key("rendering", "renderer/rendering_method")) \
-		.override_failure_message("rendering/renderer/rendering_method missing from project.godot") \
-		.is_true()
-	assert_str(config.get_value("rendering", "renderer/rendering_method", "") as String) \
+	# Note Godot 4.6 : ConfigFile.has_section_key() retourne false pour les keys
+	# élidées au défaut engine (forward_plus, msaa_3d=0, vrs/mode=0, vsync_mode=1
+	# correspondent tous aux defaults Godot 4.6). On vérifie donc la valeur effective
+	# avec un default mirroring l'engine default — pattern identique à use_taa L229.
+
+	# Assert — renderer/rendering_method = "forward_plus" (Godot 4.6 default)
+	assert_str(config.get_value("rendering", "renderer/rendering_method", "forward_plus") as String) \
 		.override_failure_message("renderer/rendering_method must be 'forward_plus'") \
 		.is_equal("forward_plus")
 
-	# Assert — anti_aliasing/quality/msaa_3d = 0
-	assert_bool(config.has_section_key("rendering", "anti_aliasing/quality/msaa_3d")) \
-		.override_failure_message("rendering/anti_aliasing/quality/msaa_3d missing from project.godot") \
-		.is_true()
-	assert_int(config.get_value("rendering", "anti_aliasing/quality/msaa_3d", -1) as int) \
+	# Assert — anti_aliasing/quality/msaa_3d = 0 (Godot 4.6 default — MSAA disabled)
+	assert_int(config.get_value("rendering", "anti_aliasing/quality/msaa_3d", 0) as int) \
 		.override_failure_message("anti_aliasing/quality/msaa_3d must be 0 (MSAA disabled)") \
 		.is_equal(0)
 
 	# Assert — anti_aliasing/quality/screen_space_aa = 2 (SMAA 1x — new in 4.5)
+	# Cette key est non-default → présence physique attendue dans project.godot.
 	assert_bool(config.has_section_key("rendering", "anti_aliasing/quality/screen_space_aa")) \
 		.override_failure_message("rendering/anti_aliasing/quality/screen_space_aa missing from project.godot") \
 		.is_true()
@@ -230,19 +230,13 @@ func test_project_godot_contains_rendering_settings() -> void:
 		.override_failure_message("anti_aliasing/quality/use_taa must be false (TAA forbidden)") \
 		.is_false()
 
-	# Assert — vrs/mode = 0
-	assert_bool(config.has_section_key("rendering", "vrs/mode")) \
-		.override_failure_message("rendering/vrs/mode missing from project.godot") \
-		.is_true()
-	assert_int(config.get_value("rendering", "vrs/mode", -1) as int) \
+	# Assert — vrs/mode = 0 (Godot 4.6 default — VRS disabled)
+	assert_int(config.get_value("rendering", "vrs/mode", 0) as int) \
 		.override_failure_message("vrs/mode must be 0 (VRS disabled)") \
 		.is_equal(0)
 
-	# Assert — display/window/vsync/vsync_mode = 1 (in [display] section)
-	assert_bool(config.has_section_key("display", "window/vsync/vsync_mode")) \
-		.override_failure_message("display/window/vsync/vsync_mode missing from project.godot") \
-		.is_true()
-	assert_int(config.get_value("display", "window/vsync/vsync_mode", -1) as int) \
+	# Assert — display/window/vsync/vsync_mode = 1 (Godot 4.6 default — vsync enabled)
+	assert_int(config.get_value("display", "window/vsync/vsync_mode", 1) as int) \
 		.override_failure_message("window/vsync/vsync_mode must be 1 (vsync enabled)") \
 		.is_equal(1)
 

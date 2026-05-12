@@ -151,13 +151,23 @@ func _make_minimal_root_with_world_bounds(static_size: Vector3, bounds_size: Vec
 ## Source : story-020 AC-LVL-18.
 func test_level_lint_player_start_count_not_1_fails() -> void:
 	# Arrange
+	# Wrapper sub-Node3D pour éviter Godot sibling auto-rename ("PlayerStart" → "PlayerStart2"
+	# quand 2 siblings du même nom — sub-tree distincte permet 2 "PlayerStart" valides).
+	# Pattern cohérent : level_state_machine_test commit `299052c` _make_root_with_markers.
 	var root: Node3D = _make_bare_root()
+	var wrap1: Node3D = Node3D.new()
+	wrap1.name = "Wrap1"
+	root.add_child(wrap1)
 	var ps1: Marker3D = Marker3D.new()
 	ps1.name = "PlayerStart"
-	root.add_child(ps1)
+	wrap1.add_child(ps1)
+
+	var wrap2: Node3D = Node3D.new()
+	wrap2.name = "Wrap2"
+	root.add_child(wrap2)
 	var ps2: Marker3D = Marker3D.new()
 	ps2.name = "PlayerStart"
-	root.add_child(ps2)
+	wrap2.add_child(ps2)
 
 	# Act
 	var errors: Array[String] = LevelLintScript.validate_level_formulas(root)

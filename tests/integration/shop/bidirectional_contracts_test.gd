@@ -300,23 +300,25 @@ func test_meta_propagation_chain_autoloads_available() -> void:
 # =============================================================================
 
 ## GIVEN solde 50, shop frais,
-## WHEN buy double_jump,
-## THEN  CreditEconomy.get_total() == 30 (-20 SYNC),
+## WHEN buy double_jump (n_index=0),
+## THEN  CreditEconomy.get_total() == 50 - BASE_UPGRADE_COST SYNC,
 ##       Upgrade.is_owned + can_air_jump SYNC,
 ##       SaveLoadSystem.load_string_array contient double_jump SYNC,
 ##       handler shop._on_credits_changed exécuté à idle frame suivante (DEFERRED).
+## Post 9a4cc0b — cost canonique BASE=8.
 func test_full_purchase_cycle_bidirectional_sync_chain() -> void:
 	# Arrange
 	_seed_credits(50)
 	var s: Control = _make_shop()
+	var expected_total: int = 50 - CreditEconomy.BASE_UPGRADE_COST  # 50 - 8 = 42
 
 	# Act — purchase cycle
 	s._on_buy_pressed(&"double_jump", 0)
 
 	# Assert SYNC : Credit + Upgrade + SaveLoad cohérents même frame
 	assert_int(CreditEconomy.get_total()) \
-		.override_failure_message("Bidirectional: Credit total -= cost SYNC") \
-		.is_equal(30)
+		.override_failure_message("Bidirectional: Credit total -= cost SYNC (expected %d, got %d)" % [expected_total, CreditEconomy.get_total()]) \
+		.is_equal(expected_total)
 	assert_bool(Upgrade.is_owned(&"double_jump")) \
 		.override_failure_message("Bidirectional: Upgrade.is_owned SYNC") \
 		.is_true()
@@ -332,8 +334,8 @@ func test_full_purchase_cycle_bidirectional_sync_chain() -> void:
 	# Tick idle frame — handler DEFERRED met à jour credit display
 	await get_tree().process_frame
 	assert_str(s.get_credit_display_text()) \
-		.override_failure_message("Bidirectional: credit display refresh DEFERRED") \
-		.is_equal("30")
+		.override_failure_message("Bidirectional: credit display refresh DEFERRED (expected %d)" % expected_total) \
+		.is_equal(str(expected_total))
 
 	# Cleanup
 	_free_shop(s)

@@ -1,0 +1,76 @@
+[gd_scene load_steps=8 format=3 uid="uid://grunt_enemy_001"]
+
+[ext_resource type="Script" path="res://src/gameplay/enemy/grunt.gd" id="1_grunt_script"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_grunt_body"]
+; Enemy GDD F-ENM-1 : capsule grunt humanoid 0.35 m × 1.8 m.
+radius = 0.35
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_grunt_silhouette"]
+; Silhouette Chrome Zen — primitive simple, lisible à 20 m (Visual Requirements).
+radius = 0.35
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_grunt_body"]
+; Rouge crimson émissif — silhouette danger visible à distance (refs Martin).
+albedo_color = Color(0.95, 0.10, 0.10, 1)
+emission_enabled = true
+emission = Color(1.0, 0.15, 0.15, 1)
+emission_energy_multiplier = 0.6
+metallic = 0.0
+roughness = 1.0
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_laser_cone"]
+; Enemy GDD F-ENM-2 : LaserCone hitbox 0.5 m × 0.3 m × 6.0 m.
+size = Vector3(0.5, 0.3, 6)
+
+[sub_resource type="QuadMesh" id="QuadMesh_laser_visual"]
+; Visualisation cône — Quad émissif rouge sur la face frontale du BoxShape3D.
+size = Vector2(0.5, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_laser_emissive"]
+; Couleur rouge saturé fluo (Visual Requirements — signal de mort universel).
+albedo_color = Color(1, 0.1, 0.1, 1)
+emission_enabled = true
+emission = Color(1, 0.1, 0.1, 1)
+emission_energy_multiplier = 3.0
+
+[node name="Grunt" type="CharacterBody3D" groups=["enemy", "enemies"]]
+; Enemy GDD r2 Rule 3 : canonical scene. Layer LAYER_ENEMY=2, mask LAYER_ENVIRONMENT=4.
+; Layers configurés via API 1-idx dans _ready() (ADR-0008 D-6 lint cover-all).
+script = ExtResource("1_grunt_script")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("CapsuleShape3D_grunt_body")
+; Position centré : capsule sol-au-plafond. Origin Grunt = pieds.
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_grunt_silhouette")
+material_override = SubResource("StandardMaterial3D_grunt_body")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+
+[node name="FacingPivot" type="Node3D" parent="."]
+; Rule 3 : %FacingPivot — rotation horizontale du corps, oriente le cône laser.
+; MVP figé à orientation de spawn (lue depuis EnemySlot.global_basis par LevelSystem story-003).
+unique_name_in_owner = true
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+
+[node name="LaserCone" type="Area3D" parent="FacingPivot"]
+; Rule 4 + Rule 8 : layer LAYER_ENEMY_HITBOX=3, mask LAYER_PLAYER=1, monitoring=true.
+; Layers configurés au runtime via API 1-idx. body_entered handler câblé _ready().
+; Position devant le grunt — centre du box à mi-portée (LASER_RANGE_M / 2 = 3.0 m).
+unique_name_in_owner = true
+monitoring = true
+monitorable = false
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -3)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FacingPivot/LaserCone"]
+shape = SubResource("BoxShape3D_laser_cone")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FacingPivot/LaserCone"]
+; Visualisation rouge fluo. Plan plat sur la face frontale (Z+) — pas de back-face culling.
+mesh = SubResource("QuadMesh_laser_visual")
+material_override = SubResource("StandardMaterial3D_laser_emissive")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)

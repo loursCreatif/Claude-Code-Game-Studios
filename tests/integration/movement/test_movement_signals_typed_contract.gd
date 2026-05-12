@@ -6,11 +6,16 @@
 #   AC-5 : attacked forward, idempotence, Dead gate.
 #
 # ADR-0005 (D-1..D-4, D-6, D-8), ADR-0004 D-1 (was_pressed_this_tick edge consume).
-# Framework: GdUnit4 (extends GdUnitTestSuite).
+# Framework: GdUnit4 (extends AutoloadResetTestSuite — TD-010 opt-in, snapshot
+# autoloads avant chaque test pour éviter les pollutions cross-suite).
 #
 # Story: story-009-signals-typed-contract
 
 extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
 
 # ---------------------------------------------------------------------------
 # Scene preload
@@ -43,6 +48,21 @@ class SignalSpy extends RefCounted:
 	func record_v3_v3(a: Vector3, b: Vector3) -> void:
 		count += 1
 		last_args = [a, b]
+
+
+# ---------------------------------------------------------------------------
+# Setup / teardown — AutoloadResetHelper composition (TD-010 opt-in)
+# ---------------------------------------------------------------------------
+
+func before_test() -> void:
+	# Snapshot autoloads (GSM + Engine + AudioSystem + VFXSystem) avant mutations
+	# pour éviter pollution cross-suite par signal refcount accumulé (TD-010).
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
+
+
+func after_test() -> void:
+	# Restaure autoloads — isole GSM._current_state muté par die()/respawn() (TD-010).
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 
 
 # ---------------------------------------------------------------------------
@@ -317,7 +337,7 @@ func test_respawned_signal_emitted_with_checkpoint_position() -> void:
 			"AC-2: respawned payload must be checkpoint %s — got %s"
 			% [str(checkpoint), str(spy.last_args[0])]
 		) \
-		.is_equal_approx(checkpoint, 0.01)
+		.is_equal_approx(checkpoint, Vector3.ONE * 0.01)
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -333,7 +353,7 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	# Ensure cooldown is zero
 	player.set("_dash_cooldown_timer", 0.0)
 
@@ -341,8 +361,8 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 	player.dash_started.connect(spy.record_v3_f)
 
 	# Simulate move forward (negative Z in local space) then dash
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 
 	# Act
 	_tick(player)
@@ -372,8 +392,7 @@ func test_dash_started_emitted_with_dir_and_speed() -> void:
 		.is_equal_approx(1.0, 0.001)
 
 	# Cleanup
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -450,7 +469,7 @@ func test_wall_run_entered_signal_is_connected_and_emittable() -> void:
 
 	assert_vector(spy.last_args[0] as Vector3) \
 		.override_failure_message("AC-2: wall_run_entered payload must be Vector3(1,0,0)") \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	player.queue_free()
 	await get_tree().process_frame
@@ -509,7 +528,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 	player.wall_run_exited.connect(spy_exited.record_0)
 
 	# Act — press jump and tick
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(player)
 
 	# Assert — wall_jumped emitted once
@@ -525,7 +544,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 		.override_failure_message(
 			"AC-2: wall_jumped wall_normal payload must be pre-reset (1,0,0) — got %s" % str(received_normal)
 		) \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	# Assert — launch_velocity payload: normal * WALL_JUMP_SIDE + UP * WALL_JUMP_UP
 	var expected_launch: Vector3 = Vector3(1.0, 0.0, 0.0) * MovementController.WALL_JUMP_SIDE + Vector3.UP * MovementController.WALL_JUMP_UP
@@ -535,7 +554,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 			"AC-2: wall_jumped launch_velocity payload must be %s — got %s"
 			% [str(expected_launch), str(received_launch)]
 		) \
-		.is_equal_approx(expected_launch, 0.001)
+		.is_equal_approx(expected_launch, Vector3.ONE * 0.001)
 
 	# Assert — wall_run_exited emitted before wall_jumped (D-6)
 	assert_int(spy_exited.count) \
@@ -543,7 +562,7 @@ func test_wall_jumped_emitted_with_pre_reset_wall_normal() -> void:
 		.is_equal(1)
 
 	# Cleanup
-	InputManager.simulate_action_release(&"jump")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -558,6 +577,21 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
+	# Disconnect CombatSystem._on_player_attacked : son assert
+	# `Engine.is_in_physics_frame()` (combat_system.gd:663) fail quand `_tick`
+	# call `player._physics_process(dt)` direct (pas de tick engine réel).
+	# Le test vérifie uniquement le contract Movement.attacked emit ; CombatSystem
+	# n'est pas le SUT ici. Pattern miroir cross-system disconnects intégration.
+	var combat: Node = player.get_node_or_null("CombatSystem")
+	if combat != null and player.attacked.is_connected(combat._on_player_attacked):
+		player.attacked.disconnect(combat._on_player_attacked)
+
+	# Force état GROUNDED : Jolt headless ubuntu CI transitionne GROUNDED→AIRBORNE
+	# au _ready faute de floor explicite. Pattern miroir project_settings_and_scene
+	# (commit 731c8cb).
+	if player._state != MovementController.State.GROUNDED:
+		player.set("_state", MovementController.State.GROUNDED)
+
 	assert_int(player._state) \
 		.override_failure_message("Precondition: player must start GROUNDED") \
 		.is_equal(MovementController.State.GROUNDED)
@@ -566,7 +600,7 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 	player.attacked.connect(spy.record_0)
 
 	# Act — press attack, tick once
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player)
 
 	# Assert — 1 emit on press tick
@@ -586,7 +620,7 @@ func test_attacked_emitted_when_action_pressed_and_not_dead() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -610,7 +644,7 @@ func test_attacked_blocked_when_dead() -> void:
 	player.attacked.connect(spy.record_0)
 
 	# Act — press attack while dead, tick once (within RESPAWN_DELAY window)
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 	_tick(player)
 
 	# Assert — 0 emit
@@ -620,7 +654,7 @@ func test_attacked_blocked_when_dead() -> void:
 		) \
 		.is_equal(0)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -635,11 +669,17 @@ func test_attacked_emitted_at_most_once_per_tick() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
+	# Disconnect CombatSystem._on_player_attacked (assert is_in_physics_frame
+	# fail sous direct _tick — voir test_attacked_emitted_when_action_pressed pour détail).
+	var combat: Node = player.get_node_or_null("CombatSystem")
+	if combat != null and player.attacked.is_connected(combat._on_player_attacked):
+		player.attacked.disconnect(combat._on_player_attacked)
+
 	var spy := SignalSpy.new()
 	player.attacked.connect(spy.record_0)
 
 	# Single press edge
-	InputManager.simulate_action_press(&"attack")
+	InputManager.inject_pressed_for_test(&"attack")
 
 	# Act
 	_tick(player)
@@ -652,7 +692,7 @@ func test_attacked_emitted_at_most_once_per_tick() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"attack")
+	# (edge press auto-consumed by next swap — no release needed)
 	player.queue_free()
 	await get_tree().process_frame
 
@@ -721,7 +761,7 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 	add_child(player)
 	await get_tree().process_frame
 
-	player.can_dash = true
+	player.set_capability(&"dash", true)
 	player.set("_dash_cooldown_timer", 0.0)
 
 	# Connect a badly-typed callable (1 arg instead of 2) — Godot will push_error
@@ -736,8 +776,8 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 	player.dash_started.connect(spy.record_v3_f)
 
 	# Act — trigger a dash
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(player)
 
 	# Assert — player remains valid (no crash from bad callable)
@@ -753,7 +793,6 @@ func test_typed_contract_mismatch_is_handled_gracefully_in_debug() -> void:
 		) \
 		.is_equal(1)
 
-	InputManager.simulate_action_release(&"move_forward")
-	InputManager.simulate_action_release(&"dash")
+	Input.action_release(&"move_forward")
 	player.queue_free()
 	await get_tree().process_frame

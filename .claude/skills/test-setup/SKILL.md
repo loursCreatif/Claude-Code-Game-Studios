@@ -230,7 +230,7 @@ jobs:
           lfs: true
 
       - name: Run GdUnit4 Tests
-        uses: MikeSchulze/gdUnit4-action@v1
+        uses: godot-gdunit-labs/gdUnit4-action@v1
         with:
           godot-version: '[VERSION FROM docs/engine-reference/godot/VERSION.md]'
           paths: |

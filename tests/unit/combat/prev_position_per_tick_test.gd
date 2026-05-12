@@ -68,7 +68,7 @@ func test_combat_prev_position_initialized_to_player_position_at_ready() -> void
 			"AC-4: _prev_position doit être initialisé à player.global_position au _ready() — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(5.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(5.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -78,7 +78,7 @@ func test_combat_prev_position_initialized_to_origin_when_player_at_origin() -> 
 	var pair: Array = _make_combat_at(Vector3.ZERO)
 	var combat: CombatSystem = pair[0]
 
-	assert_vector(combat._prev_position).is_equal_approx(Vector3.ZERO, 0.001)
+	assert_vector(combat._prev_position).is_equal_approx(Vector3.ZERO, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -105,7 +105,7 @@ func test_combat_prev_position_captured_end_of_physics_process() -> void:
 			"AC-3: _prev_position doit être capturé à fin _physics_process — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(1.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(1.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -128,7 +128,7 @@ func test_combat_prev_position_not_updated_when_state_is_dead() -> void:
 			"AC-3 edge: _prev_position doit rester figé en DEAD (early return) — reçu %s"
 			% str(combat._prev_position)
 		) \
-		.is_equal_approx(Vector3(2.0, 0.0, 0.0), 0.001)
+		.is_equal_approx(Vector3(2.0, 0.0, 0.0), Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -211,12 +211,12 @@ func test_combat_shapecast_origin_updated_per_tick_during_swinging() -> void:
 			"attendu %s, reçu %s (tick 0 était %s, tick 2 était %s)"
 			% [str(expected_tick_3), str(origin_tick_3), str(origin_tick_0), str(origin_tick_2)]
 		) \
-		.is_equal_approx(expected_tick_3, 0.001)
+		.is_equal_approx(expected_tick_3, Vector3.ONE * 0.001)
 
 	# Sanity check : tick 0 et tick 2 sont identiques (player immobile)
 	assert_vector(origin_tick_2) \
 		.override_failure_message("AC-2 sanity: origin tick 0 == tick 2 si player immobile") \
-		.is_equal_approx(origin_tick_0, 0.001)
+		.is_equal_approx(origin_tick_0, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -225,18 +225,25 @@ func test_combat_shapecast_origin_updated_per_tick_during_swinging() -> void:
 # AC-5 — Ownership grep : `_prev_position` writes uniquement dans combat_system.gd
 # ---------------------------------------------------------------------------
 
-## AC-5 : aucun fichier `.gd` hors `src/gameplay/combat/combat_system.gd` n'écrit
+## AC-5 : aucun fichier `.gd` hors `src/gameplay/combat/` n'écrit
 ## `._prev_position` (assignment ou augmented assignment).
+##
+## Note TD-008 split : tous les fichiers `src/gameplay/combat/*.gd` sont des
+## composition handlers appartenant à CombatSystem (combat_system.gd +
+## combat_tick_handler.gd + combat_hit_handler.gd + combat_lifecycle_handler.gd +
+## combat_slow_mo_handler.gd). L'invariant ADR-0006 D-3 reste préservé : seul
+## CombatSystem (et ses handlers internes) écrit `_prev_position` — pas de
+## consommateur externe (camera/VFX/audio/level).
 ##
 ## Pattern recherché : `\._prev_position\s*=` (assignment direct).
 ## Lignes commentées (`#`) exemptées.
 func test_no_external_writes_to_combat_prev_position() -> void:
-	var combat_path: String = "res://src/gameplay/combat/combat_system.gd"
+	var combat_dir: String = "res://src/gameplay/combat/"
 	var regex: RegEx = RegEx.new()
 	regex.compile("\\._prev_position\\s*=")
 
 	var violations: Array[String] = []
-	_scan_dir_recursive(SRC_DIR, regex, combat_path, violations)
+	_scan_dir_recursive(SRC_DIR, regex, combat_dir, violations)
 
 	assert_int(violations.size()) \
 		.override_failure_message(
@@ -246,11 +253,13 @@ func test_no_external_writes_to_combat_prev_position() -> void:
 		.is_equal(0)
 
 
-## Scan récursif du dossier `src/` à la recherche du pattern, en excluant `excluded_path`.
+## Scan récursif du dossier `src/` à la recherche du pattern, en excluant tout
+## fichier sous `excluded_dir_prefix` (préfixe de path — autorise un dossier entier
+## pour les composition handlers, pattern TD-008).
 func _scan_dir_recursive(
 		dir_path: String,
 		regex: RegEx,
-		excluded_path: String,
+		excluded_dir_prefix: String,
 		violations: Array[String]
 ) -> void:
 	var dir: DirAccess = DirAccess.open(dir_path)
@@ -265,8 +274,8 @@ func _scan_dir_recursive(
 			continue
 		var sub_path: String = dir_path + entry
 		if dir.current_is_dir():
-			_scan_dir_recursive(sub_path + "/", regex, excluded_path, violations)
-		elif entry.ends_with(".gd") and sub_path != excluded_path:
+			_scan_dir_recursive(sub_path + "/", regex, excluded_dir_prefix, violations)
+		elif entry.ends_with(".gd") and not sub_path.begins_with(excluded_dir_prefix):
 			var file: FileAccess = FileAccess.open(sub_path, FileAccess.READ)
 			if file == null:
 				entry = dir.get_next()

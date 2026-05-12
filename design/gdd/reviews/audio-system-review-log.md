@@ -1,5 +1,104 @@
 # Audio System — Review Log
 
+## Note — 2026-05-03 (Phase D.5 engine-ref dump RESOLVED, post-r2.3)
+
+**Type**: Suivi engine-ref dump (pas une review). Action déclenchée par r2.3 review entry "Phase D.5 engine-ref pré-requis BLOCKING Sprint Audio".
+
+**Action**: Section **AudioEffectCompressor (Sidechain Ducking)** ajoutée à `docs/engine-reference/godot/modules/audio.md` (+85 lignes). Contenu : table props Godot 4.6 (`threshold`, `ratio`, `gain`, `attack_us` µs, `release_ms` ms, `mix`, `sidechain`), Critical Naming Gotcha bloc, Sidechain Ducking Pattern Phase D.2 (boot guard idempotent type check `is AudioEffectCompressor`), Verification block AC-AUD-01 (d), Common Pitfalls.
+
+**Réconciliation factuelle**: la review r2.3 émettait l'hypothèse d'un breaking change Godot 4.3→4.6 sur `attack` ms → `attack_us` µs. **Vérifié faux** : ces noms existent depuis Godot 3.x — gotcha nommage asymétrique long-standing, pas breaking 4.x. Setter sur `compressor.attack` ou `compressor.release` no-op silencieusement (sets non-existent prop sans erreur). AC-AUD-01 (d) assertions restent valides tel quel — seule la prose explicative GDD corrigée (ligne 3 status block + Phase D.5 block + footer Tracker bloc).
+
+**Fichiers modifiés**: 4 (engine-ref `audio.md` +85 lignes ; `audio-system.md` 4 surgical edits Phase D.5 block + ligne 3 + ligne 767 + ligne 780 ; `systems-index.md` ligne 23 segment Phase D.5 ; `active.md` Session Extract prepend).
+
+**Status**: Phase D.5 Tracker (Open Question) → ✅ RESOLVED. Pré-requis Sprint Audio implementation levé. Tests `tests/integration/audio/audio_boot_test.gd` débloqués pour AC-AUD-01 (d).
+
+---
+
+## Review — 2026-05-03 (r2.3 re-review post Phase C+D auto-completion) — Verdict: NEEDS REVISION → APPROVED r2.3 (8 fixes appliqués directement)
+
+**Scope signal**: M (surgical — Phase C+D pure formalisation impl/hardening, pas de redesign architectural ; ~50 lignes GDD édités)
+**Specialists**: audio-director, qa-lead, godot-specialist, game-designer (4 agents parallèles adversariaux — creative-director synthesis skipped, convergence forte specialists + Fantasy game-designer APPROVED dès le départ)
+**Mode**: `/design-review audio-system` fresh session post Phase C+D auto-completion 2026-05-03 + `/consistency-check audio-system` PASS 2026-05-03
+**Blocking items identifiés**: 8 (5 haute convergence multi-specialists + 3 qa-lead unique legitimate) | Recommended: 6 | Action: 8/8 fixes appliqués immédiatement (Option A, pattern r2.1)
+**Prior verdict resolved**: APPROVED r2.1 Phase A+B (2026-04-27) → r2.2 amendement éditorial NB-CRD-6 secret collect (2026-04-28) → r2.2 Phase A+B+C+D complete + consistency PASS (2026-05-03) → r2.3 surgical Phase C+D coverage (2026-05-03 fresh re-review)
+
+### Summary
+
+Phase C+D (formules hardening F-01/F-02/F-04 + impl details D.1-D.5) auto-complétées 2026-05-03 en chain auto-mode post-Combat audit. `/consistency-check` a passé sans amendement registry. Fresh `/design-review` re-review déclenché pour verdict APPROVED formel sur r2.3 — convergence forte 4 specialists sur 5 BLOCKING + 3 qa-lead legitimate, tous corrigeables ≤ 30 min (pattern r2.1 réplique).
+
+**Convergence multi-specialists** (5 BLOCKING) :
+
+1. **D.3 `_active_clac_players` orphan tracker** (audio-director B-2 + godot-specialist B-3 + game-designer R-3) — round-robin `stop()` forcé sur slot avec clac actif n'émet pas `finished` signal, `CONNECT_ONE_SHOT` ne fire pas, `_active_clac_players[slot_idx]` reste `true` orphelin → slot exclu permanent du pitch shift slow-mo, casse Couche 4 intermittently. **FIX** : (a) `erase(slot_idx)` AVANT `stop()` dans saturation guard `play_3d_at` ; (b) cleanup pré-connect si `_active_clac_players.has(slot_idx)` (slot recyclé) ; (c) `Dictionary[int, bool]` typed Godot 4.4+ ; (d) defensive disconnect dans `_on_clac_finished` au cas où one-shot pas tiré.
+
+2. **`attack_us` API verification trou** (audio-director #4 + qa-lead #7 + godot-specialist B-1 + game-designer R-4) — Godot 4.6 prop = `attack_us` (microseconds) vs Godot 4.3 = `attack` (ms), breaking change. Si impl utilise `.attack`, setter silently no-ops en GDScript (dynamic property), compressor s'instancie avec attack default ~10 ms, AC-AUD-01 passe car ne vérifie que `sidechain` — bug fonctionnel invisible. Engine-ref `audio.md` ne documente pas `AudioEffectCompressor` (Phase D.5 tracker open). **FIX** : AC-AUD-01 (d) enrichi `compressor.attack_us == 5000`, `compressor.release_ms == 200.0`, `threshold == -24.0`, `ratio == 4.0` avec failure message explicite si prop manquante. Formula 6 table renommée `attack → attack_us [1000, 20000] µs` + `release → release_ms`. Phase D.5 reste tracker pré-Sprint Audio engine-ref dump.
+
+3. **F-04 swell midpoint** (audio-director #1 BLOCKING vs game-designer R-1 RECOMMENDED) — linear-amplitude lerp produit `+3 dB perçu` au midpoint pour signaux décorrélés (sub-bass synthwave Chrome Zen partiellement corrélés peuvent amplifier au-delà). Tuning knob `ambient_crossfade_curve LINEAR | EQUAL_POWER` existe mais default LINEAR + note "escalader si playtest" = bandaid systémique sur projet indie solo. **FIX compromis** : default reste LINEAR (impl simple Phase D), MAIS Sprint Audio Day 1 test A/B `LINEAR vs EQUAL_POWER` cosinus sur tracks réelles à -12 dB ambient **BLOCKING** ; bascule default `EQUAL_POWER` AVANT release candidate si swell détecté. Pas de "plus tard" — gate-checked Sprint Audio.
+
+4. **AC-AUD-Sidechain double-boot non formalisé** (qa-lead #3 + game-designer R-2) — Phase D.2 mentionne en prose ligne 240 "VC-9 updated — double boot test" mais aucun AC numéroté formel. Section ACs (lignes 638-732) ne contenait pas AC pour idempotency Phase D.2. Régression silencieuse possible (compressor 2× ratio 8:1 en cascade → `-6 dB` ducking effective vs `-3 dB` nominal → music inaudible ~400 ms post-kill). **FIX** : **AC-AUD-20 nouveau** `[Logic — BLOCKING]` couvre (a) `effect_count == 1` après double-call, (b) `push_warning` capturé, (c) propriétés intactes (effet original pas écrasé), (d) failure mode message explicite si guard absent.
+
+5. **F-04 midpoint AC manquant** (qa-lead #5 + audio-director #1 cross-flagged) — Phase C corrige le dip dB-domain (-40 dB midpoint old → -6 dB midpoint new linear-amplitude) mais aucun AC ne vérifie le fix. Régression silencieuse possible (impl utilise lerp dB-domain par habitude). **FIX** : **AC-AUD-21 nouveau** `[Logic — BLOCKING]` couvre (a) `t=0` baseline, (b) midpoint `-6 dB ± 1 dB` (proof Phase C linear-amplitude appliqué), (c) anti-regression message "F-04 dB-domain lerp détecté" si midpoint observé `-40 dB`, (d) `t=1.0` swap final, (e) boundary `D=0` swap instantané.
+
+**Qa-lead unique BLOCKING legitimate** (3) :
+
+6. **F-01/F-02 boundary ACs** — guards Phase C (`D ≤ 0 → SILENCE_DB`, `R ≤ 0 → NOMINAL_DB`) sans coverage AC = dead code non vérifié CI. **FIX** : AC-AUD-04 (e)(f) + AC-AUD-06 (e)(f) sous-assertions `D=0`/`D=-1`/`R=0`/`R=-1` boundary + `push_warning` capture.
+
+7. **AC-AUD-13 sub-budgets handler isolés** — Phase D.4 spec budgets `_on_enemy_killed < 0.1 ms` + `play_3d_at < 0.05 ms` non couverts par AC-AUD-13 frame-global. **FIX** : sous-assertions (e)(f)(g) — handler isolé `Time.get_ticks_usec()` wrap, play_3d_at isolé, sidechain CPU `< 0.5%` (ADVISORY conditional Performance.AUDIO monitor).
+
+8. **AC-AUD-15 split BLOCKING/ADVISORY mixed** — l'ancien AC-AUD-15 (a-e) était BLOCKING global avec (c) FFT `AudioEffectRecord` rétrogradant en ADVISORY conditional headless = contradiction Gate Level. **FIX** : split AC-AUD-15-a `[Integration — BLOCKING]` (a/b/b'/d/e — headless-testable, pitch_scale assertions) + AC-AUD-15-b `[Visual/Feel — ADVISORY]` (c — FFT anti-pop, evidence Sprint Audio playtest si headless). Tolérance (b') corrigée pour multi-kill rang `pitch_scale ∈ {1.0, 1.122, 1.260} ± 0.005` (pas unconditionally 1.0 qui ferait FAIL multi-kill slow-mo).
+
+### Specialists' BLOCKING tally (8 total — convergence forte 5 multi + 3 qa unique)
+
+| Source | Count | Top finding |
+|---|---|---|
+| audio-director | 2 BLOCKING + 3 RECOMMENDED + 3 NICE | F-04 EQUAL_POWER default + D.3 orphan tracker (verdict NEEDS_REVISION) |
+| qa-lead | 7 BLOCKING + 3 RECOMMENDED | F-01/F-02 boundary ACs + AC-AUD-20 double-boot + AC-AUD-21 F-04 midpoint + AC-AUD-13 sub-budgets + AC-AUD-15 split + attack_us check (verdict NEEDS_REVISION) |
+| godot-specialist | 2 BLOCKING + 5 RECOMMENDED | engine-ref `audio.md` AudioEffectCompressor manquant + D.3 orphan tracker (verdict NEEDS_REVISION) |
+| game-designer | 0 BLOCKING + 4 RECOMMENDED + 3 NICE | Couches 1-4 préservées Phase C+D — APPROVED dès le départ (verdict APPROVED) |
+
+(Items cross-flagged par plusieurs specialists agrégés en 8 unique : 5 haute convergence + 3 qa-lead legitimate unique.)
+
+### Adjudications r2.3 — Action immédiate (skip re-review fresh, pattern r2.1)
+
+Pas d'adjudication CD nécessaire — convergence forte specialists sur fixes surgicaux, aucun design re-decision. Phase A+B vision préservée intact (game-designer APPROVED). Tous les BLOCKING sont :
+- Implementation hardening (D.3 orphan tracker, attack_us API check)
+- AC coverage formel pour guards déjà spécifiés (F-01/F-02 boundary, AC-AUD-20 double-boot, AC-AUD-21 F-04 midpoint, AC-AUD-13 sub-budgets, AC-AUD-15 split)
+- Tooling decision compromis (F-04 EQUAL_POWER Sprint Audio gate, pas re-design)
+
+Verdict skill : NEEDS REVISION → fixes appliqués directement Option A (auto-approve solo mode + Martin standing directive auto-approve recommended) → **status APPROVED r2.3**.
+
+### Files modified r2.3
+
+- `design/gdd/audio-system.md` (~80 lignes éditées) :
+  - Status block top (ligne 3 + ligne 20 dates) → r2.3
+  - Phase D.1 `play_3d_at` pseudo-code (lignes 199-216) — `bus = bus` direct, `_active_clac_players.erase(slot_idx)` avant `stop()` saturation
+  - Phase D.3 pseudo-code (lignes 248-280) — typed Dictionary, pre-connect cleanup, defensive disconnect
+  - F-04 hardening note (ligne 410) — EQUAL_POWER compromis Sprint Audio test A/B BLOCKING
+  - Formula 6 table (lignes 458-461) — `attack → attack_us [1000, 20000] µs` + `release → release_ms`
+  - AC-AUD-01 (ligne 660) — enrichi attack_us/release_ms/threshold/ratio verification + failure message
+  - AC-AUD-04 (ligne 670) — sous-assertions (e)(f) boundary `D=0`/`D=-1`
+  - AC-AUD-06 (ligne 678) — sous-assertions (e)(f) boundary `R=0`/`R=-1`
+  - AC-AUD-13 (ligne 692) — sous-assertions (e)(f)(g) sub-budgets handler/play_3d_at/sidechain CPU
+  - AC-AUD-15 split (lignes 698-711) — 15-a BLOCKING headless-testable + 15-b ADVISORY FFT anti-pop
+  - **AC-AUD-20 nouveau** (post-19) — Phase D.2 idempotent guard formal coverage
+  - **AC-AUD-21 nouveau** (post-AC-AUD-20) — F-04 linear-amplitude midpoint anti-regression Phase C
+
+### Cross-system insights
+
+- **Engine-ref Phase D.5 tracker** : `docs/engine-reference/godot/audio.md` doit recevoir section `AudioEffectCompressor` AVANT Sprint Audio (props `attack_us` µs, `release_ms` ms, `threshold` dB, `ratio` float, `sidechain` String) — promu de "tracker open question" à **pré-requis BLOCKING Sprint Audio implementation**. AC-AUD-01 (d) failure message renvoie vers ce gap.
+- **Combat 020 unblock** : Phase A+B+C+D + r2.3 fixes = formules hardened + impl patterns concrets + ACs testables. MockAudioHandler côté Combat peut implémenter AC-CMB-51 / AC-CMB-audio-01 / AC-CMB-audio-02 sans attendre AudioSystem impl pleine. Story 020 reste `Ready` (flippé 2026-05-03 post consistency-check).
+- **F-04 EQUAL_POWER decision** : compromis audio-director vs game-designer adjudiqué inline GDD — pas d'adjudication CD requise. Sprint Audio gate explicite.
+
+### Key insight (carry forward)
+
+Le pattern "Phase C+D auto-completion en chain auto-mode → fresh re-review post-completion → fixes surgicaux multi-specialists" est efficace : 4 specialists ont identifié 8 BLOCKING distincts mais convergent sur 5 hauts (D.3 orphan, attack_us, F-04 swell, double-boot AC, F-04 midpoint AC) — la convergence rend les fixes obvious et non-controversés. **Pour futures Phase C+D auto-completions** : toujours déclencher `/design-review` fresh post-auto-completion AVANT de marquer APPROVED — l'auto-completion peut introduire des trous AC coverage et des ambiguïtés API qu'un single-session re-review révèle systématiquement. Ce pattern protège contre "auto-completion = approved by default".
+
+### Reports
+
+- Synthesis r2.3 : ce review log (creative-director skipped — convergence specialists forte, pas de design re-decision, fixes surgicaux purement spec/AC)
+- ADR-0009 binding : `docs/architecture/adr-0009-audio-system-architecture.md` (Accepted 2026-04-27 + r2 amendements D-1/D-3 + r2.1 amendment D-6 — pas d'amendement r2.3 requis, fixes restent intra-GDD)
+
+---
+
 ## Review — 2026-04-27 (r2.1 re-review post A+B) — Verdict: NEEDS REVISION → APPROVED r2.1 (14 fixes appliqués directement)
 
 **Scope signal**: M (surgical — ~30 lignes GDD + 1 amendment ADR-0009 D-6, aucun redesign architectural)

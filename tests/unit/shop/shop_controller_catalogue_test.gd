@@ -6,8 +6,8 @@
 # CLI-headless ne résout pas les nouveaux class_name avant ouverture éditeur.
 extends GdUnitTestSuite
 
-const _EXPECTED_COST_N0: int = 20    # B + S × 0 (B=20, S=20 fallback)
-const _EXPECTED_COST_N1: int = 40    # B + S × 1
+const _EXPECTED_COST_N0: int = 8     # F-CRD-3 r2 B-2 : BASE_UPGRADE_COST=8, cost(0) = 8 + 20×0 = 8
+const _EXPECTED_COST_N1: int = 28    # F-CRD-3 r2 B-2 : cost(1) = 8 + 20×1 = 28
 const _ShopControllerScript: GDScript = preload("res://src/ui/shop/shop_controller.gd")
 
 
@@ -68,7 +68,7 @@ func test_shop_controller_catalogue_payload_double_jump_dash_horizontal() -> voi
 
 
 # =============================================================================
-# _compute_cost(0) → 20 (F-CRD-3 cost_0 = B = 20)
+# _compute_cost(0) → 8 (F-CRD-3 r2 B-2 : BASE_UPGRADE_COST=8, cost_0 = B = 8)
 # =============================================================================
 
 func test_shop_controller_compute_cost_n_zero_returns_base_20() -> void:
@@ -88,7 +88,7 @@ func test_shop_controller_compute_cost_n_zero_returns_base_20() -> void:
 
 
 # =============================================================================
-# _compute_cost(1) → 40 (F-CRD-3 cost_1 = B + S × 1 = 20 + 20 = 40)
+# _compute_cost(1) → 28 (F-CRD-3 r2 B-2 : cost_1 = 8 + 20×1 = 28)
 # =============================================================================
 
 func test_shop_controller_compute_cost_n_one_returns_base_plus_step_40() -> void:

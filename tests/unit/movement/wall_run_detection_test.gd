@@ -81,9 +81,15 @@ func before_test() -> void:
 	_player.rotation = Vector3.ZERO
 	_player.velocity = Vector3.ZERO
 	_player.air_jumps_used = 0
-	_player.can_air_jump = false
-	_player.can_dash = false
-	_player.can_wall_run = false
+	_player.set_capability(&"air_jump", false)
+	_player.set_capability(&"dash", false)
+	_player.set_capability(&"wall_run", false)
+	# Force GROUNDED baseline : Jolt headless sans floor transitionne state à
+	# AIRBORNE pendant le process_frame du _ready. Pattern b60d809 +
+	# project_settings_and_scene_test (set_physics_process(false)) insuffisant ici
+	# car _state est muté ailleurs. Reflexion via set("_state", ...) bypass
+	# read-only protection (cohérent helper _set_state).
+	_set_state(_player, MovementController.State.GROUNDED)
 
 
 func after_test() -> void:
@@ -333,7 +339,7 @@ func test_wall_run_left_priority_in_narrow_corridor() -> void:
 	# Horizontal speed > WALL_RUN_MIN_SPEED (5 m/s).
 	_player.velocity = Vector3(10.0, 0.0, 0.0)
 	_set_state(_player, MovementController.State.AIRBORNE)
-	_player.can_wall_run = true
+	_player.set_capability(&"wall_run", true)
 
 	# Force both rays active so _try_start_wall_run can query them.
 	var ray_left: RayCast3D = _player.get_node("%WallRayLeft") as RayCast3D
@@ -389,7 +395,7 @@ func test_wall_run_blocked_when_can_wall_run_false() -> void:
 	_player.position = Vector3(0.0, 50.0, 0.0)
 	_player.velocity = Vector3(10.0, 0.0, 0.0)
 	_set_state(_player, MovementController.State.AIRBORNE)
-	_player.can_wall_run = false  # gate closed
+	_player.set_capability(&"wall_run", false)  # gate closed
 
 	var ray_right: RayCast3D = _player.get_node("%WallRayRight") as RayCast3D
 	ray_right.enabled = true

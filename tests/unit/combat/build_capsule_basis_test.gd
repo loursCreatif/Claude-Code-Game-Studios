@@ -139,7 +139,7 @@ func test_combat_build_capsule_basis_cardinal_x_forward_y_axis_matches() -> void
 			"AC-2: basis_y doit être ≈ Vector3(1, 0, 0) pour forward = Vector3(1, 0, 0) — reçu %s"
 			% str(basis_y)
 		) \
-		.is_equal_approx(forward, 0.001)
+		.is_equal_approx(forward, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -165,7 +165,7 @@ func test_combat_build_capsule_basis_six_cardinals_all_aligned() -> void:
 				"AC-2 cardinal: basis_y doit ≈ forward=%s — reçu %s"
 				% [str(forward), str(basis_y)]
 			) \
-			.is_equal_approx(forward, 0.001)
+			.is_equal_approx(forward, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -193,7 +193,7 @@ func test_combat_build_capsule_basis_pitch_zenith_uses_forward_fallback() -> voi
 		.override_failure_message(
 			"AC-3 zenith: basis_y doit ≈ forward (UP) — reçu %s" % str(basis_y)
 		) \
-		.is_equal_approx(forward, 0.001)
+		.is_equal_approx(forward, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 
@@ -216,7 +216,7 @@ func test_combat_build_capsule_basis_pitch_nadir_uses_forward_fallback() -> void
 		.override_failure_message(
 			"AC-3 nadir: basis_y doit ≈ forward (DOWN) — reçu %s" % str(basis_y)
 		) \
-		.is_equal_approx(forward, 0.001)
+		.is_equal_approx(forward, Vector3.ONE * 0.001)
 
 	combat.get_parent().queue_free()
 

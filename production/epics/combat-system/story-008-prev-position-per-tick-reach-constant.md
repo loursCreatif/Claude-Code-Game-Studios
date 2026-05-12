@@ -1,7 +1,8 @@
 # Story 008: `_prev_position` per-tick update + reach constant
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, fix is_equal_approx vector tolerance + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,11 +29,11 @@
 
 *From GDD AC-CMB-43/44 + Rule 11/Rule 6 :*
 
-- [ ] **AC-CMB-43** : `_state == SWINGING`, `player.velocity = Vector3(0, 0, -30)` (dash max) → `ShapeCast3D.shape.height == KATANA_REACH == 1.8 m ± 0.001` (constant, pas augmenté par velocity)
-- [ ] **AC-CMB-44** : swing actif, joueur déplace `Vector3(0, 0, -0.5)` entre tick 2 et tick 3 → `ShapeCast3D.global_transform.origin` mis à jour au tick 3 (utilise `_prev_position` cached tick 2 + offset reach), pas figé au tick 0. `aim_forward` lu à jour chaque tick
-- [ ] `_prev_position` initialisé à `_ready()` = `player.global_position`
-- [ ] `_prev_position` mis à jour à la **FIN** de `_physics_process` (last statement) = `player.global_position` du tick courant
-- [ ] **Forbidden grep** : aucune écriture `_prev_position` hors `combat_system.gd` (`grep -rE 'combat\._prev_position\s*=' src/` ne doit retourner que combat_system.gd)
+- [x] **AC-CMB-43** : `_state == SWINGING`, `player.velocity = Vector3(0, 0, -30)` (dash max) → `ShapeCast3D.shape.height == KATANA_REACH == 1.8 m ± 0.001` (constant, pas augmenté par velocity)
+- [x] **AC-CMB-44** : swing actif, joueur déplace `Vector3(0, 0, -0.5)` entre tick 2 et tick 3 → `ShapeCast3D.global_transform.origin` mis à jour au tick 3 (utilise `_prev_position` cached tick 2 + offset reach), pas figé au tick 0. `aim_forward` lu à jour chaque tick
+- [x] `_prev_position` initialisé à `_ready()` = `player.global_position`
+- [x] `_prev_position` mis à jour à la **FIN** de `_physics_process` (last statement) = `player.global_position` du tick courant
+- [x] **Forbidden grep** : aucune écriture `_prev_position` hors `combat_system.gd` (`grep -rE 'combat\._prev_position\s*=' src/` ne doit retourner que combat_system.gd)
 
 ---
 
@@ -107,7 +108,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/prev_position_per_tick_test.gd` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 7/7 PASS (`reports/report_264` 2026-05-02 — fix `is_equal_approx(vec, Vector3.ONE * tol)` GdUnit4 vector signature).
 
 ---
 

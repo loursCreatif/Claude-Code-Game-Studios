@@ -204,3 +204,86 @@ de test est valide, et la valeur de `margin` n'affecte pas le résultat.
 **Recommandation pour le code Combat (ADR-0006)** : définir `shape_cast.margin = 0.0`
 explicitement dans `CombatSystem._ready()` pour éviter toute dépendance sur un
 comportement non-documenté. Ne pas utiliser `margin` comme levier de tuning hitbox.
+
+---
+
+## ShapeCast3D overlap at origin Godot 4.6 + Jolt empirical test
+
+> **Test runner** : `tests/empirical/shapecast_overlap_origin_test.gd`
+> **Story** : combat-system story-010 / AC-CMB-47-Prelim / Gap 2
+> **ADR** : ADR-0006 (Combat Tick Model) — détermine si `_tick0_intersect_shape_overlap()` mitigation est load-bearing ou redondante
+> **Date** : 2026-05-04
+> **Godot** : 4.6.2-stable (official) — `Engine.get_version_info().string`
+> **Physics** : `JoltPhysics3D` (Godot 4.6 default per VERSION.md)
+> **Commit** : ce documentaire ajouté en même temps que la création du runner
+
+### Question empirique
+
+Sous Godot 4.6 + Jolt, un `ShapeCast3D` détecte-t-il un body (CharacterBody3D) en
+**overlap à son origine** (avant tout déplacement, target_position non encore parcouru),
+ou faut-il un pass séparé via `PhysicsDirectSpaceState3D.intersect_shape()` pour
+capturer ces overlaps initiaux ?
+
+Cette question gouverne la mitigation tick 0 dans Combat : si Variante A
+(non-détecté), `_tick0_intersect_shape_overlap()` est load-bearing ; si Variante B
+(natively détecté), la mitigation est redondante et peut être omise.
+
+### Méthode
+
+- `ShapeCast3D` capsule (radius=0.45, height=1.8) à origine (0, 0, 0),
+  `target_position = (0, 0, -0.5)`, `collision_mask = 0b00010` (layer 2 = enemies).
+- `CharacterBody3D` MockEnemy avec `SphereShape3D` radius=0.35 à `position = (0, 0, -0.3)`,
+  `collision_layer = 0b00010`. Géométrie : sphere centerée à z=-0.3 + radius 0.35
+  → couvre [-0.65, +0.05] sur l'axe z, **overlap garanti avec capsule à origine**.
+- 3 physics frames d'attente (Jolt enregistre les bodies dans le world) puis
+  `force_shapecast_update()` + lecture `get_collision_count()`.
+- Cross-check : `PhysicsDirectSpaceState3D.intersect_shape()` avec mêmes shape +
+  transform + mask, comparé au résultat ShapeCast3D.
+
+### Résultat brut (stdout)
+
+```
+[setup] ShapeCast3D + MockEnemy overlap origin scene built
+[meta] Godot version: 4.6.2-stable (official)
+[meta] Physics 3D engine: JoltPhysics3D
+[meta] ShapeCast capsule radius=0.45 height=1.8 target_z=-0.5 mask=2
+[meta] Enemy sphere radius=0.35 position_z=-0.3 layer=2
+[result] ShapeCast3D.get_collision_count() = 1 (after 3 physics frames)
+[verdict] Variante B — force_shapecast_update suffit (overlap détecté, count=1, collider[0].class=CharacterBody3D)
+[cross-check] intersect_shape() returned 1 hit(s)
+```
+
+### Conclusion — Variante B confirmée : `force_shapecast_update()` suffit
+
+Sous Godot 4.6 + Jolt, `ShapeCast3D.force_shapecast_update()` détecte nativement
+un body en overlap à son origine. `get_collision_count() == 1` retourné, collider
+correctement identifié comme `CharacterBody3D`. Le cross-check `intersect_shape()`
+retourne aussi 1 hit avec la même géométrie — les deux sources convergent.
+
+**Implication ADR-0006** : la mitigation `_tick0_intersect_shape_overlap()`
+proposée dans Implementation Notes de story-010 est **redondante**. Combat tick 0
+peut s'appuyer uniquement sur `force_shapecast_update()` sans pass `intersect_shape`
+séparé. Story-010 peut être :
+
+- **Option A — close WON'T FIX** : aucune mitigation requise, AC-CMB-47 satisfait
+  par le comportement natif Combat tick 0 (story-009 substeps suffisent).
+- **Option B — close avec test régression** : implémenter un test unitaire AC-CMB-47
+  qui vérifie qu'un MockEnemy à `_prev_position + aim_forward × 0.5` (overlap
+  origin) déclenche bien `enemy_killed` via le code Combat actuel sans mitigation
+  ajoutée. Sécurise la non-régression future si Jolt change ce comportement.
+
+**Recommandation** : Option B (test régression sans code de mitigation). Lock-in
+empirique du verdict via test automatisé dans `tests/unit/combat/`.
+
+### Pitfalls observés
+
+- Setup pré-frame : `enemy.global_position = ...` AVANT `_root_3d.add_child(enemy)`
+  produit un ERROR `is_inside_tree()` car les Node3D global transforms requièrent
+  le tree. Solution : utiliser `enemy.position = ...` (local), ou setter global
+  APRÈS add_child.
+- GDScript String formatter : `%05b` (binary padding) et `%.2f` peuvent émettre
+  "String formatting error: unsupported format character" selon le contexte —
+  préférer `str(val)` explicite ou `String.num_int64(val, 2)` pour binaire.
+- Attendre ≥2 physics frames AVANT `force_shapecast_update()` : la première frame
+  Jolt enregistre les nouveaux bodies dans le world, la seconde stabilise les
+  caches d'AABB. À 3 frames le résultat est stable.

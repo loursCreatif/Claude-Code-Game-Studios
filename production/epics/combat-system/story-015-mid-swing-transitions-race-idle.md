@@ -1,10 +1,11 @@
 # Story 015: Mid-swing state transitions + race Idle mitigation + pause spam
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-23
+> **Completed**: 2026-05-02 (auto-mode, doc sync — `mid_swing_transitions_test.gd` 3/3 PASS)
 
 ## Context
 
@@ -28,15 +29,15 @@
 
 *From GDD AC-CMB-28/29/50 :*
 
-- [ ] **AC-CMB-50** : `Combat Swinging` à `_active_tick = 3`, scene intégrée Player+Movement+Camera+Combat. Pour les 4 sous-cas (a) Grounded→Airborne, (b) Airborne→Grounded, (c) Grounded→Dashing, (d) Airborne→WallRunning :
+- [x] **AC-CMB-50** : `Combat Swinging` à `_active_tick = 3`, scene intégrée Player+Movement+Camera+Combat. Pour les 4 sous-cas (a) Grounded→Airborne, (b) Airborne→Grounded, (c) Grounded→Dashing, (d) Airborne→WallRunning :
   - (1) `_state` reste `Swinging`
   - (2) `_active_tick` continue normal (3 → 4 → ... → 7)
   - (3) `ShapeCast3D.global_transform.origin` mis à jour chaque tick avec `_prev_position + aim × reach/2`
   - (4) `aim_forward` reste roll-corrigé (tilt wall-run n'affecte pas — couvert AC-CMB-26)
   - (5) `N_SUBSTEPS == 3` constant (pas branching state)
   - (6) à expiration : transition Idle, `swing_ended` émis, `_hit_this_swing.clear()`
-- [ ] **AC-CMB-28** : `Combat _state == IDLE` (pas Swinging), `Player.state == Dead` sans `Player.died()` émis (race théorique 1 tick) → mitigation détecte (`player.state == Dead and _state == IDLE`), force `_state = Dead`, `ShapeCast3D.enabled = false`. **Restriction r2** : mitigation NE s'applique PAS quand `_state == SWINGING` (mécanisme `_death_pending` gouverne)
-- [ ] **AC-CMB-29** : test intégration `InputManager.enabled = false` (pause), 10 clics `attack` injectés → `Player.attacked()` non émis (Movement n'émet pas), `Combat._state` reste Idle
+- [x] **AC-CMB-28** : `Combat _state == IDLE` (pas Swinging), `Player.state == Dead` sans `Player.died()` émis (race théorique 1 tick) → mitigation détecte (`player.state == Dead and _state == IDLE`), force `_state = Dead`, `ShapeCast3D.enabled = false`. **Restriction r2** : mitigation NE s'applique PAS quand `_state == SWINGING` (mécanisme `_death_pending` gouverne)
+- [x] **AC-CMB-29** : test intégration `InputManager.enabled = false` (pause), 10 clics `attack` injectés → `Player.attacked()` non émis (Movement n'émet pas), `Combat._state` reste Idle
 
 ---
 
@@ -105,7 +106,12 @@ func _physics_process(delta: float) -> void:
 **Story Type**: Integration
 **Required evidence**: `tests/integration/combat/mid_swing_transitions_test.gd` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 3/3 PASS (`reports/report_262` 2026-05-02).
+
+## Completion Notes
+
+- **Implémentation cross-livrée** : `combat_system.gd:265` mitigation race ligne unique (`_state == IDLE and player.state == DEAD`). Aucun branching `match player.state` dans le hot path swing (Rule 8 Combat agnostic). Pause AC-CMB-29 = passive (Movement gate `attacked` côté ADR-0005).
+- **Story status correction 2026-05-02** : la story était marquée Done sans cocher les ACs ni Test Evidence. Audit a révélé tests existants — synchronisé sur evidence réelle.
 
 ---
 

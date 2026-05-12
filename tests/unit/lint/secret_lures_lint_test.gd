@@ -67,13 +67,9 @@ func _add_triplet(
 	idx: String,
 	ability: StringName
 ) -> void:
-	var lure: Node3D = Node3D.new()
+	# SecretLureMarker extends Marker3D — instance doit être Marker3D pour set_script.
+	var lure: Marker3D = Marker3D.new()
 	lure.name = "SecretLureMarker_" + idx
-	lure.set_meta("required_ability_value", ability)
-	# Simuler la propriété @export required_ability via script inline.
-	# Comme SecretLureMarker utilise @tool extends Marker3D, on ne peut pas
-	# l'instancier directement dans les tests (évite les dépendances cyclo).
-	# On attache le script pour avoir la propriété exportée.
 	var lure_script: GDScript = preload("res://src/gameplay/level/secret_lure_marker.gd")
 	lure.set_script(lure_script)
 	lure.required_ability = ability
@@ -90,7 +86,8 @@ func _add_triplet(
 
 ## Ajoute uniquement un SecretLureMarker_NN (Lure orphelin — pas de Volume ni Anchor).
 func _add_orphan_lure(spawn_markers: Node3D, idx: String, ability: StringName) -> void:
-	var lure: Node3D = Node3D.new()
+	# SecretLureMarker extends Marker3D — instance doit être Marker3D pour set_script.
+	var lure: Marker3D = Marker3D.new()
 	lure.name = "SecretLureMarker_" + idx
 	var lure_script: GDScript = preload("res://src/gameplay/level/secret_lure_marker.gd")
 	lure.set_script(lure_script)

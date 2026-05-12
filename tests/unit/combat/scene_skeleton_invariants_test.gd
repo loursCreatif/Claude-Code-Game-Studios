@@ -14,12 +14,13 @@ extends GdUnitTestSuite
 # Helpers
 # ---------------------------------------------------------------------------
 
-## Crée un CharacterBody3D et y attache un CombatSystem comme child direct.
+## Crée un CharacterBody3D et y attache un CombatSystem (instancié depuis combat_system.tscn,
+## inclus child ShapeCast3D requis par `@onready var _shape_cast`).
 ## Déclenche _ready() via add_child sur le tree. Retourne le CombatSystem.
 func _make_combat_under_player() -> CombatSystem:
 	var player: CharacterBody3D = CharacterBody3D.new()
 	add_child(player)
-	var combat: CombatSystem = CombatSystem.new()
+	var combat: CombatSystem = (load("res://src/gameplay/combat/combat_system.tscn") as PackedScene).instantiate() as CombatSystem
 	player.add_child(combat)
 	return combat
 
@@ -33,12 +34,13 @@ func test_combat_parent_invariant_characterbody3d_parent_no_panic() -> void:
 	# Arrange + Act : _ready() déclenché lors du add_child sur le tree
 	var player: CharacterBody3D = CharacterBody3D.new()
 	add_child(player)
-	var combat: CombatSystem = CombatSystem.new()
+	var combat: CombatSystem = (load("res://src/gameplay/combat/combat_system.tscn") as PackedScene).instantiate() as CombatSystem
 
 	# Assert — aucune exception lors de l'ajout (parent est CharacterBody3D)
+	# GdUnit4 v5 API : is_success() (l'ancien is_not_push_error a été retiré).
 	assert_error(
 		func() -> void: player.add_child(combat)
-	).is_not_push_error()
+	).is_success()
 
 	player.queue_free()
 
@@ -53,12 +55,14 @@ func test_combat_parent_invariant_node3d_parent_push_error() -> void:
 	# Arrange : parent non-CharacterBody3D (Node3D générique)
 	var wrong_parent: Node3D = Node3D.new()
 	add_child(wrong_parent)
-	var combat: CombatSystem = CombatSystem.new()
+	var combat: CombatSystem = (load("res://src/gameplay/combat/combat_system.tscn") as PackedScene).instantiate() as CombatSystem
 
-	# Act + Assert — l'assert dans _ready() doit émettre un push_error en debug
+	# Act + Assert — `assert(...)` GDScript en debug build émet un script error
+	# (pas un push_error). API GdUnit4 v5 : is_runtime_error matche le SCRIPT_ERROR
+	# capturé, message attendu = "Assertion failed: <msg>".
 	assert_error(
 		func() -> void: wrong_parent.add_child(combat)
-	).is_push_error("Combat parent must be CharacterBody3D (Player)")
+	).is_runtime_error("Assertion failed: Combat parent must be CharacterBody3D (Player)")
 
 	wrong_parent.queue_free()
 
@@ -74,12 +78,12 @@ func test_combat_parent_invariant_grandchild_of_player_push_error() -> void:
 	add_child(player)
 	var intermediate: Node3D = Node3D.new()
 	player.add_child(intermediate)
-	var combat: CombatSystem = CombatSystem.new()
+	var combat: CombatSystem = (load("res://src/gameplay/combat/combat_system.tscn") as PackedScene).instantiate() as CombatSystem
 
 	# Act + Assert — le parent direct est Node3D (pas CharacterBody3D) → assert panic
 	assert_error(
 		func() -> void: intermediate.add_child(combat)
-	).is_push_error("Combat parent must be CharacterBody3D (Player)")
+	).is_runtime_error("Assertion failed: Combat parent must be CharacterBody3D (Player)")
 
 	player.queue_free()
 
@@ -93,12 +97,12 @@ func test_combat_priority_invariant_default_zero_no_panic() -> void:
 	# Arrange + Act
 	var player: CharacterBody3D = CharacterBody3D.new()
 	add_child(player)
-	var combat: CombatSystem = CombatSystem.new()
+	var combat: CombatSystem = (load("res://src/gameplay/combat/combat_system.tscn") as PackedScene).instantiate() as CombatSystem
 
 	# Assert — pas d'erreur lors du add_child (priority = 0 par défaut)
 	assert_error(
 		func() -> void: player.add_child(combat)
-	).is_not_push_error()
+	).is_success()
 
 	# Vérifier que la valeur est bien 0 après _ready()
 	assert_int(combat.process_physics_priority) \
@@ -126,7 +130,7 @@ func test_combat_priority_invariant_nonzero_priority_push_error() -> void:
 	# Assert : appel direct de _ready() après mutation → assert panic sur priority
 	assert_error(
 		func() -> void: combat._ready()
-	).is_push_error("Combat process_physics_priority must be default 0 (DFS preorder Rule 17)")
+	).is_runtime_error("Assertion failed: Combat process_physics_priority must be default 0 (DFS preorder Rule 17)")
 
 	combat.get_parent().queue_free()
 

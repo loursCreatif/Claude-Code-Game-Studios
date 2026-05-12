@@ -3,8 +3,8 @@
 > **Layer**: Feature
 > **GDD**: design/gdd/credit-economy-system.md (APPROVED r3 — 2026-04-28)
 > **Architecture Module**: `CreditEconomy` (autoload, Foundation/Persistence-aval)
-> **Status**: Ready
-> **Stories**: 8 stories Ready (1 Blocked sur SaveLoadSystem) — voir table ci-dessous
+> **Status**: In Progress (7/8 Complete — story-008 Ready/unblocked, HUD playtest pending)
+> **Stories**: 8 stories — 7 Complete + 1 Ready (story-008 visual/feel HUD frame-perfect, unblocked 2026-05-04)
 > **Engine Risk**: LOW (architecture.md row 105 — pas d'ADR HIGH-risk gouvernant Credit)
 
 ## Overview

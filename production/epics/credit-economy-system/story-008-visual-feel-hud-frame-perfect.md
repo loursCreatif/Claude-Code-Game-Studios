@@ -1,7 +1,17 @@
 # Story 008: Visual/Feel HUD frame-perfect (ADVISORY)
 
 > **Epic**: Credit Economy System
-> **Status**: **Blocked** — HARD UPSTREAM externe : aucun epic `hud-system` n'existe dans `production/epics/` (vérifié 2026-04-28). Le seul consumer actuel de `credits_changed` est `src/ui/shop/shop_controller.gd` (Shop epic). AC-CRD-46 nécessite un compteur HUD visible (HUD epic listener `_on_credits_changed` qui met à jour un node texte runtime). Tant que HUD epic n'est pas implémenté avec ce listener, cette story ne peut PAS produire l'evidence frame-by-frame. Action de déblocage : créer epic `hud-system` via `/create-epics ui` (ou équivalent) puis story HUD listener crédits avant de revenir à cette story-008.
+> **Status**: **Ready** (Unblocked 2026-05-04)
+>
+> **UNBLOCKED 2026-05-04** : epic HUD créé (`production/epics/hud-system/EPIC.md`). Stories HUD couvrent l'AC-CRD-46 :
+> - **HUD story-002** (`story-002-pull-pattern-credits-changed-listener.md` — Type Integration, Ready) implémente le listener `_on_credits_changed(total, delta, source)` SYNC same-frame qui met à jour `Label.text` dans le même `_physics_process` tick que le kill (Pillar 1 garde-fou technique).
+> - **HUD story-006** (`story-006-visual-feel-frame-perfect-playtest.md` — Type Visual/Feel ADVISORY, Blocked sur build MVP playable) produit l'evidence frame-by-frame screencap + sign-off lead-designer.
+>
+> **Convergence stratégie** : cette story-008 sera **close-out par evidence shared avec hud-006** OU **subsumed par hud-006** au moment du close-out Sprint Multi-Epic (post-build MVP). Décision finale au moment de close-out :
+> - **Option A — Subsume** : credit-008 fermée par hud-006, credit-008 marquée "Closed — subsumed by hud-006" avec cross-link.
+> - **Option B — Shared evidence** : evidence file `production/qa/evidence/hud-frame-perfect-evidence-[date].md` référencée par les deux stories ; chacune close indépendamment.
+>
+> En attendant, credit-008 reste **Ready** (pas Blocked) — la dépendance HUD est techniquement résolue (listener spec écrite, lints CI prévus, pulse différencié source spec écrit). Le seul prérequis restant est l'**implémentation effective** des stories HUD-002 + HUD-006 + le build MVP playable Sprint Multi-Epic.
 > **Layer**: Feature
 > **Type**: Visual/Feel
 > **Manifest Version**: 2026-04-23

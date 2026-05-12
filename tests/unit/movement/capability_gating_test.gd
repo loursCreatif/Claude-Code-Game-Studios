@@ -60,9 +60,9 @@ func after_test() -> void:
 		_player.queue_free()
 	_player = null
 	# Release any inputs left pressed.
-	InputManager.simulate_action_release(&"jump")
-	InputManager.simulate_action_release(&"dash")
-	InputManager.simulate_action_release(&"move_forward")
+	# (edge auto-consumed — &"jump" no release needed)
+	# (edge auto-consumed — &"dash" no release needed)
+	Input.action_release(&"move_forward")
 
 
 # ---------------------------------------------------------------------------
@@ -88,8 +88,8 @@ func test_set_capability_dash_enables_dash_state_transition() -> void:
 
 	_set_state(_player, MovementController.State.GROUNDED)
 	# wish_dir = forward (W pressed) so dash gets a non-fallback direction.
-	InputManager.simulate_action_press(&"move_forward")
-	InputManager.simulate_action_press(&"dash")
+	Input.action_press(&"move_forward")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(_player)
 
 	assert_int(_player._state).is_equal(MovementController.State.DASHING)
@@ -104,7 +104,7 @@ func test_dash_blocked_when_can_dash_false_default() -> void:
 	assert_bool(_player.can_dash).is_false()
 	_set_state(_player, MovementController.State.GROUNDED)
 
-	InputManager.simulate_action_press(&"dash")
+	InputManager.inject_pressed_for_test(&"dash")
 	_tick(_player)
 
 	assert_int(_player._state).is_not_equal(MovementController.State.DASHING)
@@ -124,7 +124,7 @@ func test_double_jump_blocked_when_can_air_jump_false() -> void:
 	_set_coyote_ticks(_player, 0)
 	_player.velocity = Vector3.ZERO
 
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Air-jump must NOT have fired: air_jumps_used unchanged, velocity.y not lifted.
@@ -146,7 +146,7 @@ func test_double_jump_works_when_set_capability_air_jump() -> void:
 	_set_coyote_ticks(_player, 0)
 	_player.velocity = Vector3.ZERO
 
-	InputManager.simulate_action_press(&"jump")
+	InputManager.inject_pressed_for_test(&"jump")
 	_tick(_player)
 
 	# Air-jump fires: counter incremented, velocity.y lifted near AIR_JUMP_VELOCITY.

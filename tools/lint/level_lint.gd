@@ -638,7 +638,9 @@ static func validate_door_widths(root: Node3D) -> Array[String]:
 			found_box = true
 			var box: BoxShape3D = shape as BoxShape3D
 			var width: float = maxf(box.size.x, box.size.z)
-			if width < MIN_DOOR_WIDTH_M:
+			# Tolérance epsilon — Vector3 stocke en float32 alors que la const est float64,
+			# la conversion lossy peut faire dériver 3.6 → 3.5999998 sur le boundary.
+			if width < MIN_DOOR_WIDTH_M - 0.001:
 				errors.append(
 					"%s door width %.2fm < 3.6m (F1)" % [area_name, width]
 				)
@@ -759,6 +761,72 @@ static func validate_static_body_count_per_room(root: Node3D) -> Array[String]:
 		if count > MAX_STATIC_BODIES_PER_ROOM:
 			errors.append(
 				"%s StaticBody3D count %d > 25 (TR-lvl-013)" % [room.name, count]
+			)
+
+	return errors
+
+
+# ---------------------------------------------------------------------------
+# Public API — checkpoint pair lint (story-021, AC-LVL-19)
+# ---------------------------------------------------------------------------
+
+## Valide la cohérence des paires CheckpointVolume_NN ↔ CheckpointAnchor_NN.
+##
+## **AC-LVL-19** — Pour chaque CheckpointVolume_NN trouvé sous root, un
+## CheckpointAnchor_NN paired (même index NN) doit exister, à distance ≤ 10 m.
+##
+## Violations possibles :
+##   - "CheckpointVolume_NN missing paired CheckpointAnchor_NN"
+##   - "CheckpointAnchor_NN orphan — missing paired CheckpointVolume_NN"
+##   - "Checkpoint pair NN distance X.XXm > 10m"
+##
+## [param root] : Node3D racine de la scène d'étage instanciée.
+## [return] : Array[String] de violations (vide = PASS).
+## Source : TR-lvl-020, story-021 AC-LVL-19, ADR-0011.
+static func validate_checkpoint_pairs(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+
+	var volumes: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true, false)
+	var anchors: Array[Node] = root.find_children("CheckpointAnchor_*", "Marker3D", true, false)
+
+	# Skip si aucun checkpoint authoring : étage encore en construction.
+	if volumes.is_empty() and anchors.is_empty():
+		return errors
+
+	var volume_by_idx: Dictionary = {}
+	for v: Node in volumes:
+		var idx: String = String(v.name).trim_prefix("CheckpointVolume_")
+		volume_by_idx[idx] = v
+
+	var anchor_by_idx: Dictionary = {}
+	for a: Node in anchors:
+		var idx: String = String(a.name).trim_prefix("CheckpointAnchor_")
+		anchor_by_idx[idx] = a
+
+	# Volumes sans anchor paired.
+	for idx: String in volume_by_idx.keys():
+		if not anchor_by_idx.has(idx):
+			errors.append(
+				"CheckpointVolume_%s missing paired CheckpointAnchor_%s" % [idx, idx]
+			)
+
+	# Anchors sans volume paired.
+	for idx: String in anchor_by_idx.keys():
+		if not volume_by_idx.has(idx):
+			errors.append("CheckpointAnchor_%s orphan — missing paired CheckpointVolume_%s" % [idx, idx])
+
+	# Paires complètes : check distance.
+	for idx: String in volume_by_idx.keys():
+		if not anchor_by_idx.has(idx):
+			continue
+		var v: Area3D = volume_by_idx[idx] as Area3D
+		var a: Marker3D = anchor_by_idx[idx] as Marker3D
+		if v == null or a == null:
+			continue
+		var dist: float = v.global_position.distance_to(a.global_position)
+		if dist > 10.0:
+			errors.append(
+				"Checkpoint pair %s distance %.2fm > 10m" % [idx, dist]
 			)
 
 	return errors
@@ -951,18 +1019,21 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 	var errors: Array[String] = []
 
 	# --- AC-LVL-18 : PlayerStart unique ---
-	var starts: Array[Node] = root.find_children("PlayerStart", "Marker3D", true)
+	# owned=false : trouve les markers ajoutés programmatiquement (owner=null en tests
+	# unitaires). En prod scene .tscn, owner auto-set par Godot, find_children fonctionne
+	# de la même manière. Cohérence cross-méthode : level_system.gd commit `299052c` même fix.
+	var starts: Array[Node] = root.find_children("PlayerStart", "Marker3D", true, false)
 	if starts.size() != 1:
 		errors.append("PlayerStart count %d != 1" % starts.size())
 
 	# --- AC-LVL-20 : Room count [8, 10] ---
-	var rooms: Array[Node] = root.find_children("RoomTrigger_*", "Area3D", true)
+	var rooms: Array[Node] = root.find_children("RoomTrigger_*", "Area3D", true, false)
 	var n: int = rooms.size()
 	if n < MIN_ROOM_COUNT or n > MAX_ROOM_COUNT:
 		errors.append("Room count %d outside [8, 10]" % n)
 
 	# --- AC-LVL-47 + AC-LVL-51 : Checkpoint count & spacing F3 ---
-	var checkpoints: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true)
+	var checkpoints: Array[Node] = root.find_children("CheckpointVolume_*", "Area3D", true, false)
 	var k: int = checkpoints.size()
 	if k == 0:
 		errors.append("checkpoint spacing: K=0 fail")
@@ -978,7 +1049,7 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 			)
 
 	# --- AC-LVL-46 : Secret count [3, 5] ---
-	var secrets: Array[Node] = root.find_children("SecretCollectVolume_*", "Area3D", true)
+	var secrets: Array[Node] = root.find_children("SecretCollectVolume_*", "Area3D", true, false)
 	var s: int = secrets.size()
 	if s < MIN_SECRET_COUNT or s > MAX_SECRET_COUNT:
 		errors.append("Secret count %d outside [3, 5] (F7)" % s)
@@ -1009,8 +1080,8 @@ static func validate_level_formulas(root: Node3D) -> Array[String]:
 			)
 			var union: AABB = AABB()
 			var first: bool = true
-			for sb: StaticBody3D in root.find_children("*", "StaticBody3D", true):
-				for sc_node: Node in sb.find_children("*", "CollisionShape3D", false):
+			for sb: StaticBody3D in root.find_children("*", "StaticBody3D", true, false):
+				for sc_node: Node in sb.find_children("*", "CollisionShape3D", false, false):
 					var sc: CollisionShape3D = sc_node as CollisionShape3D
 					if sc == null:
 						continue
@@ -1103,7 +1174,7 @@ static func validate_onboarding_anchors(root: Node3D, etage_id: int) -> Array[St
 
 	# --- AC-LVL-54(b) : SafeZoneCenter distances ---
 	if safe != null:
-		var enemy_slots: Array[Node] = root.find_children("EnemySlot_*", "Marker3D", true)
+		var enemy_slots: Array[Node] = root.find_children("EnemySlot_*", "Marker3D", true, false)
 		for e: Node in enemy_slots:
 			var em: Marker3D = e as Marker3D
 			if em == null:
@@ -1113,7 +1184,7 @@ static func validate_onboarding_anchors(root: Node3D, etage_id: int) -> Array[St
 				errors.append(
 					"SafeZoneCenter distance %.2fm < 6m from %s" % [d, em.name]
 				)
-		var hazards: Array[Node] = root.find_children("HazardSlot_*", "Marker3D", true)
+		var hazards: Array[Node] = root.find_children("HazardSlot_*", "Marker3D", true, false)
 		for h: Node in hazards:
 			var hm: Marker3D = h as Marker3D
 			if hm == null:
@@ -1223,13 +1294,31 @@ static func validate_visual_authoring(root: Node3D) -> Array[String]:
 ## [param node_path] : chemin du node pour les messages d'erreur.
 ## [return] : Array[String] de violations (vide = PASS).
 static func _check_texture_sizes(sm: ShaderMaterial, node_path: String) -> Array[String]:
-	var errors: Array[String] = []
 	if sm.shader == null:
-		return errors
+		return [] as Array[String]
 
+	var textures: Array = []
 	var param_list: Array[Dictionary] = sm.shader.get_shader_uniform_list()
 	for param: Dictionary in param_list:
 		var tex: Variant = sm.get_shader_parameter(param["name"])
+		if tex is Texture2D:
+			textures.append(tex)
+	return _check_texture_sizes_from_texture_list(node_path, textures)
+
+
+## Variante testable en isolation : prend une liste de Texture2D directement.
+## Utile pour les tests unitaires qui ne peuvent pas charger un Shader réel
+## (Shader.new() vide → get_shader_uniform_list() retourne []).
+##
+## [param node_path] : chemin du node pour les messages d'erreur.
+## [param textures] : Array de Texture2D à valider.
+## [return] : Array[String] de violations (vide = PASS).
+static func _check_texture_sizes_from_texture_list(
+	node_path: String,
+	textures: Array
+) -> Array[String]:
+	var errors: Array[String] = []
+	for tex: Variant in textures:
 		if not (tex is Texture2D):
 			continue
 		var texture: Texture2D = tex as Texture2D
@@ -1307,3 +1396,130 @@ static func validate_tuning_knobs_present() -> Array[String]:
 
 	return errors
 
+
+# ---------------------------------------------------------------------------
+# Public API — enemy slot triplet (story-006 enemy-system, AC-ENM-23/24/25)
+# ---------------------------------------------------------------------------
+
+## Tolérance pour scale uniforme (autorise IDENTITY + tolérance flottante).
+const ENEMY_SLOT_SCALE_TOLERANCE: float = 0.001
+
+## Distance minimale entre 2 EnemySlot_* (Enemy GDD F-ENM-1 + EC-ENM-8).
+## Calc : 2 × R_ENEMY_MIN (0.35) + buffer ≈ 1.0 m.
+const ENEMY_SLOT_MIN_DISTANCE_M: float = 1.0
+
+
+## Itère sous root et collecte tous les Marker3D EnemySlot_*. Helper privé
+## pour les 3 validators enemy slot. find_children DFS — même contrat que
+## EnemySpawner runtime (story-003).
+static func _collect_enemy_slots(root: Node3D) -> Array[Marker3D]:
+	var slots: Array[Marker3D] = []
+	for n: Node in root.find_children("EnemySlot_*", "Marker3D", true, false):
+		var marker: Marker3D = n as Marker3D
+		if marker != null:
+			slots.append(marker)
+	return slots
+
+
+## Valide que chaque EnemySlot_* Marker3D a un scale uniforme = Vector3.ONE.
+##
+## **AC-ENM-23 / EC-ENM-6** : un Marker3D scaled non-uniformément produit un
+## cône laser visuellement déformé. Le runtime force orthonormalized() sur
+## %FacingPivot.global_basis (story-002), mais ce lint authoring-time catch les
+## EnemySlot avec scale non-uniform avant que le bug arrive en playtest.
+##
+## Tolérance : Vector3.ONE ± 0.001 par axe (autorise précision flottante).
+## Violation : "EnemySlot_NN scale not uniform: <Vector3>"
+##
+## Source : Enemy GDD r2 EC-ENM-6, AC-ENM-23, story-006.
+static func validate_enemy_slot_marker3d(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+
+	for slot: Marker3D in _collect_enemy_slots(root):
+		var s: Vector3 = slot.transform.basis.get_scale()
+		var dx: float = absf(s.x - 1.0)
+		var dy: float = absf(s.y - 1.0)
+		var dz: float = absf(s.z - 1.0)
+		if dx > ENEMY_SLOT_SCALE_TOLERANCE or dy > ENEMY_SLOT_SCALE_TOLERANCE or dz > ENEMY_SLOT_SCALE_TOLERANCE:
+			errors.append(
+				"%s EnemySlot scale not uniform: %s (EC-ENM-6 / AC-ENM-23)" % [slot.name, str(s)]
+			)
+
+	return errors
+
+
+## Valide que toute paire d'EnemySlot_* est séparée d'au moins 1.0 m.
+##
+## **AC-ENM-24 / EC-ENM-8** : 2 grunts trop proches voient leurs capsules
+## (R_ENEMY_MIN = 0.35 m chacune) collisionner → Jolt push automatique → grunts
+## qui « glissent » visuellement. Distance minimale = 2 × 0.35 + buffer = 1.0 m.
+##
+## Comparaison O(N²) — acceptable car typiquement < 30 EnemySlot par étage.
+## Violation : "EnemySlot_AA & EnemySlot_BB distance N.NNm < 1.0m"
+##
+## Source : Enemy GDD r2 EC-ENM-8, AC-ENM-24, story-006.
+static func validate_enemy_slot_min_distance(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+	var slots: Array[Marker3D] = _collect_enemy_slots(root)
+
+	for i in range(slots.size()):
+		for j in range(i + 1, slots.size()):
+			var a: Marker3D = slots[i]
+			var b: Marker3D = slots[j]
+			var distance: float = a.global_position.distance_to(b.global_position)
+			if distance < ENEMY_SLOT_MIN_DISTANCE_M:
+				errors.append(
+					"%s & %s distance %.3fm < 1.0m (EC-ENM-8 / AC-ENM-24)" % [a.name, b.name, distance]
+				)
+
+	return errors
+
+
+## Valide qu'aucun EnemySlot_* n'est placé À L'INTÉRIEUR d'un StaticBody3D
+## sous StaticEnvironment (mur / plafond / collidable).
+##
+## **AC-ENM-25 / EC-ENM-7** : un grunt instancié dans un mur est invisible et
+## non-tuable — pas de crash mais asset gaspillé. Le GDD décrit un raycast
+## vertical ; le lint static fait un check AABB équivalent (no physics dependency,
+## hermetic-compatible). Si le slot tombe DANS la AABB d'un BoxShape3D, FAIL.
+##
+## Limite : couvre uniquement BoxShape3D (cas dominant level MVP). Les autres
+## shapes (Convex, Mesh) ne sont pas utilisées sur l'étage MVP.
+## Violation : "EnemySlot_NN placed inside StaticBody3D <name>"
+##
+## Source : Enemy GDD r2 EC-ENM-7, AC-ENM-25, story-006.
+static func validate_enemy_slot_clearance(root: Node3D) -> Array[String]:
+	var errors: Array[String] = []
+	var slots: Array[Marker3D] = _collect_enemy_slots(root)
+	if slots.is_empty():
+		return errors
+
+	var static_env: Node = root.find_child("StaticEnvironment", false, false)
+	if static_env == null:
+		return errors
+
+	for slot: Marker3D in slots:
+		var slot_pos: Vector3 = slot.global_position
+		var flagged: bool = false
+		for sb: StaticBody3D in static_env.find_children("*", "StaticBody3D", true, false):
+			if flagged:
+				break
+			for cs: CollisionShape3D in sb.find_children("*", "CollisionShape3D", true, false):
+				var shape: Shape3D = cs.shape
+				if not (shape is BoxShape3D):
+					continue
+				var box: BoxShape3D = shape as BoxShape3D
+				var local_pos: Vector3 = cs.global_transform.affine_inverse() * slot_pos
+				var half: Vector3 = box.size * 0.5
+				if (
+					absf(local_pos.x) <= half.x
+					and absf(local_pos.y) <= half.y
+					and absf(local_pos.z) <= half.z
+				):
+					errors.append(
+						"%s placed inside StaticBody3D %s (EC-ENM-7 / AC-ENM-25)" % [slot.name, sb.name]
+					)
+					flagged = true
+					break
+
+	return errors

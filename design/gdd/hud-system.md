@@ -275,6 +275,7 @@ Toutes les dépendances amont citent HUD. Bidirectional check ✅.
 - **ADR-0007 D-9** (Game State Manager) — Pattern pull boot. Le HUD lit `GSM.get_current_state()` dans son `_ready()` plutôt que d'attendre un signal `game_booted` (qui n'existe pas par design, GSM Rule 12).
 - **ADR-0007 D-10** (Game State Manager) — API canonique `state_changed(new_state)`. Signal SYNC côté GSM, CONNECT_DEFERRED côté HUD (consumer lourd).
 - **ADR-0001** (Physics rate 60 Hz) — Le handler `_on_credits_changed` SYNC s'exécute dans le `_physics_process` tick de Credit Economy. Pillar 1 FLOW garde-fou.
+- **ADR-0015 D-1** (Accessibility Interface Layer — autoload `AccessibilityService`) — Single-source-of-truth des préférences accessibility cross-system. Le HUD est listé comme consumer Tier 3 dans D-4 : `HUDController` consomme `AccessibilityService.is_reduce_motion_enabled()` pour désactiver le pulse (OQ-HUD-6). L'interface API est déjà exposée par le service ; l'implémentation HUD est différée Tier 3. Voir `docs/architecture/adr-0015-accessibility-interface-layer.md`.
 - Aucun ADR dédié HUD MVP n'est requis — la complexité ne le justifie pas. Tier 2+ ou Accessibility Tier 3 pourra justifier un ADR si UI Toolkit Godot 4.5+ est introduit ou si Accessibility Tier 3 nécessite des contraintes architecturales non absorbables par le code.
 
 ## Tuning Knobs
@@ -427,13 +428,15 @@ Le HUD est **purement passif** : aucun input keyboard/mouse/gamepad n'est consom
 
 ### Accessibility considerations (Tier 3 latents)
 
-| Concern | MVP behavior | Tier 3 plan |
-|---|---|---|
-| Text scaling | Passive (resize-only) | Slider 80%–200% sur `HUD_TEXT_SCALE_FACTOR` |
-| High contrast mode | Aucun | Background opaque + font weight bold + palette adaptée |
-| Color-blind support | Aucun (counter monochrome MVP — pas de couleur sémantique sauf flash secret latent) | Si flash secret activé Tier 2+, prévoir variante "icône + flash" pour deutéranopie |
-| Screen reader | Aucun (Godot 4.5+ AccessKit support, mais MVP zero) | `Label.accessible_text` exposera la valeur du counter pour TTS |
-| Motion sensitivity | Pulse 100ms = sub-seuil épileptique | Knob `HUD_DISABLE_PULSE` Tier 3 (statique on/off) |
+> **ADR-0015 D-1 tier coverage** — Les features ci-dessous sont classifiées selon le modèle de tiers défini dans `docs/architecture/adr-0015-accessibility-interface-layer.md` D-1. Le HUD est déclaré consumer Tier 3 dans ADR-0015 D-4 via `AccessibilityService.is_reduce_motion_enabled()` (OQ-HUD-6). Les Tier 2+ et Tier 3 sont hors scope Sprint 1 (Polish P3).
+
+| Concern | Tier (ADR-0015 D-1) | MVP behavior | Tier plan |
+|---|---|---|---|
+| Text scaling | Tier 3 | Passive (resize-only) | Slider 80%–200% sur `HUD_TEXT_SCALE_FACTOR` |
+| High contrast mode | Tier 3 | Aucun | Background opaque + font weight bold + palette adaptée |
+| Color-blind support | Tier 3 | Aucun (counter monochrome MVP — pas de couleur sémantique sauf flash secret latent) | Si flash secret activé Tier 2+, prévoir variante "icône + flash" pour deutéranopie |
+| Screen reader | Tier 3 | Aucun (Godot 4.5+ AccessKit support, mais MVP zero) | `Label.accessible_text` exposera la valeur du counter pour TTS |
+| Motion sensitivity (disable pulse) | Tier 3 | Pulse 100ms = sub-seuil épileptique | `AccessibilityService.is_reduce_motion_enabled()` → `HUD_DISABLE_PULSE` (OQ-HUD-6 — API ready ADR-0015 D-4) |
 
 ### Frame integration (Godot scene tree)
 

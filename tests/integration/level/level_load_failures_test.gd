@@ -50,11 +50,11 @@ func test_load_etage_999_emits_level_load_failed() -> void:
 	var level: LevelSystemScript = _make_level_production_paths()
 	await get_tree().process_frame
 
-	var received_etage_id: int = -99
-	var received_reason: String = ""
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"etage_id": -99, "reason": ""}
 	level.level_load_failed.connect(func(eid: int, reason: String) -> void:
-		received_etage_id = eid
-		received_reason = reason
+		captured["etage_id"] = eid
+		captured["reason"] = reason
 	)
 
 	# Act
@@ -73,10 +73,10 @@ func test_load_etage_999_emits_level_load_failed() -> void:
 	await await_signal_on(level, "level_load_failed", [], 2000)
 
 	# Assert payload
-	assert_int(received_etage_id) \
+	assert_int(captured["etage_id"]) \
 		.override_failure_message("AC-LVL-6: level_load_failed.etage_id doit être 999") \
 		.is_equal(999)
-	assert_bool(received_reason.length() > 0) \
+	assert_bool((captured["reason"] as String).length() > 0) \
 		.override_failure_message("AC-LVL-6: level_load_failed.reason ne doit pas être vide") \
 		.is_true()
 
@@ -99,9 +99,10 @@ func test_load_etage_999_reason_contains_path() -> void:
 	var level: LevelSystemScript = _make_level_production_paths()
 	await get_tree().process_frame
 
-	var received_reason: String = ""
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"reason": ""}
 	level.level_load_failed.connect(func(_eid: int, reason: String) -> void:
-		received_reason = reason
+		captured["reason"] = reason
 	)
 
 	# Act
@@ -109,9 +110,9 @@ func test_load_etage_999_reason_contains_path() -> void:
 	await await_signal_on(level, "level_load_failed", [], 2000)
 
 	# Assert — la reason mentionne "999" (id de l'étage absent)
-	assert_bool(received_reason.contains("999")) \
+	assert_bool((captured["reason"] as String).contains("999")) \
 		.override_failure_message(
-			"AC-LVL-6 variante: reason doit contenir '999' pour faciliter le diagnostic (got: '%s')" % received_reason
+			"AC-LVL-6 variante: reason doit contenir '999' pour faciliter le diagnostic (got: '%s')" % captured["reason"]
 		) \
 		.is_true()
 
@@ -137,16 +138,14 @@ func test_level_load_slow_emitted_after_600ms() -> void:
 	var level: LevelSystemScript = _make_level()
 	await get_tree().process_frame
 
-	var slow_count: int = 0
-	var slow_elapsed_received: int = -1
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"slow_count": 0, "slow_elapsed": -1, "active_received": false}
 	level.level_load_slow.connect(func(elapsed_ms: int) -> void:
-		slow_count += 1
-		slow_elapsed_received = elapsed_ms
+		captured["slow_count"] += 1
+		captured["slow_elapsed"] = elapsed_ms
 	)
-
-	var active_received: bool = false
 	level.level_active.connect(func(_eid: int, _pos: Vector3) -> void:
-		active_received = true
+		captured["active_received"] = true
 	)
 
 	# Act — démarrer le chargement
@@ -161,22 +160,32 @@ func test_level_load_slow_emitted_after_600ms() -> void:
 	await await_signal_on(level, "level_load_slow", [], 2000)
 
 	# Assert slow signal — reçu exactement 1 fois
-	assert_int(slow_count) \
+	assert_int(captured["slow_count"]) \
 		.override_failure_message("AC-LVL-7: level_load_slow doit être émis exactement 1 fois") \
 		.is_equal(1)
 
 	# Assert elapsed — ≥ 600 ms (simulation garantit ≥ 700 ms)
-	assert_bool(slow_elapsed_received >= 600) \
+	assert_bool(captured["slow_elapsed"] >= 600) \
 		.override_failure_message(
-			"AC-LVL-7: elapsed_ms doit être ≥ 600 (got: %d)" % slow_elapsed_received
+			"AC-LVL-7: elapsed_ms doit être ≥ 600 (got: %d)" % captured["slow_elapsed"]
 		) \
 		.is_true()
 
-	# Attendre level_active (le chargement continue après le signal slow — invariant AC-LVL-7).
-	await await_signal_on(level, "level_active", [], 3000)
+	# Pump explicite jusqu'à level_active (le chargement continue après le signal slow —
+	# invariant AC-LVL-7). _process polls ResourceLoader status, _physics_process commit
+	# LOADING → ACTIVE quand THREAD_LOAD_LOADED. En headless, await physics_frame ne pump
+	# pas systématiquement. Boucle bornée 200× ≈ 3.3 sec wall-clock max. Common case
+	# break early ~5-10 iter ; bump 50→200 pour absorber scheduler jitter CI ubuntu shared
+	# runners (pattern cohérent commit 481ac3d).
+	for i: int in range(200):
+		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
+			break
+		level._process(0.0)
+		level._physics_process(0.0)
+		await get_tree().physics_frame
 
 	# Assert chargement complet
-	assert_bool(active_received) \
+	assert_bool(captured["active_received"]) \
 		.override_failure_message("AC-LVL-7: level_active doit être émis après level_load_slow (load non bloqué)") \
 		.is_true()
 	assert_int(level.get_state()) \
@@ -194,9 +203,10 @@ func test_level_load_slow_emitted_only_once_per_load() -> void:
 	var level: LevelSystemScript = _make_level()
 	await get_tree().process_frame
 
-	var slow_count: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"slow_count": 0}
 	level.level_load_slow.connect(func(_elapsed: int) -> void:
-		slow_count += 1
+		captured["slow_count"] += 1
 	)
 
 	# Act
@@ -212,12 +222,12 @@ func test_level_load_slow_emitted_only_once_per_load() -> void:
 	await get_tree().physics_frame
 
 	# Assert — exactement 1 émission
-	assert_int(slow_count) \
-		.override_failure_message("AC-LVL-7 edge: level_load_slow ne doit être émis qu'une seule fois (got: %d)" % slow_count) \
+	assert_int(captured["slow_count"]) \
+		.override_failure_message("AC-LVL-7 edge: level_load_slow ne doit être émis qu'une seule fois (got: %d)" % captured["slow_count"]) \
 		.is_equal(1)
 
-	# Attendre level_active puis cleanup
-	await await_signal_on(level, "level_active", [], 3000)
+	# Cleanup direct (pas d'await level_active : non-essentiel pour ce test, pollution
+	# inter-test cross-instance ResourceLoader peut bloquer le 2nd load_etage successif).
 	level.queue_free()
 
 
@@ -228,34 +238,50 @@ func test_level_load_slow_flag_reset_on_reload() -> void:
 	var level: LevelSystemScript = _make_level()
 	await get_tree().process_frame
 
-	# Premier load — sans slow simulation (charge normalement)
+	# Premier load — sans slow simulation (charge normalement). Pump explicite.
+	# Boucle 200× pour cohérence anti-flake (pattern commit 481ac3d) — common case
+	# break early ~5-10 iter, bump absorbe scheduler jitter CI ubuntu shared runners.
 	level.load_etage(42)
-	await await_signal_on(level, "level_active", [], 2000)
+	for i: int in range(200):
+		if level.get_state() == LevelSystemScript.LevelState.ACTIVE:
+			break
+		level._process(0.0)
+		level._physics_process(0.0)
+		await get_tree().physics_frame
 
 	# Décharger
 	level.unload_current()
-	await get_tree().physics_frame  # UNLOADING → UNLOADED
+	level._physics_process(0.0)  # UNLOADING → UNLOADED
 
 	assert_int(level.get_state()) \
 		.override_failure_message("Precondition: état doit être UNLOADED avant le second load") \
 		.is_equal(LevelSystemScript.LevelState.UNLOADED)
 
-	# Second load avec simulation slow
-	var slow_count_second: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"slow_count": 0}
 	level.level_load_slow.connect(func(_elapsed: int) -> void:
-		slow_count_second += 1
+		captured["slow_count"] += 1
 	)
 
 	level.load_etage(42)
 	level._simulate_load_elapsed_ms(700)  # Simule slow load sur le second load
 
-	# Assert — le signal doit être ré-émissible après reset du flag
-	await await_signal_on(level, "level_load_slow", [], 2000)
+	# Assert — le signal doit être ré-émissible après reset du flag.
+	# Pump explicite `_process` + `_physics_process(0.0)` + `await physics_frame` :
+	# pump sans await peut flake en CI ubuntu (signal emit_deferred Godot peut nécessiter
+	# un physics_frame complet pour propager). Pattern miroir helper `_load_and_wait`
+	# (commit f1dd477). 200 iterations pour absorber jitter scheduler shared runners.
+	for i: int in range(200):
+		level._process(0.0)
+		level._physics_process(0.0)
+		await get_tree().physics_frame
+		if captured["slow_count"] >= 1:
+			break
 
-	assert_int(slow_count_second) \
+	assert_int(captured["slow_count"]) \
 		.override_failure_message("AC-LVL-7 edge reload: level_load_slow doit être ré-émis après reload (flag resetté)") \
 		.is_equal(1)
 
-	# Attendre level_active pour cleanup propre
-	await await_signal_on(level, "level_active", [], 3000)
+	# Cleanup direct (pas d'await level_active : non-essentiel pour ce test, peut hang
+	# en headless GdUnit4 cross-test ResourceLoader pollution).
 	level.queue_free()

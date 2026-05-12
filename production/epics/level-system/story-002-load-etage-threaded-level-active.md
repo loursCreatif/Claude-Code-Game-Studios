@@ -88,7 +88,7 @@
 **Required evidence**:
 - `tests/integration/level/level_load_etage_test.gd` — doit exister et passer (3 test cases)
 
-**Status**: [x] Created at `tests/integration/level/level_load_etage_test.gd` — 3 test cases (1 par AC) ; fixtures `tests/fixtures/levels/test_etage_01.tscn` (PlayerStart à (10, 2, 5)) et `test_etage_02.tscn` (PlayerStart à (0, 0, 0)) ; exécution effective en CI via `MikeSchulze/gdUnit4-action@v1` (Godot 4.6).
+**Status**: [x] Created at `tests/integration/level/level_load_etage_test.gd` — 3 test cases (1 par AC) ; fixtures `tests/fixtures/levels/test_etage_01.tscn` (PlayerStart à (10, 2, 5)) et `test_etage_02.tscn` (PlayerStart à (0, 0, 0)) ; exécution effective en CI via `godot-gdunit-labs/gdUnit4-action@v1` (Godot 4.6).
 
 ---
 
@@ -141,7 +141,7 @@
 - `tests/fixtures/levels/test_etage_01.tscn` — fixture PlayerStart (10,2,5).
 - `tests/fixtures/levels/test_etage_02.tscn` — fixture PlayerStart (0,0,0).
 
-**Runtime Verification** : production code parse OK (`godot --check-only` 4.6.2). Test file parse error attendue en local (GdUnit4 non installé) ; exécution effective via CI `MikeSchulze/gdUnit4-action@v1`.
+**Runtime Verification** : production code parse OK (`godot --check-only` 4.6.2). Test file parse error attendue en local (GdUnit4 non installé) ; exécution effective via CI `godot-gdunit-labs/gdUnit4-action@v1`.
 
 ---
 

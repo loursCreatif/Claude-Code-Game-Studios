@@ -1,10 +1,10 @@
 # Interaction Pattern Library — CHROME://ASCENT
 
 > **Status** : Initialized (baseline)
-> **Last Updated** : 2026-04-21
+> **Last Updated** : 2026-05-11
 > **Owner** : ux-designer
 > **Accessibility Tier** : Standard (cf. `design/accessibility-requirements.md`)
-> **Related** : `design/gdd/input-system.md` (ADR-0004), `docs/architecture/architecture.md` §6
+> **Related** : `design/gdd/input-system.md` (ADR-0004), `docs/architecture/architecture.md` §6, `docs/architecture/adr-0015-accessibility-interface-layer.md` D-1 (AccessibilityService — source canonique `reduce_motion` / `reduce_flash`)
 
 ---
 
@@ -210,3 +210,30 @@ movement_controller.dash_started.connect(_on_dash_started, CONNECT_DEFERRED)
 - Nouveau pattern → append section 2-7 correspondante + ajouter ligne §8 tracking.
 - Pattern déprécié → marquer `[DEPRECATED]` avec migration plan + date. Ne pas supprimer avant migration complète.
 - Conflit entre patterns → escalade creative-director (cf. coordination-rules).
+
+---
+
+## 10. Accessibility Tier Coverage
+
+Rétro-référence canonique : **ADR-0015 D-1** (`docs/architecture/adr-0015-accessibility-interface-layer.md`)
+— définit l'autoload `AccessibilityService` comme single-source-of-truth pour `reduce_motion` / `reduce_flash` et les multipliers per-system.
+
+Les patterns de cette library qui portent des features accessibility sont couverts aux tiers suivants :
+
+| Pattern | Feature accessibility | Tier | Service API (ADR-0015 D-3) |
+|---------|----------------------|------|---------------------------|
+| P-INP-003 | `ui_cancel` toujours actif même pendant `request_disable` | Tier 1 (baseline MVP) | n/a — gating InputManager (ADR-0004 D-4) |
+| P-INP-004 | Accessibility gating refcount (pause/checkpoint/cutscene) | Tier 1 (baseline MVP) | n/a — InputManager |
+| P-FB-002 | Camera shake → amplitude × 0.3 si `reduce_motion` | Tier 1 (baseline MVP) | `AccessibilityService.get_camera_shake_mult()` |
+| P-FB-003 | Respawn flash → opacity × 0.2 si `reduce_flash` | Tier 1 (baseline MVP) | `AccessibilityService.get_flash_mult()` |
+| P-HUD-001 | Contraste texte ≥ 4.5:1, font ≥ 20 px | Tier 1 (baseline MVP) | n/a — valeurs visuelles statiques |
+| P-HUD-002 | Notification → cross-fade only si `reduce_motion` (pas de slide) | Tier 1 (baseline MVP) | `AccessibilityService.is_reduce_motion_enabled()` |
+| P-MENU-001 | Slider keyboard navigable, full text label | Tier 1 (baseline MVP) | n/a — Godot Control focus |
+| P-MENU-002 | Toggle `reduce_motion` / `reduce_flash` accessibles dans Settings | Tier 2 (expanded — Settings Menu UI) | `AccessibilityService.apply_settings()` + `save_settings()` |
+| P-MENU-003 | Keyboard/mouse remap (gamepad remap Tier 2+) | Tier 1 clavier / Tier 2 gamepad | n/a — InputManager remap |
+| P-TRANS-001 | Scene transition → cut direct 50 ms si `reduce_motion` | Tier 1 (baseline MVP) | `AccessibilityService.is_reduce_motion_enabled()` |
+
+**Résumé tiers** :
+- **Tier 1 baseline MVP** : reduce_motion appliqué sur shake (P-FB-002), flash respawn (P-FB-003), notifications (P-HUD-002), transitions (P-TRANS-001) + contraste/focus statiques (P-HUD-001, P-MENU-001, P-INP-003/004).
+- **Tier 2 expanded** : Settings Menu UI exposant les toggles `reduce_motion` / `reduce_flash` à l'utilisateur (P-MENU-002) — différé post-MVP.
+- **Tier 3 advanced** : non couvert par les patterns actuels de cette library (colorblind filter, font scaling, screen reader — cf. ADR-0015 REQ-10 open questions OQ-ACC-3/4/5).

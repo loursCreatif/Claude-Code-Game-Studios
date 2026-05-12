@@ -9,58 +9,123 @@
 ;   + 1 Marker3D ceiling (top of shaft) + 1 Marker3D floor (spawn)
 ;   = 8 MeshInstance3D / 5 StaticBody3D / 2 Marker3D.
 ; Rise minimum : 8m (walls 10m height, floor à y=0, ceiling marker à y=10).
-; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Layer collision : LAYER_ENVIRONMENT (layer 4, décimal 8 — bit 3 set, conforme ADR-0008 D-2).
 ; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_vertical_shaft_room"]
+
+; --- Materials MVP ---
+; TODO story-022 : remplacer par SubResource ShaderMaterial chrome_zen_flat
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.35, 0.37, 0.40, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
+; Accent cyan vif pour signaler wall-run-able (MVP playtest visibility).
+albedo_color = Color(0.3, 0.85, 0.95, 1)
+emission_enabled = true
+emission = Color(0.3, 0.85, 0.95, 1)
+emission_energy_multiplier = 0.3
+
+; --- Shapes ---
+; PitFloor : 6×0.3×6 m
+[sub_resource type="BoxShape3D" id="shape_pit_floor"]
+size = Vector3(6.0, 0.3, 6.0)
+
+; WallNorth/South : 6×10×0.3 m (largeur 6, hauteur 10, épaisseur 0.3)
+[sub_resource type="BoxShape3D" id="shape_wall_ns"]
+size = Vector3(6.0, 10.0, 0.3)
+
+; WallEast/West : 0.3×10×6 m
+[sub_resource type="BoxShape3D" id="shape_wall_ew"]
+size = Vector3(0.3, 10.0, 6.0)
+
+; --- Meshes ---
+[sub_resource type="BoxMesh" id="mesh_pit_floor"]
+size = Vector3(6.0, 0.3, 6.0)
+material = SubResource("mat_floor")
+
+[sub_resource type="BoxMesh" id="mesh_wall_ns"]
+size = Vector3(6.0, 10.0, 0.3)
+material = SubResource("mat_wall")
+
+[sub_resource type="BoxMesh" id="mesh_wall_ew"]
+size = Vector3(0.3, 10.0, 6.0)
+material = SubResource("mat_wall")
+
+; WallRunInner : 4×8×0.05 m (parois intérieures visuelles wall-run cue)
+[sub_resource type="BoxMesh" id="mesh_wall_run_inner"]
+size = Vector3(4.0, 8.0, 0.05)
+material = SubResource("mat_wall_run_guide")
 
 [node name="VerticalShaftRoom" type="Node3D"]
 
 [node name="PitFloor" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="PitFloorMesh" type="MeshInstance3D" parent="PitFloor"]
+mesh = SubResource("mesh_pit_floor")
 
 [node name="PitFloorShape" type="CollisionShape3D" parent="PitFloor"]
+shape = SubResource("shape_pit_floor")
 
 [node name="WallNorth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, -3.0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallNorthMesh" type="MeshInstance3D" parent="WallNorth"]
+mesh = SubResource("mesh_wall_ns")
 
 [node name="WallNorthShape" type="CollisionShape3D" parent="WallNorth"]
+shape = SubResource("shape_wall_ns")
 
 [node name="WallSouth" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5.0, 3.0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallSouthMesh" type="MeshInstance3D" parent="WallSouth"]
+mesh = SubResource("mesh_wall_ns")
 
 [node name="WallSouthShape" type="CollisionShape3D" parent="WallSouth"]
+shape = SubResource("shape_wall_ns")
 
 [node name="WallEast" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.0, 5.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallEastMesh" type="MeshInstance3D" parent="WallEast"]
+mesh = SubResource("mesh_wall_ew")
 
 [node name="WallEastShape" type="CollisionShape3D" parent="WallEast"]
+shape = SubResource("shape_wall_ew")
 
 [node name="WallWest" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.0, 5.0, 0)
-collision_layer = 2
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallWestMesh" type="MeshInstance3D" parent="WallWest"]
+mesh = SubResource("mesh_wall_ew")
 
 [node name="WallWestShape" type="CollisionShape3D" parent="WallWest"]
+shape = SubResource("shape_wall_ew")
 
 [node name="WallRunInnerEast" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 5.0, 0)
+mesh = SubResource("mesh_wall_run_inner")
+visible = false
 
 [node name="WallRunInnerWest" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.6, 5.0, 0)
+mesh = SubResource("mesh_wall_run_inner")
+visible = false
 
 [node name="SpawnPoint" type="Marker3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)

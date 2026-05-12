@@ -1,20 +1,27 @@
 # Story 018: Accessibility reduce_motion + reduce_flash toggles
 
 > **Epic**: player-movement-system
-> **Status**: **Blocked**
+> **Status**: **Closed — WON'T FIX (résolu par ADR-0015 D-1 Option A canonical : bypass vit côté consumer — Movement n'a rien à implémenter)**
 > **Layer**: Core
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-21
 
-## Blocked Reason
+## Closed Resolution 2026-05-04
 
-**BLOCKED: ADR-0015 Accessibility Interface Layer absent.**
+**ADR-0015 Accessibility Interface Layer Accepted 2026-05-02** ratifie exactement l'**Option A canonical** anticipée par cette story : `AccessibilityService` autoload single-source-of-truth, **propagation pull-pattern côté consumers** (Camera/Combat/Enemy/VFX/HUD lisent `reduce_motion`/`reduce_flash` et appliquent leurs multipliers localement), **outbound-zero côté Movement** (cohérent ADR-0005 D-10).
 
-La propagation cross-system des toggles `reduce_flash` (WCAG 2.3.1) + `reduce_motion` (WCAG 2.3.3) requiert un ADR formel d'architecture (Gap **G-4** identifié `/architecture-review` 2026-04-21, planned phase **Polish**). L'inline spec existe dans `design/gdd/player-movement-system.md` l.382-388 et `design/accessibility-requirements.md` tier **Standard** committed 2026-04-21, mais l'interface technique (`AccessibilityManager` autoload, setter `set_reduce_motion(bool)` sur MovementController, propagation Camera shake bypass + Movement tilt bypass + VFX flash bypass) n'est pas arbitrée.
+**Conclusion Movement-side** : `MovementController` n'expose **AUCUN** setter `set_reduce_motion(bool)` ni signal `accessibility_changed` ni multiplicateur interne. Movement continue d'émettre ses signaux standard (`dash_started`, `wall_run_entered(wall_normal)`, etc.) ; chaque consumer (Camera applique tilt × 0.25, FOV pulse × 0.5, shake × 0 ; VFX applique flash × 0) lit l'état accessibility via `AccessibilityService` au moment où il reçoit le signal Movement.
 
-**Unblock options** :
-- **Option A (rapide)** : écrire un ADR léger formalisant le setter `set_reduce_motion(bool)` sur MovementController + signal `accessibility_changed` avant la story wall-run/dash qui touche le tilt bypass. Effort ~1h. Déverrouille propagation minimale MVP.
-- **Option B (canonical)** : écrire ADR-0015 Accessibility Interface Layer complet (AccessibilityManager autoload + `user://accessibility_settings.tres` save/load + propagation 3 systèmes). Effort ~3h. Déverrouille G-4 entier + TR-mov-008 + TR-cam-005 (partiel).
+**Cross-references implémentation** (acceptance criteria portés par les bons epics) :
+- **Camera AC-CAM-70/71/72** (Camera GDD r2 Rule 14, déjà BLOCKING) : tilt mult, FOV kick mult, shake mult — câblé via `AccessibilityService.tilt_mult/fov_kick_mult/shake_mult` au lieu d'un flag local.
+- **Combat AC-CMB-19 r6 + story-022** : disable_slow_mo + slow_mo_scale_mult [1.0, 3.33] + flash_mult [0.0, 1.0] — câblé via `AccessibilityService` (story-022 Status débloqué par ADR-0015).
+- **Enemy** : `DEATH_TWEEN_DURATION_MS` 150 → 400 ms variant — câblé via `AccessibilityService.enemy_death_tween_ms_override` (Tier 2+).
+- **Future VFX flash mult** : reduce_flash propagé via `AccessibilityService.flash_mult` (VFX epic à venir).
+- **Menu principal accessibility toggle** : Settings Menu UI Tier 2+ exposera les toggles ; MVP minimal = boolean unique `reduce_motion` accessible via le menu pause/principal selon les UX specs accessibility.
+
+**Pas de regression feel** : ADR-0015 D-6 garantit l'**invariant defaults** par construction — toutes flags OFF → comportement bit-identical au MVP non-accessibility (test invariant cross-system requis dans story implémentation `AccessibilityService`).
+
+**Action côté Movement epic** : aucune. Cette story est fermée sans code modifié, sans test ajouté. La traçabilité TR-mov-008 (G-4) est satisfaite via la couverture cross-system documentée par ADR-0015 (Camera + Combat + Enemy ACs portent les contrats consumer).
 
 ## Context
 

@@ -9,9 +9,13 @@
 # ADR-0002 (overlay owned par Camera) ; GDD Rule 9 + Visual/Audio Requirements
 # (Mirror's Edge reference) ; Pillar 3 ≤ 400 ms.
 #
-# Framework: GdUnit4 (extends GdUnitTestSuite).
+# Framework: GdUnit4 (extends GdUnitTestSuite + AutoloadResetHelper composition — TD-010 opt-in).
 
 extends GdUnitTestSuite
+
+const AutoloadResetHelper := preload("res://tests/helpers/autoload_reset_helper.gd")
+
+var _autoload_snap: Dictionary = {}
 
 
 # ---------------------------------------------------------------------------
@@ -47,6 +51,9 @@ var _camera_system: CameraSystem = null
 # ---------------------------------------------------------------------------
 
 func before_test() -> void:
+	# Snapshot autoloads (GSM + Engine + AudioSystem + VFXSystem) avant mutations
+	# pour éviter pollution cross-suite (TD-010).
+	_autoload_snap = AutoloadResetHelper.snapshot(get_tree())
 	_mock_player = MockPlayerWithDashSignals.new()
 
 	_camera_arm = Node3D.new()
@@ -64,6 +71,13 @@ func before_test() -> void:
 	_camera_effects.add_child(_camera3d)
 	_camera_arm.add_child(_camera_effects)
 	_mock_player.add_child(_camera_arm)
+	# Set owner BEFORE _mock_player enters tree pour que set_unique_name_in_owner(true)
+	# enregistre %CameraEffects/%Camera3D dans le scope owner=_mock_player (mock scene root).
+	# Sans owner explicite : `Node not found: "%CameraEffects"` log ERROR à _ready
+	# (Mac M4 ignore l'erreur, ubuntu CI la compte comme error → test fails).
+	_camera_arm.owner = _mock_player
+	_camera_effects.owner = _mock_player
+	_camera3d.owner = _mock_player
 	add_child(_mock_player)
 	await get_tree().process_frame
 
@@ -84,6 +98,8 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	# Restaure autoloads — évite pollution VFX._flash_respawn_active cross-suite (TD-010).
+	AutoloadResetHelper.restore(get_tree(), _autoload_snap)
 	# Kill tween si encore actif (cas test interrompu mid-animation).
 	if _camera_system._respawn_tween != null and _camera_system._respawn_tween.is_valid():
 		_camera_system._respawn_tween.kill()

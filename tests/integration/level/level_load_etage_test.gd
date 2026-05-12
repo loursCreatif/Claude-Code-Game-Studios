@@ -33,9 +33,13 @@ func test_load_etage_transitions_unloaded_to_active_with_signal() -> void:
 	var level: LevelSystemScript = _make_level()
 	await get_tree().process_frame
 
-	var received_args: Array = []
+	# Container Dictionary pour bypass GDScript lambda capture-by-value (Array re-assignment
+	# dans la lambda ne propage pas vers le scope englobant — pareil que bool/int).
+	var captured: Dictionary = {"received": false, "id": -99, "pos": Vector3.INF}
 	level.level_active.connect(func(id: int, pos: Vector3) -> void:
-		received_args = [id, pos]
+		captured["received"] = true
+		captured["id"] = id
+		captured["pos"] = pos
 	)
 
 	# Act
@@ -61,13 +65,13 @@ func test_load_etage_transitions_unloaded_to_active_with_signal() -> void:
 		.is_equal(1)
 
 	# Assert payload signal
-	assert_int(received_args.size()) \
-		.override_failure_message("AC-LVL-2: signal level_active doit avoir été capturé (2 args)") \
-		.is_equal(2)
-	assert_int(received_args[0]) \
+	assert_bool(captured["received"]) \
+		.override_failure_message("AC-LVL-2: signal level_active doit avoir été capturé") \
+		.is_true()
+	assert_int(captured["id"]) \
 		.override_failure_message("AC-LVL-2: level_active.etage_id doit être 1") \
 		.is_equal(1)
-	assert_vector(received_args[1]) \
+	assert_vector(captured["pos"]) \
 		.override_failure_message("AC-LVL-2: level_active.player_start doit être (10, 2, 5)") \
 		.is_equal(Vector3(10.0, 2.0, 5.0))
 

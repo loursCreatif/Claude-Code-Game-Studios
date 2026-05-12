@@ -1,0 +1,296 @@
+extends Node3D
+
+# Init temporaire MVP — capture la souris + débloque abilities + ajoute bindings alternatifs.
+# À retirer quand GSM `_on_level_active` + UpgradeSystem orchestrent (story Production).
+
+func _ready() -> void:
+	InputManager.set_mouse_captured(true)
+	_spawn_boss_marker()
+	_start_ambient_music()
+	_disable_hidden_collisions()
+
+func _disable_hidden_collisions() -> void:
+	# Pour chaque node visible=false, désactive collision_layer de tous ses StaticBody3D enfants.
+	# Évite "murs invisibles" sur les primitives masquées (Mezzanine/ShaftConnector/Atrium clutter).
+	var to_check: Array[Node] = []
+	to_check.append(self)
+	while not to_check.is_empty():
+		var n: Node = to_check.pop_back()
+		# Si node 3D visible=false, désactive collisions descendantes.
+		if n is VisualInstance3D and not (n as VisualInstance3D).visible:
+			_recursive_disable_collision(n)
+			continue
+		if n is Node3D and not (n as Node3D).visible:
+			_recursive_disable_collision(n)
+			continue
+		for c: Node in n.get_children():
+			to_check.append(c)
+
+func _recursive_disable_collision(node: Node) -> void:
+	if node is StaticBody3D:
+		(node as StaticBody3D).collision_layer = 0
+		(node as StaticBody3D).collision_mask = 0
+	for c: Node in node.get_children():
+		_recursive_disable_collision(c)
+
+func _start_ambient_music() -> void:
+	var player: AudioStreamPlayer = AudioStreamPlayer.new()
+	player.stream = _create_drone()
+	player.volume_db = -12.0
+	player.bus = &"Master"
+	add_child(player)
+	player.play()
+
+func _create_drone() -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = 22050
+	stream.stereo = true
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	# 16s loop pour mélodie sparse (Am: A4, E5, C5, A4 — 4s par note)
+	var sample_count: int = 22050 * 16
+	stream.loop_begin = 0
+	stream.loop_end = sample_count
+	# Stereo : 2 channels interleaved L R L R, 16-bit chacun = 4 bytes par sample frame
+	var bytes: PackedByteArray = PackedByteArray()
+	bytes.resize(sample_count * 4)
+	# Mélodie : 4 notes Am sur 16s (A4=440, C5=523, E5=659, A4=440)
+	var melody_freqs: PackedFloat32Array = PackedFloat32Array([440.0, 523.25, 659.25, 440.0])
+	for i: int in range(sample_count):
+		var t: float = float(i) / 22050.0
+		# Breathing volume modulation (slow 0.1 Hz envelope)
+		var breath: float = 0.7 + 0.3 * sin(t * TAU * 0.0625)
+		# Common bass drone (mono)
+		var bass: float = 0.0
+		bass += sin(t * TAU * 55.0) * 0.32  # A1
+		bass += sin(t * TAU * 110.0) * 0.16  # A2
+		bass += sin(t * TAU * 220.0 + sin(t * 0.4) * 0.35) * 0.08  # A3 vibrato
+		# Pad ouvert
+		var pad_l: float = sin(t * TAU * 82.0) * 0.12  # E2 (left wider)
+		var pad_r: float = sin(t * TAU * 123.0) * 0.10  # B2 (right wider)
+		# Shimmer high
+		var shimmer: float = sin(t * TAU * 261.0) * 0.05 * (0.5 + 0.5 * sin(t * 0.25))
+		# Mélodie sparse : 1 note par 4s avec attack-decay envelope
+		var note_idx: int = int(t / 4.0) % 4
+		var note_freq: float = melody_freqs[note_idx]
+		var note_t: float = fmod(t, 4.0)
+		var note_env: float = 0.0
+		if note_t < 2.0:
+			note_env = (note_t / 0.3 if note_t < 0.3 else 1.0 - (note_t - 0.3) / 1.7) * 0.18
+		note_env = maxf(note_env, 0.0)
+		var melody: float = sin(note_t * TAU * note_freq) * note_env
+		# Sub noise pour grain
+		var noise: float = (randf() - 0.5) * 0.012
+		# Mix per channel — wider stereo with different pad emphasis
+		var sL: float = (bass + pad_l + shimmer * 0.7 + melody * 0.9 + noise) * breath
+		var sR: float = (bass + pad_r + shimmer + melody + noise) * breath
+		# 16-bit signed clamp
+		var iL: int = int(clamp(sL, -1.0, 1.0) * 32600.0)
+		var iR: int = int(clamp(sR, -1.0, 1.0) * 32600.0)
+		var base: int = i * 4
+		bytes[base] = iL & 0xFF
+		bytes[base + 1] = (iL >> 8) & 0xFF
+		bytes[base + 2] = iR & 0xFF
+		bytes[base + 3] = (iR >> 8) & 0xFF
+	stream.data = bytes
+	return stream
+
+func _spawn_boss_marker() -> void:
+	# Label3D "BOSS" flottant rouge au-dessus de la zone boss (Z=80 Y=4).
+	var label: Label3D = Label3D.new()
+	label.text = "BOSS"
+	label.font_size = 96
+	label.modulate = Color(1.0, 0.15, 0.15, 1)
+	label.outline_size = 10
+	label.outline_modulate = Color(0, 0, 0, 1)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = false
+	label.fixed_size = false
+	add_child(label)
+	label.global_position = Vector3(0, 4.5, 80.0)
+	# Pulse infinite scale.
+	var tw: Tween = create_tween().set_loops()
+	tw.tween_property(label, "scale", Vector3(1.1, 1.1, 1.1), 0.8)
+	tw.tween_property(label, "scale", Vector3(1.0, 1.0, 1.0), 0.8)
+
+	# MVP playtest : bindings alternatifs au cas où Shift gauche ne marche pas sur Mac.
+	# Ajoute touche E pour dash, F pour saut alternatif.
+	_add_key_binding(&"dash", KEY_E)
+	_add_key_binding(&"jump", KEY_F)
+
+	# MVP playtest : si etage_01 charge alors que le main_menu est encore affiché
+	# (cas du flow Menu → Start → etage_01 en parallèle plutôt que change_scene),
+	# free le main_menu pour libérer la vue gameplay.
+	_dispose_main_menu_if_present()
+
+	# MVP playtest : spawn enemies sur les EnemySlot_* Marker3D présents dans la scène.
+	# Normalement appelé par LevelSystem.commit_active() — mais bypass si lancement direct.
+	# Idempotent : si déjà appelé (load_etage flow), spawn rien (Grunts déjà existants).
+	if not _has_grunts_already():
+		EnemySpawner.spawn_for_scene(self)
+		_scale_boss_grunt()
+		print("[etage_01_init] EnemySpawner.spawn_for_scene appelé")
+
+	# Proto player a déjà toutes les abilities par défaut (can_dash=true, double-jump natif).
+
+	# Étape 3/10 — EtageExitTrigger Victory : connecte body_entered au handler local.
+	var exit_trigger: Area3D = get_node_or_null("EtageExitTrigger") as Area3D
+	if exit_trigger != null and not exit_trigger.body_entered.is_connected(_on_etage_exit):
+		exit_trigger.body_entered.connect(_on_etage_exit)
+
+var _victory_triggered: bool = false
+
+func _on_etage_exit(body: Node) -> void:
+	if _victory_triggered:
+		return
+	if not (body is CharacterBody3D):
+		return
+	_victory_triggered = true
+	# Affiche Victory label fade in + scale + stats.
+	var player: Node = find_child("Player", true, false)
+	if player == null:
+		return
+	var label: Label = player.get_node_or_null("HUDProto/VictoryLabel") as Label
+	if label == null:
+		return
+	# Récupère stats.
+	var k: int = 0
+	var w: int = _wave_number
+	var kill_l: Label = player.get_node_or_null("HUDProto/KillCounter") as Label
+	if kill_l != null:
+		k = kill_l.text.split("  ")[-1].to_int()
+	var tim_l: Label = player.get_node_or_null("HUDProto/TimerLabel") as Label
+	var time_text: String = "00:00"
+	if tim_l != null:
+		time_text = tim_l.text
+	label.text = "VICTOIRE\nKILLS  %d\nVAGUE  %d\nTEMPS  %s" % [k, w, time_text]
+	label.add_theme_font_size_override(&"font_size", 56)
+	var tween: Tween = create_tween().set_parallel(true)
+	tween.tween_property(label, "modulate:a", 1.0, 0.6)
+	tween.tween_property(label, "scale", Vector2(1.15, 1.15), 0.6).from(Vector2.ONE)
+	# Slow-mo dramatique à la victoire.
+	Engine.time_scale = 0.3
+	get_tree().create_timer(2.0, false).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	# Save high score.
+	if player.has_method("record_run_score"):
+		player.record_run_score(k, w)
+
+func _has_grunts_already() -> bool:
+	return find_child("Grunt_*", true, false) != null
+
+func _spawn_next_wave() -> void:
+	_wave_number += 1
+	# Update HUD wave counter.
+	var player: Node = find_child("Player", true, false)
+	if player:
+		var wave_label: Label = player.get_node_or_null("HUDProto/WaveCounter") as Label
+		if wave_label != null:
+			wave_label.text = "VAGUE  %d" % _wave_number
+			wave_label.pivot_offset = wave_label.size / 2.0
+			wave_label.scale = Vector2(1.3, 1.3)
+			create_tween().tween_property(wave_label, "scale", Vector2.ONE, 0.3)
+	# Spawn EnemySpawner relance (basé sur EnemySlots existants).
+	EnemySpawner.spawn_for_scene(self)
+	# Scale boss à 1.8× (grunt le plus proche de Z=80).
+	_scale_boss_grunt()
+	print("[etage_01_init] Wave %d spawned" % _wave_number)
+
+func _scale_boss_grunt() -> void:
+	# Trouve le grunt dont Z est le plus proche de 80 et le scale ×1.8.
+	var best_grunt: Node3D = null
+	var best_diff: float = 999.0
+	for g: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if not (g is Node3D):
+			continue
+		if g.has_method("is_dead") and g.is_dead():
+			continue
+		var diff: float = absf((g as Node3D).global_position.z - 80.0)
+		if diff < best_diff and diff < 5.0:
+			best_diff = diff
+			best_grunt = g as Node3D
+	if best_grunt != null:
+		best_grunt.scale = Vector3(1.8, 1.8, 1.8)
+		# Tint plus rouge sur le mesh.
+		var mesh_node: MeshInstance3D = best_grunt.get_node_or_null("MeshInstance3D") as MeshInstance3D
+		if mesh_node != null and mesh_node.material_override == null:
+			var boss_mat: StandardMaterial3D = StandardMaterial3D.new()
+			boss_mat.albedo_color = Color(0.6, 0.05, 0.05, 1)
+			boss_mat.emission_enabled = true
+			boss_mat.emission = Color(0.9, 0.10, 0.10, 1)
+			boss_mat.emission_energy_multiplier = 1.2
+			mesh_node.material_override = boss_mat
+
+const GRUNT_WALK_SPEED: float = 1.2
+const GRUNT_STOP_DISTANCE: float = 6.0
+const WAVE_RESPAWN_DELAY: float = 3.0
+
+var _wave_number: int = 1
+var _wave_respawn_timer: float = 0.0
+var _wave_pending: bool = false
+
+func _process(delta: float) -> void:
+	# Grunts AI tracking : FacingPivot vers Player + walk slow toward Player.
+	var player: Node3D = find_child("Player", true, false) as Node3D
+	if player == null:
+		return
+	# Wave system : count alive grunts, respawn wave si tous morts.
+	var alive_count: int = 0
+	for g: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if g.has_method("is_dead") and not g.is_dead():
+			alive_count += 1
+	if alive_count == 0:
+		if not _wave_pending:
+			_wave_pending = true
+			_wave_respawn_timer = WAVE_RESPAWN_DELAY
+		else:
+			_wave_respawn_timer -= delta
+			if _wave_respawn_timer <= 0.0:
+				_spawn_next_wave()
+				_wave_pending = false
+	for grunt: Node in get_tree().get_nodes_in_group(&"enemies"):
+		if not (grunt is Node3D):
+			continue
+		# Skip si DYING / DEAD (grunt.is_dead() exposé Rule 13).
+		if grunt.has_method("is_dead") and grunt.is_dead():
+			continue
+		var grunt3d: Node3D = grunt as Node3D
+		var to_player: Vector3 = player.global_position - grunt3d.global_position
+		to_player.y = 0.0
+		var dist: float = to_player.length()
+		if dist < 0.01:
+			continue
+		# Rotate FacingPivot vers Player (LaserCone aim live).
+		var pivot: Node3D = grunt.get_node_or_null("%FacingPivot") as Node3D
+		if pivot != null:
+			var target_yaw: float = atan2(to_player.x, to_player.z) + PI
+			pivot.global_rotation.y = lerp_angle(pivot.global_rotation.y, target_yaw, 0.05)
+		# Walk vers Player si distance > GRUNT_STOP_DISTANCE (sinon stationary pour shoot).
+		# Utilise move_and_collide pour respecter walls (anti-traverse-murs).
+		if dist > GRUNT_STOP_DISTANCE:
+			var dir: Vector3 = to_player.normalized()
+			var motion: Vector3 = dir * GRUNT_WALK_SPEED * delta
+			if grunt3d.has_method("move_and_collide"):
+				grunt3d.move_and_collide(motion)
+			else:
+				grunt3d.global_position += motion
+
+func _dispose_main_menu_if_present() -> void:
+	# Hide (pas queue_free) le main_menu — le free de la main scene casserait
+	# get_tree().current_scene et les inputs ne seraient plus routés correctement.
+	# hide() rend invisible + désactive le process Control (mouse_filter input).
+	for node: Node in get_tree().root.get_children():
+		if node.name == "MainMenuController":
+			print("[etage_01_init] main_menu hide()")
+			(node as Control).visible = false
+			# Désactive aussi le process pour éviter que le menu réagisse aux inputs.
+			node.process_mode = Node.PROCESS_MODE_DISABLED
+			return
+
+func _add_key_binding(action: StringName, keycode: int) -> void:
+	if not InputMap.has_action(action):
+		push_warning("[etage_01_init] action %s absente" % action)
+		return
+	var event: InputEventKey = InputEventKey.new()
+	event.physical_keycode = keycode
+	InputMap.action_add_event(action, event)
+	print("[etage_01_init] +binding action=%s keycode=%d" % [action, keycode])

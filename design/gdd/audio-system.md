@@ -1,6 +1,6 @@
 # Audio System
 
-> **Status**: Draft r2.2 — Amendement éditorial 2026-04-28 (NB-CRD-6 Option A creative-director adjudication — secret collect clac différencié pitch +5 semitones bus `SFX`). Précédent r2.1 : Phase A (vision) + Phase B (spec) + 14 BLOCKING re-review fixes appliqués 2026-04-27 via `/design-system audio-system r2` solo auto-approve + `/design-review` fresh session post A+B (4 specialists adversariaux : game-designer, audio-director, qa-lead, godot-specialist).
+> **Status**: Draft r2.3 — Phase A+B+C+D + `/design-review` Phase C+D 8 BLOCKING fixes appliqués 2026-05-03 (audio-director + qa-lead + godot-specialist + game-designer 4 specialists adversariaux, convergence forte sur 5 BLOCKING actionnables). r2.2 → r2.3 : (1) Phase D.3 orphan tracker fix (erase `_active_clac_players[slot_idx]` AVANT stop() round-robin + cleanup pré-connect si slot recyclé + `Dictionary[int, bool]` typed + defensive disconnect) ; (2) AC-AUD-01 (d) enrichi `compressor.attack_us == 5000` + `release_ms == 200.0` API verification (gotcha nommage asymétrique long-standing Godot — pas breaking 4.x — engine-ref dump 2026-05-03 résolution Phase D.5) ; (3) AC-AUD-04 (e/f) + AC-AUD-06 (e/f) boundary cases `D=0`/`D=-1`/`R=0`/`R=-1` Formula 1/2 guards Phase C ; (4) **AC-AUD-20 nouveau** Phase D.2 double-boot idempotent guard formal coverage ; (5) **AC-AUD-21 nouveau** F-04 linear-amplitude midpoint anti-regression Phase C ; (6) AC-AUD-15 split en 15-a BLOCKING headless-testable + 15-b ADVISORY `AudioEffectRecord` headless-conditional ; (7) F-04 EQUAL_POWER compromis : LINEAR default mais Sprint Audio Day 1 test A/B BLOCKING (escalade explicite, pas "plus tard") ; (8) AC-AUD-13 (e/f/g) sub-budgets handler/play_3d_at/sidechain CPU isolés Phase D.4. Précédentes phases : r2.2 Phase A+B+C+D complete (2026-05-03) + `/consistency-check audio-system` PASS (1 stale prose fix ligne 422 `100 ms → 50 ms` SLOW_MO_DURATION) ; Amendement éditorial 2026-04-28 (NB-CRD-6 Option A — secret collect clac pitch +5 semitones bus `SFX`) ; Phase A vision + Phase B spec + 14 BLOCKING re-review r2.1 fixes appliqués 2026-04-27.
 >
 > **Phase A vision (vision call CD adjudications + Martin D3)** :
 > - **D3 Martin REOPEN tranchée Option A** : pitch-shift -2..-4 semitones autorisé sur `COMBAT_KILL` + `AMBIENCE` sous slow-mo via allowlist bus-level. `MUSIC` + `SWING_ACTIVE` invariants. Rule 11 réécrite, Formula 5 ajoutée, AC-AUD-15 reformulée. ADR-0009 D-3 amendé (allowlist `pitch_scale_follows_time_scale` per bus).
@@ -14,11 +14,11 @@
 >
 > **Phase B spec** : Open Questions #6 (UI mute exclusion MVP : oui mute coupe tout), #7 (room tone Chrome Zen `-12 dB` sub-bass synthwave sustain provisional), #9 (Callable injection `_set_time_provider` debug-guarded `if OS.is_debug_build()` test-only) — tous RÉSOLUS.
 >
-> **Phase C (formules+ACs) + Phase D (impl)** sont les 2 phases CD restantes — adressables après re-review fresh post A+B.
+> **Phase C (formules+ACs) + Phase D (impl)** : ✅ COMPLETE 2026-05-03 (auto-mode chain). Détails dans Section "Implementation Details (Phase D)" + hardening blocks F-01/F-02/F-04 inline dans `## Formulas`. Consistency-check pass 2026-05-03 (registry r17 constants × 18 GDDs scanned, 1 stale prose ligne 422 fixée).
 >
 > **Author**: Martin + design-system skill r2 Phase A+B (auto mode, solo) — r1 → r2 surgical OQ#1 + Phase A vision + Phase B spec, r2 → r2.1 design-review fresh session 14 BLOCKING fixes (editorial coherence + spec gaps + AC testability + ADR-0002/0009 D-6 reconciliation), r2.1 → r2.2 amendement éditorial NB-CRD-6 Option A (CD adjudication 2026-04-28 — secret collect clac différencié, audio-director Mécanisme α validé)
-> **Last Updated**: 2026-04-28 (r2.2 amendement NB-CRD-6 — Rule 17 + Formula 7 + AC-AUD-16 secret collect)
-> **Last Verified**: 2026-04-28
+> **Last Updated**: 2026-05-03 (r2.3 design-review Phase C+D APPROVED — 8 BLOCKING fixes appliqués surgicaux)
+> **Last Verified**: 2026-05-03
 > **Implements Pillar**: Pillar 1 (FLOW AVANT TOUT — wall-clock fades, zéro hitching), Pillar 3 (UNE SECONDE CHANCE N'EST JAMAIS LOIN — death feedback 60-80 ms wall-clock, overlap respawn frame intentionnel — RESPAWN_DELAY 50 ms figé, queue audio Godot survit scene reload — Rule 14 r2)
 
 ## Summary
@@ -181,14 +181,156 @@ Le joueur ne pense jamais à l'Audio System — il **sent** ses effets. La Fanta
 | **VFX & Feedback** (aval, peer) | Pas d'interaction directe. VFX et Audio sont peers consumers des mêmes signals Combat (`swing_started`, `enemy_killed`, `multi_kill`) — chacun connecte indépendamment. VFX est SYNC pour flash blanc (exemption ADR-0005 D-5 amendment), Audio est DEFERRED. Les deux émettent leurs effets en parallèle frame N+1 par rapport au tick kill. | Combat owns signals, VFX et Audio sont consumers parallèles indépendants. |
 | **HUD System** (aval, future MVP) | Aucune interaction. HUD update (credit count, etc.) ne déclenche pas de SFX au MVP — Tier 2+ pour audio feedback HUD (pickup chime, etc.). | — |
 
+### Implementation Details (Phase D)
+
+Cette section codifie les patterns d'implémentation que les stories AudioSystem implémenteront. Tirée des résolutions Phase D issues du re-review r2 — pas de nouvelle décision design, formalisation de patterns déjà implicites dans les Rules.
+
+#### Phase D.1 — `play_3d_at` doit utiliser `global_position` (pas `position`)
+
+`play_3d_at(stream, position, bus)` reçoit en paramètre une **`Vector3` en world space** (`global_position`), jamais une position locale (`position`). Source du payload :
+
+- `enemy_killed(enemy: Node3D, position: Vector3)` — Combat émet `enemy.global_position` capturé au tick N (ADR-0006 D-3). Audio handler passe directement à `play_3d_at`.
+- `secret_collected(secret_node: Node, tier: int)` — Audio handler lit `secret_node.global_position` (Rule 17 r2.2).
+
+**Pourquoi** : `AudioStreamPlayer3D.global_position` est utilisé par Godot pour calculer le panning et l'atténuation distance. Passer une position locale produirait un panning relatif au parent du player 3D, soit au mieux faux, au pire `(0,0,0)` head-locked silencieux.
+
+**Implementation contract** (pseudo-code) :
+
+```gdscript
+func play_3d_at(stream: AudioStream, world_pos: Vector3, bus: StringName) -> void:
+    assert(world_pos.is_finite(), "AudioSystem: world_pos must be finite (got %s)" % world_pos)
+    var slot_idx: int = _3d_index
+    var player_3d: AudioStreamPlayer3D = _3d_pool[slot_idx]
+    _3d_index = (_3d_index + 1) % _3d_pool.size()
+    if player_3d.playing:
+        # r2.3 — erase tracker AVANT stop() pour éviter orphan slot=true (Phase D.3 fix)
+        _active_clac_players.erase(slot_idx)
+        player_3d.stop()
+        push_warning("AudioPool 3D saturé — interruption slot %d" % slot_idx)
+    player_3d.stream = stream
+    player_3d.bus = bus     # r2.3 — StringName direct, pas String(bus) cast (no-alloc)
+    player_3d.global_position = world_pos     # Phase D.1 — world space, pas position locale
+    player_3d.pitch_scale = _resolve_pitch_scale_for_bus(bus)   # avant play (Phase A clarification)
+    player_3d.play()
+```
+
+**AC-AUD-01 (b) updated** : verify `_3d_pool[i].global_position == enemy_killed_position` post-dispatch (au lieu de `position`).
+
+#### Phase D.2 — Boot guard contre double `add_bus_effect`
+
+Le sidechain compressor `MUSIC ← COMBAT_KILL` (Formula 6) est ajouté via `AudioServer.add_bus_effect(MUSIC_idx, AudioEffectCompressor.new())` au `_ready()` AudioSystem. Si `AudioSystem._ready()` est appelé deux fois (cas pathologique : autoload re-instantiation, scene reload mid-game, test fixture réutilisé), le compressor est ajouté **deux fois**, produisant un ducking exagéré (compression série 16:1 effective) et CPU overhead.
+
+**Guard idempotent** :
+
+```gdscript
+func _setup_sidechain_compressor() -> void:
+    var music_idx: int = AudioServer.get_bus_index("MUSIC")
+    var existing_count: int = AudioServer.get_bus_effect_count(music_idx)
+    for i in existing_count:
+        var fx: AudioEffect = AudioServer.get_bus_effect(music_idx, i)
+        if fx is AudioEffectCompressor:
+            push_warning("AudioSystem: AudioEffectCompressor déjà présent sur MUSIC bus, skip add (idempotent)")
+            return
+    var compressor: AudioEffectCompressor = AudioEffectCompressor.new()
+    compressor.threshold = -24.0
+    compressor.ratio = 4.0
+    compressor.attack_us = 5000     # 5 ms en microseconds (API Godot 4.6)
+    compressor.release_ms = 200.0
+    compressor.sidechain = "COMBAT_KILL"
+    AudioServer.add_bus_effect(music_idx, compressor)
+```
+
+**AC-AUD-Sidechain (VC-9) updated** : test scenario "double boot" — appeler `AudioSystem._ready()` 2× en test, vérifier `AudioServer.get_bus_effect_count("MUSIC") == 1` (pas 2).
+
+#### Phase D.3 — `_active_clac_players` tracker (clac slot exclusion pitch shift slow-mo)
+
+Rule 11 (Phase A) exige que les **clacs en cours de play()** ne soient PAS retargetés par Formula 5 pitch shift slow-mo (le clac est un transient < 50 ms, tout pitch shift mid-play produit un click audible). Le tracker `_active_clac_players: Dictionary[int, bool]` (clé = slot index pool 3D, valeur = true si clac actif sur ce slot) permet d'exclure les slots actifs.
+
+**Implementation pattern** :
+
+```gdscript
+var _active_clac_players: Dictionary[int, bool] = {}   # slot_idx -> true (Phase D.3 exclusion, typed Godot 4.4+)
+
+func _on_enemy_killed(enemy: Node3D, position: Vector3) -> void:
+    # ... compute pitch_scale Rule 13 ...
+    var slot_idx: int = _3d_index
+    var player_3d: AudioStreamPlayer3D = _3d_pool[slot_idx]
+    # r2.3 orphan-prevention: si slot recyclé alors qu'un clac précédent est encore tracké
+    # (round-robin a interrompu via stop() avant que `finished` ait fire), cleanup manuel
+    # avant nouveau connect — empêche le tracker de croître orphelin et casser pitch shift.
+    if _active_clac_players.has(slot_idx):
+        _on_clac_finished(slot_idx)   # erase entry + disconnect any leftover one-shot
+    player_3d.pitch_scale = clac_pitch_scale    # avant play
+    player_3d.play()
+    _active_clac_players[slot_idx] = true
+    # callback signal finished pour clear le tracker (CONNECT_ONE_SHOT — auto-disconnect après tir)
+    player_3d.finished.connect(_on_clac_finished.bind(slot_idx), CONNECT_ONE_SHOT)
+
+func _on_clac_finished(slot_idx: int) -> void:
+    _active_clac_players.erase(slot_idx)
+    # r2.3 — defensive disconnect au cas où la version one-shot n'a pas encore tiré
+    # (cas appelé manuellement depuis _on_enemy_killed sur slot recyclé).
+    var player_3d: AudioStreamPlayer3D = _3d_pool[slot_idx]
+    for c in player_3d.finished.get_connections():
+        if c["callable"].get_method() == "_on_clac_finished":
+            player_3d.finished.disconnect(c["callable"])
+
+func _apply_pitch_shift_slow_mo(time_scale: float) -> void:
+    # Formula 5 — itere sur pool 3D, skip slots actifs clac
+    var pitch_factor: float = pow(2.0, _compute_pitch_semitones(time_scale) / 12.0)
+    for slot_idx in _3d_pool.size():
+        if slot_idx in _active_clac_players:
+            continue   # Phase D.3 — clac actif, pas de retarget pitch
+        var p: AudioStreamPlayer3D = _3d_pool[slot_idx]
+        if p.playing and _bus_in_pitch_allowlist(p.bus):
+            p.pitch_scale = pitch_factor
+```
+
+**AC-AUD-04 (b) updated** : verify clac actif au moment de `time_scale = 0.3` garde `pitch_scale = 1.0` (ou rang multi-kill `1.122`/`1.260` selon r2 Rule 13), pas pitch_scale Formula 5.
+
+#### Phase D.4 — Performance split handler / mixer thread
+
+Audio System runs sur le **main thread** uniquement (signaux DEFERRED + AudioServer thread interne Godot). Pas de thread-pool custom. Cohérent ADR-0009 D-9 (no custom threads — AudioServer gère son propre mixing thread en interne).
+
+**Budget perf** (Sprint Audio bench cible) :
+
+| Op | Budget | Mesure |
+|----|--------|--------|
+| `_on_enemy_killed` handler | < 0.1 ms (16.6 ms / 60 fps frame budget = ~0.6%) | Profile via `Performance.get_monitor(TIME_PROCESS)` |
+| `play_3d_at` (pool reuse) | < 0.05 ms | Pas d'allocation hot path |
+| `_setup_sidechain_compressor` (boot) | < 5 ms one-shot | `_ready()` perf budget |
+| Sidechain compressor CPU runtime | < 0.5% CPU | Mesure post-implémentation, fallback rectangular ducking si > 1% |
+
+**Pourquoi pas de thread split** : la latence input → audio est critique (Pillar 1 FLOW). Un thread split handler/mixer ajouterait une frame de latence (signal DEFERRED frame N+1 → thread queue → mixer thread frame N+2). Inacceptable. Godot AudioServer thread mixing interne est suffisant.
+
+**Si future profiling révèle hotspot dans handler** (Tier 2+, après bench Sprint Audio) : optimiser via :
+- Cache `AudioServer.get_bus_index(name)` au boot dans `Dictionary[StringName, int]` (1 lookup vs N).
+- Précompute `pitch_scale` array pour `_kill_count_this_swing ∈ [1, 4]` au boot (4 floats constants vs 4 `pow()` per swing).
+
+#### Phase D.5 — `audio.md` engine-reference AudioEffectCompressor section ✅ RESOLVED 2026-05-03
+
+L'engine-reference `docs/engine-reference/godot/modules/audio.md` contient désormais une section **AudioEffectCompressor (Sidechain Ducking)** avec :
+
+- Table des props Godot 4.6 : `threshold` dB, `ratio`, `gain` dB, `attack_us` **microseconds**, `release_ms` **milliseconds**, `mix`, `sidechain` StringName.
+- Note critique gotcha : `attack_us` µs vs `release_ms` ms (asymétrie nommage long-standing depuis 3.x — pas un breaking change 4.3→4.6 contrairement à l'hypothèse review r2.3 ; setter sur `compressor.attack` ou `compressor.release` no-op silencieusement).
+- Pattern boot guard idempotent (Phase D.2) avec scan `get_bus_effect_count` + type check `is AudioEffectCompressor` avant `add_bus_effect`.
+- Bloc verification AC-AUD-01 (d) : assertions `attack_us == 5000.0`, `release_ms == 200.0`, `threshold == -24.0`, `ratio == 4.0`, `sidechain == &"COMBAT_KILL"`.
+- Common Pitfalls list (cascade 16:1 si double `add_bus_effect`, `sidechain = &""` = self-sidechain pas no-sidechain).
+
+**Status** : pré-requis Sprint Audio implementation **levé**. Tests `tests/integration/audio/audio_boot_test.gd` peuvent désormais coder AC-AUD-01 (d) sans bloqueur engine-ref.
+
 ## Formulas
 
 ### Formula 1 — Wall-clock fade-out swoosh (Combat AC-CMB-51 contract)
 
 ```
-volume_db(t) = lerpf(NOMINAL_DB, SILENCE_DB, clamp(t, 0.0, 1.0))
-where t = (current_time_msec - fade_start_msec) / SWOOSH_FADE_DURATION_MS
+if SWOOSH_FADE_DURATION_MS <= 0.0:
+    return SILENCE_DB                                  # F-01 HARDEN — D ≤ 0 = instant silence
+t = (current_time_msec - fade_start_msec) / SWOOSH_FADE_DURATION_MS
+volume_db(t) = lerpf(NOMINAL_DB, SILENCE_DB, clampf(t, 0.0, 1.0))
 ```
+
+**Note dB-domain lerp acceptable ici** : F-01 lerp `volume_db` directement (pas db→linear→lerp→linear→db) parce que le swoosh est **mono-source** (pas de mix avec autre signal sur même bus pendant le fade) — pas de risque de dip d'énergie au midpoint comme F-04. La courbe dB-linéaire est suffisamment naturelle pour un fade-out percussif 30 ms (l'oreille entend "rapide → silence", pas une rampe perceptuelle).
 
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
@@ -196,18 +338,25 @@ where t = (current_time_msec - fade_start_msec) / SWOOSH_FADE_DURATION_MS
 | `SILENCE_DB` | `s` | float | -80.0 only | Silence pratique. `-80 dB` = `≤ 0.01% amplitude`. |
 | `current_time_msec` | `t_now` | int | `[0, INT64_MAX]` ms | Wall-clock millisecond timestamp via `_get_time_msec.call()` (substituable test, default `Time.get_ticks_msec`). |
 | `fade_start_msec` | `t_0` | int | `[0, INT64_MAX]` ms | Timestamp wall-clock au moment où `swing_ended` ou `enemy_killed` a été reçu DEFERRED frame N+1. |
-| `SWOOSH_FADE_DURATION_MS` | `D` | float | 30.0 only MVP | Durée fade wall-clock. Tuning knob `swoosh_fade_duration_ms` safe range `[20, 50]`. |
+| `SWOOSH_FADE_DURATION_MS` | `D` | float | 30.0 only MVP | Durée fade wall-clock. Tuning knob `swoosh_fade_duration_ms` safe range `[20, 50]`. **Guard** : `D ≤ 0` short-circuite à `SILENCE_DB` (silence instantané, voir Edge Case `D-zero-or-negative`). |
 
-**Output Range** : `volume_db` ∈ `[-80.0, NOMINAL_DB]` borné par `clamp(t, 0.0, 1.0)`.
+**Output Range** : `volume_db` ∈ `[-80.0, NOMINAL_DB]` borné par `clampf(t, 0.0, 1.0)`. Si `D ≤ 0` → `volume_db = -80.0` immédiat.
 
-**Example** : `NOMINAL_DB = -6.0`, `SWOOSH_FADE_DURATION_MS = 30.0`, `t_0 = 1000 ms`. À `t_now = 1015 ms`, `t = 15/30 = 0.5`, `volume_db = lerpf(-6, -80, 0.5) = -43 dB`. À `t_now = 1030 ms`, `t = 1.0`, `volume_db = -80 dB` (silence). À `t_now = 1050 ms` (au-delà), `t = clamp(20/30, 0, 1) = 1.0`, `volume_db = -80 dB` (fade terminé, idempotent).
+**Example** : `NOMINAL_DB = -6.0`, `SWOOSH_FADE_DURATION_MS = 30.0`, `t_0 = 1000 ms`. À `t_now = 1015 ms`, `t = 15/30 = 0.5`, `volume_db = lerpf(-6, -80, 0.5) = -43 dB`. À `t_now = 1030 ms`, `t = 1.0`, `volume_db = -80 dB` (silence). À `t_now = 1050 ms` (au-delà), `t = clampf(20/30, 0, 1) = 1.0`, `volume_db = -80 dB` (fade terminé, idempotent).
 
-### Formula 2 — Ducking release exponentielle (psychoacoustique, ADR-0009 D-3)
+**Hardening Edge Case `D-zero-or-negative`** : si tuning knob set à `0.0` ou valeur négative (corruption save, test fixture mal configuré), short-circuit `return SILENCE_DB` — évite division par zéro produisant `+inf` ou `NaN` dans `t = elapsed/D` qui propagerait à `lerpf` et à `set_bus_volume_db` (Godot accepte `NaN` silencieusement → mute permanent inaudible). `push_warning("AudioSystem F-01: SWOOSH_FADE_DURATION_MS={D} ≤ 0, fallback instant silence")` émis 1× au boot si knob invalide.
+
+### Formula 2 — Ducking release perceptuel (linear-amplitude lerp, ADR-0009 D-3)
 
 ```
-volume_db(t) = linear_to_db(lerpf(db_to_linear(DUCKED_DB), db_to_linear(NOMINAL_DB), clamp(t, 0.0, 1.0)))
-where t = (current_time_msec - duck_start_msec) / DUCKING_RELEASE_MS
+if DUCKING_RELEASE_MS <= 0.0:
+    return NOMINAL_DB                                  # F-02 HARDEN — R ≤ 0 = restore nominal instant
+t = clampf((current_time_msec - duck_start_msec) / DUCKING_RELEASE_MS, 0.0, 1.0)
+amp_lin(t) = lerpf(db_to_linear(DUCKED_DB), db_to_linear(NOMINAL_DB), t)
+volume_db(t) = linear_to_db(maxf(amp_lin(t), 1e-9))    # F-02 HARDEN — guard log(0)
 ```
+
+**Note "exponentielle" (renommé)** : la formule était nommée "exponentielle" en r1, mais elle est techniquement un **lerp linéaire en domaine d'amplitude** (`db_to_linear → lerpf → linear_to_db`). Cette opération produit une **courbe perçue exponentielle en dB** par l'oreille humaine (parce que dB est une échelle logarithmique, et lerper en linéaire = courbe log inversée en dB). C'est l'**équivalent perceptuel correct** pour un release ducking — l'oreille perçoit un retour "doux" sans plateau au midpoint. Renommage Phase C : "perceptuel (linear-amplitude lerp)" pour précision technique. Pas de changement de comportement runtime, seulement de spec.
 
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
@@ -215,13 +364,17 @@ where t = (current_time_msec - duck_start_msec) / DUCKING_RELEASE_MS
 | `NOMINAL_DB` | `n` | float | `[-30, 0]` dB | Volume bus en régime normal (avant ducking). `SWING_ACTIVE` nominal `-6 dB` per ADR-0009 D-3 note. |
 | `current_time_msec` | `t_now` | int | `[0, INT64_MAX]` ms | Wall-clock via `_get_time_msec.call()`. |
 | `duck_start_msec` | `t_0` | int | `[0, INT64_MAX]` ms | Timestamp wall-clock du tick `enemy_killed` réceptionné DEFERRED. |
-| `DUCKING_RELEASE_MS` | `R` | float | 30.0 MVP | Durée release wall-clock. Tuning `ducking_release_ms` safe `[20, 50]`. Aligné Combat AC-CMB-audio-02. |
+| `DUCKING_RELEASE_MS` | `R` | float | 30.0 MVP | Durée release wall-clock. Tuning `ducking_release_ms` safe `[20, 50]`. Aligné Combat AC-CMB-audio-02. **Guard** : `R ≤ 0` short-circuite à `NOMINAL_DB` (restore instantané). |
 
 **Conversion functions** (Godot 4.6 builtin) : `db_to_linear(x) = pow(10.0, x / 20.0)`, `linear_to_db(x) = 20.0 * log(x) / log(10.0)`.
 
-**Output Range** : `volume_db` ∈ `[DUCKED_DB, NOMINAL_DB]`.
+**Output Range** : `volume_db` ∈ `[DUCKED_DB, NOMINAL_DB]`. Si `R ≤ 0` → `volume_db = NOMINAL_DB` immédiat.
 
 **Example** : `NOMINAL_DB = -6`, `DUCKED_DB = -12`, `R = 30 ms`, `t_0 = 1000`. À `t_now = 1000` (instantané) : `volume_db = -12 dB`. À `t_now = 1015` (50% release) : `db_to_linear(-12) = 0.251`, `db_to_linear(-6) = 0.501`, `lerpf(0.251, 0.501, 0.5) = 0.376`, `linear_to_db(0.376) = -8.5 dB`. À `t_now = 1030` (100% release) : `volume_db = -6 dB` nominal restauré.
+
+**Hardening Edge Case `R-zero-or-negative`** : si knob set à `0.0` ou négatif → short-circuit `return NOMINAL_DB` (restore bus immédiat). Évite `+inf` dans `t` propagé à lerp (donnerait `db_to_linear(NOMINAL_DB)` = nominal direct par clamp à 1.0, mais defensive guard explicite). `push_warning("AudioSystem F-02: DUCKING_RELEASE_MS={R} ≤ 0, fallback instant restore")` 1× boot.
+
+**Hardening Edge Case `amp-near-zero log-guard`** : `linear_to_db(0)` = `-inf` (log 0 indéfini, Godot retourne `-inf` qui propage à `set_bus_volume_db` produisant mute permanent). Si `DUCKED_DB ≤ -180 dB` (pathologique config), `db_to_linear(-180) ≈ 1e-9` lerp peut clamp en dessous du seuil flottant. Guard `maxf(amp_lin, 1e-9)` borne la log à `-180 dB` au minimum (suffisant — bien sous seuil audible `-80 dB`). N/A dans plages MVP `DUCKED_DB ∈ [-30, 0]`.
 
 ### Formula 3 — Pool round-robin index advance
 
@@ -238,20 +391,31 @@ next_index = (current_index + 1) % pool_size
 
 ### Formula 4 — Crossfade ambient duration (Level level_active + get_etage_audio_streams)
 
+**r2.1 Phase C — equal-power-style crossfade (linear-amplitude lerp)** : la version r2 dB-domain lerp produisait une **double atténuation au midpoint** (à `t=0.5`, vieux et nouveau bus tous deux à `-40 dB` → puissance combinée perçue ≈ `-37 dB`, dip audible de ~3 dB). Phase C corrige en lerpant l'amplitude linéaire (équivalent perceptuel correct, énergie sommée plus stable au milieu pour deux signaux décorrélés comme music tracks différentes).
+
 ```
-volume_db_old(t) = lerpf(0.0, -80.0, clamp(t, 0.0, 1.0))
-volume_db_new(t) = lerpf(-80.0, 0.0, clamp(t, 0.0, 1.0))
-where t = (current_time_msec - crossfade_start_msec) / CROSSFADE_DURATION_MS
+if CROSSFADE_DURATION_MS <= 0.0:
+    set_old_to(SILENCE_DB); set_new_to(0.0)            # F-04 HARDEN — D ≤ 0 = swap instantané
+    return
+t = clampf((current_time_msec - crossfade_start_msec) / CROSSFADE_DURATION_MS, 0.0, 1.0)
+amp_old(t) = lerpf(1.0, 0.0, t)                        # 0 dB → silence en domaine linéaire
+amp_new(t) = lerpf(0.0, 1.0, t)                        # silence → 0 dB en domaine linéaire
+volume_db_old(t) = linear_to_db(maxf(amp_old(t), 1e-4))   # clamp à -80 dB
+volume_db_new(t) = linear_to_db(maxf(amp_new(t), 1e-4))   # clamp à -80 dB
 ```
 
 | Variable | Type | Range | Description |
 |----------|------|-------|-------------|
-| `CROSSFADE_DURATION_MS` | float | 1000.0 default | Durée crossfade ambient. Tuning `ambient_crossfade_ms` safe `[500, 2000]`. |
+| `CROSSFADE_DURATION_MS` | float | 1000.0 default | Durée crossfade ambient. Tuning `ambient_crossfade_ms` safe `[500, 2000]`. **Guard** : `D ≤ 0` short-circuite à swap instantané. |
 | `current_time_msec` | int | `[0, INT64_MAX]` | Wall-clock. |
 
-**Output Range** : `volume_db_old ∈ [-80, 0]` décroissant, `volume_db_new ∈ [-80, 0]` croissant.
+**Output Range** : `volume_db_old ∈ [-80, 0]` décroissant, `volume_db_new ∈ [-80, 0]` croissant. Au midpoint `t=0.5` : `amp_old = amp_new = 0.5` → `volume_db_old = volume_db_new ≈ -6 dB` (au lieu de `-40 dB` en lerp dB-domain). Énergie combinée perçue ≈ `0 dB` (signaux décorrélés se somment ≈ `√2`× = +3 dB, soit ~+3 dB perçus mais sans dip — résultat équivalent-power acceptable pour music crossfade ambient).
 
-**Note** : ce fade peut utiliser `Tween.tween_property` car `level_active` arrive hors combat (`time_scale == 1.0` garanti par contrat Level GDD §States and Transitions T-2 — pas de slow-mo en transition d'étage). Si futur Level autorise slow-mo en transition, basculer en `_physics_process` wall-clock.
+**Note** : ce fade peut utiliser `Tween.tween_property` (sur `volume_db` de chaque AudioStreamPlayer) si on précompute la courbe linear→dB chaque tick, OU implémenter directement en `_physics_process` wall-clock. La r2.1 Phase D recommande l'implémentation `_physics_process` (cohérence avec F-01/F-02, élimine dépendance Tween scaled par `time_scale` même si garanti `1.0` par contrat Level T-2 — defense in depth). Si futur Level autorise slow-mo en transition, le `_physics_process` wall-clock est déjà robuste.
+
+**Hardening Edge Case `D-zero-or-negative`** : si knob set à `0.0` ou négatif → swap instantané (`amp_old=0`, `amp_new=1`). Évite division par zéro propagée à l'interpolateur. `push_warning("AudioSystem F-04: CROSSFADE_DURATION_MS={D} ≤ 0, fallback instant swap")` 1× boot.
+
+**Hardening Note — equal-power vs linear-amplitude (r2.3 audio-director re-review feedback)** : un crossfade equal-power strict utiliserait des courbes en sinus/cosinus (`amp_old = cos(t·π/2)`, `amp_new = sin(t·π/2)`) qui maintiennent `amp_old² + amp_new² = 1` exactement (puissance constante). MVP utilise lerp linéaire (`amp_old + amp_new = 1` mais puissance sommée varie ~3 dB sur [0, 0.5, 1]) — c'est un **swell perceptible** au midpoint pour ambient à `-12 dB` Chrome Zen avec sub-bass corrélé entre tracks synthwave. Le tuning knob `ambient_crossfade_curve` enum `LINEAR | EQUAL_POWER` permet l'escalade. **R2.3 décision compromise** : default reste `LINEAR` (impl plus simple Phase D), MAIS test A/B Sprint Audio Day 1 **BLOCKING** : sound-designer compare `LINEAR` vs `EQUAL_POWER` cosinus sur tracks synthwave réelles à -12 dB ambient ; si swell midpoint détecté (différence A/B audible), bascule du default `EQUAL_POWER` AVANT release candidate. Pas de "escalader plus tard" — la décision est gate-checked Sprint Audio. Évite shipper un default LINEAR connu défectueux par défaut d'attention.
 
 ### Formula 5 — Pitch shift bus-level sous slow-mo (r2 Phase A — Martin D3 Option A)
 
@@ -270,7 +434,7 @@ Appliqué SEULEMENT sur les bus avec `pitch_scale_follows_time_scale = true` (al
 
 **Output Range** : à `time_scale=1.0` → `pitch_scale=1.0` (no-op). À `time_scale=0.3` (Combat slow-mo) → `pitch_scale ≈ 0.8821` (≈ -2.1 semitones, "drone-down" subtil HLM-style). À `time_scale=0.1` (extreme) → clamp `pitch_scale ≈ 0.7937` (≈ -4 semitones).
 
-**Example (Combat slow-mo MVP)** : kill ennemi → `Engine.time_scale = 0.3` 100 ms wall-clock → blood ambiance (delay 50 ms post-clac) joue avec `pitch_scale ≈ 0.8821` ≈ -2.1 semitones — l'oreille perçoit la queue blood drone-down quand le temps se dilate, signature HLM. À `time_scale = 1.0` retour, `pitch_scale = 1.0` restauré graduellement (pas de pop : transition mid-`play()` prouvée pas de glitch via R-3 ADR-0009 vérification empirique).
+**Example (Combat slow-mo MVP)** : kill ennemi → `Engine.time_scale = 0.3` pendant `SLOW_MO_DURATION_MS = 50` ms wall-clock (≈ 167 ms perçus) → blood ambiance (delay 50 ms wall-clock post-clac, soit ~170 ms perçus à 0.3×, tombe en plein dans la fenêtre slow-mo) joue avec `pitch_scale ≈ 0.8821` ≈ -2.1 semitones — l'oreille perçoit la queue blood drone-down quand le temps se dilate, signature HLM. À `time_scale = 1.0` retour, `pitch_scale = 1.0` restauré graduellement (pas de pop : transition mid-`play()` prouvée pas de glitch via R-3 ADR-0009 vérification empirique).
 
 **Edge case** : si `time_scale = 0.0` (pause logique stricte — actuellement non utilisé MVP, mute Master prioritaire), formula clampe à `pitch_scale = 0.7937`. Acceptable (sons en cours seraient déjà mutés).
 
@@ -300,8 +464,8 @@ release window = 200 ms expo decay
 |----------|------|-------|-------------|
 | `threshold` | float | `[-40, -12]` dB | Niveau d'activation. Tuning si ajustement nécessaire. |
 | `ratio` | float | `[2.0, 8.0]` | Force de compression. 4.0 = "modéré", 8.0 = "ducking sec". |
-| `attack` | float | `[1, 20]` ms | Temps de réaction à un transitoire. < 5 ms requis pour suivre clac (attack < 5 ms). |
-| `release` | float | `[50, 500]` ms | Temps de retour à 0 dB après cessation du sidechain. 200 ms = laisse silence rythmique audible. |
+| `attack_us` | int | `[1000, 20000]` µs | Temps de réaction à un transitoire en **microsecondes** (Godot 4.4+ — différence breaking vs 4.3 où prop = `attack` ms). < 5000 µs requis pour suivre clac (attack < 5 ms). Default Phase D.2 : `5000` (5 ms). |
+| `release_ms` | float | `[50, 500]` ms | Temps de retour à 0 dB après cessation du sidechain. 200 ms = laisse silence rythmique audible. **API Godot 4.6** : prop `AudioEffectCompressor.release_ms` (millisecondes). |
 
 **Output Range** : `MUSIC` effective ducked entre `-3 dB` (nominal) et `-6 dB` (peak ducked) pendant ~250 ms post-clac. Imperceptible breathing artifact tant que clacs espacés > 250 ms (cohérent SWING_DURATION 120 ms + cooldown 50 ms = ~170 ms minimum entre swings ; multi-kill 2e/3e clac dans même swing prolonge le ducking sans artifact car déjà actif).
 
@@ -490,7 +654,7 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 ### Boot & Pool
 
-- **AC-AUD-01** `[Logic — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** project boot avec `default_bus_layout.tres` configuré dans `project.godot`. **WHEN** AudioSystem autoload `_ready()` complète. **THEN** : (a) `AudioServer.bus_count == 7` ; (b) noms bus dans l'ordre `MASTER / MUSIC / SFX / SWING_ACTIVE / COMBAT_KILL / AMBIENCE / UI` (vérifier `AudioServer.get_bus_name(0..6)` — UPPER_SNAKE_CASE r2 CD reco #5 canonique) ; (c) parents : `MUSIC`/`SFX`/`AMBIENCE`/`UI` parent = `MASTER`, `SWING_ACTIVE`/`COMBAT_KILL` parent = `SFX` (vérifier via `AudioServer.get_bus_send(idx) == parent_name`) ; (d) bus `MUSIC` porte exactement 1 `AudioEffectCompressor` configuré avec `sidechain == "COMBAT_KILL"` (Rule 16 + Formula 6). Test : `tests/integration/audio/audio_boot_test.gd`.
+- **AC-AUD-01** (r2.3 — attack_us/release_ms verification) `[Logic — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** project boot avec `default_bus_layout.tres` configuré dans `project.godot`. **WHEN** AudioSystem autoload `_ready()` complète. **THEN** : (a) `AudioServer.bus_count == 7` ; (b) noms bus dans l'ordre `MASTER / MUSIC / SFX / SWING_ACTIVE / COMBAT_KILL / AMBIENCE / UI` (vérifier `AudioServer.get_bus_name(0..6)` — UPPER_SNAKE_CASE r2 CD reco #5 canonique) ; (c) parents : `MUSIC`/`SFX`/`AMBIENCE`/`UI` parent = `MASTER`, `SWING_ACTIVE`/`COMBAT_KILL` parent = `SFX` (vérifier via `AudioServer.get_bus_send(idx) == parent_name`) ; (d) bus `MUSIC` porte exactement 1 `AudioEffectCompressor` (`AudioServer.get_bus_effect_count(MUSIC_idx) == 1`) configuré avec : `compressor.sidechain == "COMBAT_KILL"`, `compressor.attack_us == 5000` (5 ms en microsecondes — Godot 4.4+ API), `compressor.release_ms == 200.0`, `compressor.threshold == -24.0`, `compressor.ratio == 4.0` (Rule 16 + Formula 6). Si `attack_us` n'est pas une property accessible → FAIL avec message "Godot 4.6 AudioEffectCompressor API mismatch — engine-reference Phase D.5 required, see `docs/engine-reference/godot/audio.md` AudioEffectCompressor section". Test : `tests/integration/audio/audio_boot_test.gd`.
 
 - **AC-AUD-02** (r2 — pool sizing CD reco) `[Logic — BLOCKING] [Owner: gameplay-programmer]` — **GIVEN** boot complet. **WHEN** AudioSystem `_ready()` retourne. **THEN** : (a) pool 2D = **5** `AudioStreamPlayer` enfants AudioSystem (vérifier `_2d_pool.size() == 5`) ; (b) pool 3D = **12** `AudioStreamPlayer3D` enfants AudioSystem (`_3d_pool.size() == 12`) ; (c) Music player single instance ; (d) Ambience players = 2 ; (e) `AudioSystem.get_child_count() == 20` (assertion structurale directe — count exact des nodes audio enfants AudioSystem autoload, déterministe contrairement à `Performance.OBJECT_COUNT` delta multi-autoload boot). VC-2 ADR-0009.
 
@@ -498,11 +662,11 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 ### Combat audio contracts (cross-system)
 
-- **AC-AUD-04** `[Integration — BLOCKING] [Owner: qa-tester + lead-programmer]` (équivalent AC-CMB-51 côté Audio) — **GIVEN** AudioSystem actif, swing en cours sur bus `SWING_ACTIVE` `volume_db = -6.0`, `Engine.time_scale = 0.3` (slow-mo Combat), `_get_time_msec: Callable` mocké. **WHEN** `swing_ended` ou `enemy_killed` reçu DEFERRED frame N+1, fade-out swoosh démarre avec `_get_time_msec()` retournant successivement `1000, 1015, 1025, 1030, 1050`. **THEN** : (a) à `t = 1015` (15 ms wall-clock, 50% fade), `volume_db ≈ -43 dB ± 2 dB` (Formula 1) ; (b) à `t = 1030` (30 ms, 100%), `volume_db ≤ -60 dB` (silence pratique) ; (c) résolution complète dans `[25, 50] ms wall-clock` ; (d) si test observe résolution 75-100 ms : FAIL avec message "swoosh fade-out scaled by time_scale — Tween used in `_process` instead of wall-clock `_physics_process` — violation Rule 4 ADR-0009 D-3 + Combat AC-CMB-51". Evidence : `tests/integration/audio/swoosh_fade_wall_clock_test.gd`. VC-3 ADR-0009.
+- **AC-AUD-04** (r2.3 — F-01 boundary D ≤ 0 guard coverage) `[Integration — BLOCKING] [Owner: qa-tester + lead-programmer]` (équivalent AC-CMB-51 côté Audio) — **GIVEN** AudioSystem actif, swing en cours sur bus `SWING_ACTIVE` `volume_db = -6.0`, `Engine.time_scale = 0.3` (slow-mo Combat), `_get_time_msec: Callable` mocké. **WHEN** `swing_ended` ou `enemy_killed` reçu DEFERRED frame N+1, fade-out swoosh démarre avec `_get_time_msec()` retournant successivement `1000, 1015, 1025, 1030, 1050`. **THEN** : (a) à `t = 1015` (15 ms wall-clock, 50% fade), `volume_db ≈ -43 dB ± 2 dB` (Formula 1) ; (b) à `t = 1030` (30 ms, 100%), `volume_db ≤ -60 dB` (silence pratique) ; (c) résolution complète dans `[25, 50] ms wall-clock` ; (d) si test observe résolution 75-100 ms : FAIL avec message "swoosh fade-out scaled by time_scale — Tween used in `_process` instead of wall-clock `_physics_process` — violation Rule 4 ADR-0009 D-3 + Combat AC-CMB-51" ; (e) **boundary case `D = 0.0`** : si tuning knob `swoosh_fade_duration_ms = 0.0` (corruption save / fixture mal configuré), `volume_db == -80.0` immédiat (Formula 1 short-circuit `D ≤ 0 → SILENCE_DB`) + `push_warning` capturé 1× au boot (vérifier via mock logger ou `OS.is_debug_build()` debug-guarded `_warning_handler: Callable` injection) ; (f) **boundary case `D = -1.0`** : même comportement que (e) — guard symétrique négatif. Evidence : `tests/integration/audio/swoosh_fade_wall_clock_test.gd`. VC-3 ADR-0009.
 
 - **AC-AUD-05** (r2 — multi_kill pitch-shift) `[Integration — BLOCKING] [Owner: qa-tester]` (équivalent AC-CMB-audio-01 côté Audio, contract Combat **mis à jour** noop → pitch-shift) — **GIVEN** swing actif, counter `_kill_count_this_swing == 0`. **WHEN** 4 `enemy_killed` émis dans le même swing (multi-kill MockEnemy1..4 — testant cap pathologique 4e+ kill au-delà de Combat MAX_KILLS_PER_SWING=3). **THEN** : (a) au 1er `enemy_killed` reçu, counter passe `0 → 1`, clac joué via `play_3d_at(clac_stream, pos1, AudioBuses.COMBAT_KILL)` avec `pitch_scale ≈ 1.0 ± 0.001` ; (b) au 2e `enemy_killed` même swing, counter `1 → 2`, clac rejoué `pitch_scale ≈ 1.122 ± 0.005` (+2 semitones) ; (c) au 3e `enemy_killed`, counter `2 → 3`, clac rejoué `pitch_scale ≈ 1.260 ± 0.01` (+4 semitones) ; (d) **au 4e `enemy_killed`** (pathologique), counter `3 → 4`, clac rejoué `pitch_scale ≈ 1.260 ± 0.01` (cap +4 semitones — pas +6 carry-over, Rule 13 r2) ; (e) blood ambiance jouée 4× (1 par `enemy_killed`) avec délai 50 ms wall-clock chacune, `pitch_scale = 1.0` (blood pas pitch-shifted en time_scale=1.0 ; allowlist activée seulement sous slow-mo) ; (f) à `swing_ended` (tick ACTIVE_TICKS+1), counter reset à `0`. Test : `tests/integration/audio/multi_kill_pitch_shift_test.gd`. VC-4 ADR-0009 amendée r2.
 
-- **AC-AUD-06** `[Integration — BLOCKING] [Owner: qa-tester + lead-programmer]` (équivalent AC-CMB-audio-02 côté Audio) — **GIVEN** swoosh joue sur `SWING_ACTIVE` `volume_db = -6.0`. **WHEN** `enemy_killed` reçu DEFERRED frame N+1. **THEN** : (a) `AudioServer.get_bus_volume_db(swing_active_idx)` passe à `-12.0 dB` instantanément (1 frame) ; (b) release 30 ms wall-clock démarre dans `_physics_process` ; (c) à `t = 1015` (50% release expo), bus volume ≈ `-8.5 dB ± 1 dB` (Formula 2) ; (d) à `t = 1030` (100%), bus volume `= -6.0 dB` nominal. Evidence : MockAudioBus log timestamp wall-clock + volume_db par frame. Test : `tests/integration/audio/ducking_release_wall_clock_test.gd`. VC-5 ADR-0009.
+- **AC-AUD-06** (r2.3 — F-02 boundary R ≤ 0 guard coverage) `[Integration — BLOCKING] [Owner: qa-tester + lead-programmer]` (équivalent AC-CMB-audio-02 côté Audio) — **GIVEN** swoosh joue sur `SWING_ACTIVE` `volume_db = -6.0`. **WHEN** `enemy_killed` reçu DEFERRED frame N+1. **THEN** : (a) `AudioServer.get_bus_volume_db(swing_active_idx)` passe à `-12.0 dB` instantanément (1 frame) ; (b) release 30 ms wall-clock démarre dans `_physics_process` ; (c) à `t = 1015` (50% release perceptuel), bus volume ≈ `-8.5 dB ± 1 dB` (Formula 2) ; (d) à `t = 1030` (100%), bus volume `= -6.0 dB` nominal ; (e) **boundary case `R = 0.0`** : si tuning knob `ducking_release_ms = 0.0`, `get_bus_volume_db(swing_active_idx) == NOMINAL_DB` (restore instantané — Formula 2 short-circuit `R ≤ 0 → NOMINAL_DB`) + `push_warning` capturé 1× au boot ; (f) **boundary case `R = -1.0`** : même comportement que (e). Evidence : MockAudioBus log timestamp wall-clock + volume_db par frame. Test : `tests/integration/audio/ducking_release_wall_clock_test.gd`. VC-5 ADR-0009.
 
 ### Movement audio
 
@@ -522,7 +686,7 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 - **AC-AUD-12** `[Logic — BLOCKING] [Owner: lead-programmer]` — **GIVEN** code AudioSystem complet. **WHEN** lint CI `lint-audio-pool` exécuté. **THEN** : aucun match de `AudioStreamPlayer.new()` ou `AudioStreamPlayer3D.new()` ou `AudioListener3D.new()` dans `src/` HORS `src/core/audio_system.gd` (exception unique pour pool boot `_ready()`).
 
-- **AC-AUD-13** `[Performance — BLOCKING] [Owner: performance-analyst]` — **GIVEN** scène test 5 swings overlappés simultanés (3 swings actifs + 2 kills + 5 blood ambiance). **WHEN** mesure 1000 frames consécutifs via `Time.get_ticks_usec()`. **THEN** : (a) `frame_time p99 ≤ 16.6 ms` (60 fps locked) ; (b) audio CPU contribution `p99 ≤ 0.5 ms` (mesure isolée AudioSystem `_physics_process`) ; (c) `Performance.MEMORY_STATIC` delta après 1000 frames ≤ +100 KB ; (d) `Performance.OBJECT_COUNT` delta ≤ +0 (pas de fuite Nodes). Test : `tests/perf/audio_5_swings_stress_test.gd`. VC-8 ADR-0009.
+- **AC-AUD-13** (r2.3 — Phase D.4 sub-budgets handler isolés) `[Performance — BLOCKING] [Owner: performance-analyst]` — **GIVEN** scène test 5 swings overlappés simultanés (3 swings actifs + 2 kills + 5 blood ambiance). **WHEN** mesure 1000 frames consécutifs via `Time.get_ticks_usec()`. **THEN** : (a) `frame_time p99 ≤ 16.6 ms` (60 fps locked) ; (b) audio CPU contribution `p99 ≤ 0.5 ms` (mesure isolée AudioSystem `_physics_process`) ; (c) `Performance.MEMORY_STATIC` delta après 1000 frames ≤ +100 KB ; (d) `Performance.OBJECT_COUNT` delta ≤ +0 (pas de fuite Nodes) ; (e) **`_on_enemy_killed` handler isolé** : wrap `Time.get_ticks_usec()` avant/après le call, `p99 < 100 µs` (0.1 ms — Phase D.4 budget) — sub-cascade silencieuse vs AC global frame ; (f) **`play_3d_at` isolé** : `p99 < 50 µs` (0.05 ms — pool reuse pas d'alloc, Phase D.4 budget) ; (g) **sidechain compressor CPU runtime** : si Godot 4.6 expose `Performance.AUDIO_OUTPUT_LATENCY` ou équivalent monitor → `< 0.5%` total CPU. Sinon ADVISORY evidence Sprint Audio (Godot Profiler tab `Audio` mesure manuelle). Test : `tests/perf/audio_5_swings_stress_test.gd`. VC-8 ADR-0009.
 
 ### AudioListener3D verification (R-2 ADR-0009)
 
@@ -530,14 +694,15 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 ### pitch_scale invariance (R-3 ADR-0009)
 
-- **AC-AUD-15** (r2 — pitch shift bus-level allowlist) `[Integration — BLOCKING] [Owner: qa-tester + sound-designer]` — **GIVEN** AudioSystem prêt, swoosh joue sur `SWING_ACTIVE` (allowlist=false), blood ambiance joue sur `COMBAT_KILL` (allowlist=true MAIS slot clac exclu via `_active_clac_players`), music joue sur `MUSIC` (allowlist=false), ambient joue sur `AMBIENCE` (allowlist=true). **WHEN** `Engine.time_scale = 0.3` (slow-mo Combat). **THEN** :
+- **AC-AUD-15-a** (r2.3 — pitch shift bus-level allowlist, split BLOCKING headless-testable) `[Integration — BLOCKING] [Owner: qa-tester]` — **GIVEN** AudioSystem prêt, swoosh joue sur `SWING_ACTIVE` (allowlist=false), blood ambiance joue sur `COMBAT_KILL` (allowlist=true MAIS slot clac exclu via `_active_clac_players`), music joue sur `MUSIC` (allowlist=false), ambient joue sur `AMBIENCE` (allowlist=true). **WHEN** `Engine.time_scale = 0.3` (slow-mo Combat). **THEN** :
     - (a) **Bus invariants** : swoosh `AudioStreamPlayer.pitch_scale == 1.0 ± 0.001` (`SWING_ACTIVE`), music `pitch_scale == 1.0 ± 0.001` (`MUSIC`).
     - (b) **Bus pitch-shifted (slots blood ambiance UNIQUEMENT sur COMBAT_KILL)** : blood ambiance `pitch_scale ≈ 0.8821 ± 0.005` (≈ -2.1 semitones, Formula 5 à `time_scale=0.3`), ambient `pitch_scale ≈ 0.8821 ± 0.005`.
-    - (b') **Slot clac exclu** : si un clac `clac.wav` joue sur `COMBAT_KILL` au moment du slow-mo, son slot pool 3D est tracké dans `_active_clac_players` et son `pitch_scale == 1.0 ± 0.001` (invariant — exclusion explicite Rule 11 r2 préserve Couche 1 lisibilité rythmique).
-    - (c) **Restoration** : à `time_scale = 1.0` retour, tous bus reviennent à `pitch_scale = 1.0` graduellement. **Protocole anti-pop** (assertion testable) : enregistrer waveform output via `AudioEffectRecord` sur bus `COMBAT_KILL` pendant transition `1.0 → 0.3 → 1.0`, FFT post-render — discontinuité peak-to-peak entre frames adjacents `≤ 3 dB` (seuil empirique). Si `> 3 dB peak` : FAIL avec message "pitch_scale transition produces audible pop — R-3 ADR-0009 violation". Si headless CI ne supporte pas `AudioEffectRecord` (driver Dummy peut ne pas exposer post-effects), assertion (c) **rétrograde en ADVISORY** avec evidence Sprint Audio playtest (sound-designer écoute manuelle).
+    - (b') **Slot clac exclu** (r2.3 — tolérance multi-kill correcte) : si un clac `clac.wav` joue sur `COMBAT_KILL` au moment du slow-mo, son slot pool 3D est tracké dans `_active_clac_players` et son `pitch_scale ∈ {1.0, 1.122, 1.260} ± 0.005` (valeur Rule 13 rang multi-kill actif au moment du `play()`, PAS unconditionally `1.0` — un slot multi-kill rang 2+ doit garder son pitch Rule 13 pendant le slow-mo, pas être ramené à 1.0). L'invariant testé est : pitch_scale du slot clac == valeur Rule 13 au moment du play, et NE PAS multipliée par Formula 5 slow-mo (exclusion explicite Rule 11 r2 préserve Couche 1 lisibilité rythmique).
     - (d) **Duration sample** : duration native du sample inchangée (Godot pitch_scale impacte la lecture, pas le fichier source).
     - (e) **Sons démarrés pendant slow-mo** : `enemy_killed` reçu pendant `time_scale=0.3` → blood ambiance démarrée 50 ms post-clac sur `COMBAT_KILL` (slot blood, pas slot clac) → assertion : `pitch_scale ≈ 0.8821 ± 0.005` AU MOMENT DU `play()` (handler set pitch avant play, pas après — Rule 11 r2 mécanisme). Pas de latence 1 tick visible.
-    Test : `tests/integration/audio/pitch_shift_bus_allowlist_test.gd`. Documenter waveform analysis dans `audio.md` section "Empirical verifications". R-3 ADR-0009 amendée r2.
+    Test : `tests/integration/audio/pitch_shift_bus_allowlist_test.gd`. R-3 ADR-0009 amendée r2.
+
+- **AC-AUD-15-b** (r2.3 — anti-pop waveform, ADVISORY headless-conditional) `[Visual/Feel — ADVISORY] [Owner: sound-designer + qa-tester]` — **GIVEN** GIVEN identique AC-AUD-15-a. **WHEN** transition `time_scale: 1.0 → 0.3 → 1.0` complète. **THEN** : (c) **Protocole anti-pop** : enregistrer waveform output via `AudioEffectRecord` sur bus `COMBAT_KILL` pendant transition, FFT post-render — discontinuité peak-to-peak entre frames adjacents `≤ 3 dB` (seuil empirique). Si `> 3 dB peak` : FAIL avec message "pitch_scale transition produces audible pop — R-3 ADR-0009 violation". **Headless CI** (driver Dummy ne supporte pas `AudioEffectRecord` post-effects) : test SKIPPED + evidence requirement `production/qa/evidence/audio-pitch-transition-{date}.md` (sound-designer écoute manuelle Sprint Audio + waveform analysis Audacity/REAPER). Documenter résultats dans `docs/engine-reference/godot/audio.md` section "Empirical verifications". Si playtest sound-designer révèle pop audible → escalade BLOCKING amendement Rule 11.
 
 ### Sidechain compressor MUSIC (r2 Phase A — VC-9)
 
@@ -568,6 +733,14 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 - **AC-AUD-19** (r2.2 — secret pitch invariant slow-mo) `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** AudioSystem prêt, `Engine.time_scale = 0.3` (slow-mo Combat actif). **WHEN** `Secret.secret_collected.emit(secret_node_mock, 1)` reçu DEFERRED. **THEN** : (a) `play_3d_at` appelé avec `pitch_scale ≈ 1.335 ± 0.001` (`SECRET_PITCH_SCALE` invariant — bus `SFX` PAS dans pitch allowlist Rule 11) ; (b) le `pitch_scale` n'est PAS composite avec Formula 5 slow-mo (`pitch_scale != 1.335 × 0.8821`) ; (c) à `time_scale = 1.0` retour, prochain `secret_collected` produit toujours `pitch_scale ≈ 1.335`. Test inclus dans `tests/integration/audio/secret_collect_pitch_shift_test.gd`.
 
+### Sidechain idempotency double-boot (r2.3 — Phase D.2 guard formal coverage)
+
+- **AC-AUD-20** (r2.3 — Phase D.2 idempotent guard) `[Logic — BLOCKING] [Owner: qa-tester + gameplay-programmer]` — **GIVEN** AudioSystem instancié et `_setup_sidechain_compressor()` déjà appelé une fois au boot normal (compressor `AudioEffectCompressor` ajouté sur bus `MUSIC`, `AudioServer.get_bus_effect_count(MUSIC_idx) == 1`). **WHEN** `_setup_sidechain_compressor()` appelé une seconde fois (cas pathologique : autoload re-instantiation, scene reload mid-game, test fixture réutilisé). **THEN** : (a) `AudioServer.get_bus_effect_count(MUSIC_idx) == 1` (PAS 2 — guard idempotent Phase D.2 ligne 218) ; (b) `push_warning("AudioSystem: AudioEffectCompressor déjà présent sur MUSIC bus, skip add (idempotent)")` capturé via mock logger ou `OS.is_debug_build()` debug-guarded `_warning_handler: Callable` ; (c) **propriétés intactes** : `compressor.attack_us == 5000`, `compressor.release_ms == 200.0`, `compressor.sidechain == "COMBAT_KILL"` (l'effet original n'est pas écrasé) ; (d) **failure mode protection** : si guard absent (régression), test détecte `effect_count == 2` → FAIL avec message "Phase D.2 idempotent guard regression — double sidechain compressor produit -6 dB ducking effective au lieu de -3 dB, casse Couche 3 continuité musicale". Test : `tests/unit/audio/sidechain_idempotent_test.gd`. Cohérent ADR-0009 D-1 amendement r2 + Phase D.2.
+
+### F-04 crossfade midpoint (r2.3 — Phase C linear-amplitude fix coverage)
+
+- **AC-AUD-21** (r2.3 — F-04 linear-amplitude midpoint, prouve fix Phase C) `[Logic — BLOCKING] [Owner: qa-tester]` — **GIVEN** AudioSystem prêt, `Ambience #1` joue stream A à `volume_db = 0.0`, `Ambience #2` charge stream B à `volume_db = -80.0` (idle), crossfade démarre via `level_active(etage_id_2, ...)` avec `CROSSFADE_DURATION_MS = 1000.0`, `_get_time_msec` mocké séquence `[0, 250, 500, 750, 1000]`. **WHEN** crossfade `_physics_process` exécuté à chaque tick mocké. **THEN** : (a) à `t = 0` : `volume_db_old ≈ 0 dB ± 0.1`, `volume_db_new ≤ -60 dB` ; (b) **midpoint `t = 500` (50%)** : `volume_db_old ≈ -6 dB ± 1 dB` ET `volume_db_new ≈ -6 dB ± 1 dB` (linear-amplitude lerp Phase C — F-04 hardened) ; (c) **fix Phase C anti-regression** : si test observe `volume_db_old ≈ -40 dB` ET `volume_db_new ≈ -40 dB` au midpoint → FAIL avec message "F-04 dB-domain lerp détecté (ancien comportement r2 dip ~3 dB midpoint), Phase C linear-amplitude lerp non appliqué — vérifier `linear_to_db(maxf(amp_old, 1e-4))` impl" ; (d) à `t = 1000` (100%) : `volume_db_old ≤ -60 dB`, `volume_db_new ≈ 0 dB ± 0.1` ; (e) **boundary case `D = 0.0`** : si tuning knob `ambient_crossfade_ms = 0.0` → swap instantané (`volume_db_old = -80`, `volume_db_new = 0`) + `push_warning` capturé. Test : `tests/unit/audio/formula4_crossfade_midpoint_test.gd`. Cohérent F-04 hardening Phase C (anti-dip dB-domain).
+
 ## Open Questions
 
 | Question | Owner | Deadline | Resolution |
@@ -585,17 +758,23 @@ L'Audio System a une UI minimale au MVP (sliders volume dans menu Pause / Settin
 
 ---
 
-**Status** : Draft r2.1 Phase A+B + re-review fixes (2026-04-27) — `/design-system audio-system r2` solo auto-approve + `/design-review` fresh session post A+B (4 specialists). Phase A vision (Martin D3 Option A pitch shift bus allowlist + clac slot exclusion explicite, sidechain MUSIC ← COMBAT_KILL, multi_kill pitch +N + cap test, death 60-80 ms + overlap clarifié non-automatisable) + Phase B spec (pools 5+12, OQ#6/7/9 résolus) + 14 BLOCKING re-review fixes :
+**Status** : Draft **r2.2 Phase A+B+C+D** complete (2026-05-03) — Phase C+D auto-approuvées en exécution autonome chain post-Combat audit, formalisent les patterns implémentation déjà implicites Phase A. Précédentes phases : Phase A vision (Martin D3 Option A pitch shift bus allowlist + clac slot exclusion explicite, sidechain MUSIC ← COMBAT_KILL, multi_kill pitch +N + cap test, death 60-80 ms + overlap clarifié non-automatisable) + Phase B spec (pools 5+12, OQ#6/7/9 résolus) + 14 BLOCKING re-review fixes (2026-04-27).
 > - Éditorial r1 résidu : header "≤ 40 ms" → 60-80 ms ; Cross-Refs death.wav corrigé ; bus naming UPPER_SNAKE_CASE propagé partout (Rule 3, Mix hierarchy §1-5, Visual/Audio table, ACs, Cross-Refs) ; Mix hierarchy §4 contradiction sidechain corrigée ; §5 UI mute phrase auto-contradictoire nettoyée ; Formula 3 pool_size 5/12 (r2 sizing) ; Edge Cases pool 12 cohérence.
 > - Spec gaps Phase A : Rule 11 clac slot exclusion explicite via `_active_clac_players` tracker ; pitch_scale appliqué AVANT `play()` (zero latency 1 tick) ; Rule 16 prose attack 5 ms perceptuelle correcte ; ADR-0009 D-6 amendé pour reconnaître ADR-0002 chain (1 listener explicite) ; Rule 9 alignée.
 > - AC testability : AC-AUD-01 ajout sidechain effect verification ; AC-AUD-02 (e) `get_child_count() == 20` (déterministe) ; AC-AUD-03 (c) cycle pool 5 ; AC-AUD-05 cap 4e kill testé ; AC-AUD-07 ResourceLoader precheck + overlap evidence playtest ; AC-AUD-14 (c) `size() == 1` per ADR-0002 ; AC-AUD-15 (c) protocole anti-pop concret + (e) sons démarrés slow-mo ; AC-AUD-16 mesure `get_bus_peak_volume_left_db` post-effects + headless fallback.
 > - ADR-0009 D-6 amendement r2 (reconciliation ADR-0002 chain Camera3D → AudioListener3D explicite).
-> - Phase C (formules hardening F-01 div par zéro, F-02 perceptual conv, F-04 double atténuation) + Phase D (impl details : `play_3d_at` global_position, double-add_bus_effect guard, `_active_clac_players` impl, perf split handler/mixer thread, `audio.md` AudioEffectCompressor section) restantes.
+> - **Phase C (formules hardening — 2026-05-03)** : ✅ F-01 div-par-zéro guard (`SWOOSH_FADE_DURATION_MS ≤ 0` short-circuit `SILENCE_DB`), ✅ F-02 renommé "perceptuel (linear-amplitude lerp)" + clarification courbe perçue exponentielle + `linear_to_db` log-guard `maxf(amp, 1e-9)`, ✅ F-04 equal-power-style crossfade (linear-amplitude lerp pour éviter dip ~3 dB midpoint dB-domain) + div-par-zéro guard.
+> - **Phase D (impl details — 2026-05-03)** : ✅ D.1 `play_3d_at` world space `global_position` contract + `Vector3.is_finite` assert ; ✅ D.2 boot guard idempotent `add_bus_effect` (skip si AudioEffectCompressor déjà présent sur MUSIC bus, évite double compressor 16:1 effective) ; ✅ D.3 `_active_clac_players` tracker concrétisé (impl pseudo-code Dictionary slot_idx → true, callback `finished` CONNECT_ONE_SHOT pour erase) ; ✅ D.4 perf split handler/mixer thread documenté (AudioServer interne, pas de custom thread — Pillar 1 FLOW latency budget) ; ✅ **D.5 RESOLVED 2026-05-03** — `docs/engine-reference/godot/modules/audio.md` reçoit section AudioEffectCompressor complète (props Godot 4.6 + gotcha `attack_us` µs vs `release_ms` ms + boot guard pattern + AC-AUD-01 (d) verification block + Common Pitfalls). Pré-requis Sprint Audio levé.
 
 **Registry candidates pour update** : aucun nouveau cross-system fact (toutes constantes Audio sont system-internal MVP). Seul `RESPAWN_DELAY` referenced_by mis à jour si non déjà présent.
 
 **Next steps** :
 1. `/consistency-check audio-system` — vérifier alignement avec Combat r6 (Mix hierarchy, AC-CMB-51, AC-CMB-audio-01/02), GSM r1 (state_changed signal), Camera r2 (AudioListener3D = Camera3D), Movement (dash/wallrun/death signals), Level r4 (level_active + get_etage_audio_streams Option C).
-2. `/design-review design/gdd/audio-system.md` (fresh session) — verdict APPROVED / NEEDS REVISION.
+2. `/design-review design/gdd/audio-system.md` (fresh session) — verdict APPROVED / NEEDS REVISION sur r2.2 Phase A+B+C+D complète.
 3. ~~Coordination Level GDD r4 (signal `etage_loaded` formalisation)~~ ✅ **DONE 2026-04-27** — Level r4 amendement Option C appliqué (`get_etage_audio_streams` lookup API + `ETAGE_AUDIO_MAPPING` knob).
 4. `/create-epics audio-system` post-APPROVED.
+5. **Combat 020 unblock partiel** : avec Phase C+D complète (formules hardened + impl patterns concrets), un `MockAudioHandler` côté Combat peut implémenter le contract AC-CMB-51 / AC-CMB-audio-01 / AC-CMB-audio-02 sans attendre AudioSystem implémentation pleine. Le mock vérifie : (a) `_get_time_msec()` Callable injection (Phase A r2 OQ#9 résolu) ; (b) flag `_kill_sound_played_this_swing` reset à `swing_ended` (AC-CMB-audio-01 contract) ; (c) bus `swing_active` ducking -6 dB DEFERRED frame N+1 + release 30 ms (Formula 2 hardened). Story 020 Status peut passer `Blocked → Ready` après `/consistency-check`.
+
+---
+
+**Phase D.5 Tracker (Open Question) — ✅ RESOLVED 2026-05-03** : `docs/engine-reference/godot/modules/audio.md` reçoit section `AudioEffectCompressor (Sidechain Ducking)` complète. Note de réconciliation : la review r2.3 émettait l'hypothèse d'un breaking change `attack` ms (Godot 4.3) → `attack_us` µs (Godot 4.6). En réalité **les noms `attack_us` / `release_ms` existent depuis Godot 3.x — c'est un gotcha de nommage asymétrique long-standing, pas un breaking change 4.x**. AC-AUD-01 (d) reste valide tel quel (assertions `attack_us == 5000.0`, `release_ms == 200.0`). Engine-ref dump débloque `tests/integration/audio/audio_boot_test.gd` Sprint Audio.

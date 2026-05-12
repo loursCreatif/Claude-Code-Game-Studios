@@ -19,8 +19,17 @@
 ## Out of scope (story 002) : guards _is_hydrated / PAUSED on _on_enemy_killed
 ## (story 004), Source SECRET (story 003), run-purge via GSM (story 005),
 ## perf benchmark (story 006), static lints (story 007).
+##
+## TD-008 SPLIT #2 : signal handlers extracted to credit_signal_handlers.gd.
+## Proxy methods _on_enemy_killed / _on_state_changed etc. delegate to _handlers
+## for test seam compatibility (pattern audio_system.gd).
 
 extends Node
+
+# NOTE : pas de class_name — évite collision avec l'identifiant autoload Godot.
+
+const _CreditSignalHandlers := preload("res://src/core/credit_signal_handlers.gd")
+
 
 # ---------------------------------------------------------------------------
 # Enum
@@ -52,6 +61,18 @@ const BASE_SECRET_CREDIT: int = 5
 ## the Pillar 4 ratio plancher (AC-CRD-16). MVP : every kill grants +1 credit
 ## (story 002), so KILL_CREDIT_GRUNT == 1.
 const KILL_CREDIT_GRUNT: int = 1
+
+## Base cost (credits) for the cheapest upgrade (n=0) in the shop catalogue.
+## Curve : cost_n = BASE_UPGRADE_COST + TIER_COST_STEP × n  (F-CRD-3 0-based).
+## r2 B-2 : lowered 20 → 8 so a combat-only étage 1 (8 kills × 1 cr) reaches
+## the first upgrade without secrets (anti soft-lock Pillar 2).
+## Tier 2+ knob : will move to `data/balance/credit_config.tres`.
+const BASE_UPGRADE_COST: int = 8
+
+## Linear cost increment between consecutive upgrade tiers (F-CRD-3).
+## cost_n=1 = 8 + 20 = 28 cr, cost_n=2 = 48 cr, etc.
+## Tier 2+ knob : will move to `data/balance/credit_config.tres`.
+const TIER_COST_STEP: int = 20
 
 # ---------------------------------------------------------------------------
 # Signals
@@ -104,6 +125,14 @@ var _pending_kill_delta: int = 0
 ## sentinel without ambiguity.
 var _has_pending_kill: bool = false
 
+
+# ---------------------------------------------------------------------------
+# Handler module (TD-008 split)
+# ---------------------------------------------------------------------------
+
+var _handlers: RefCounted = null
+
+
 # ---------------------------------------------------------------------------
 # Lifecycle
 # ---------------------------------------------------------------------------
@@ -118,26 +147,29 @@ func _ready() -> void:
 	assert(BASE_SECRET_CREDIT * 1 >= 5 * KILL_CREDIT_GRUNT,
 		"AC-CRD-16 violated : BASE_SECRET_CREDIT (%d) * tier1 < 5 * KILL_CREDIT_GRUNT (%d)" \
 			% [BASE_SECRET_CREDIT, KILL_CREDIT_GRUNT])
+	# Instantiate signal handler module and inject self reference.
+	_handlers = _CreditSignalHandlers.new()
+	_handlers._economy = self
 	# GameStateManager autoload is registered BEFORE CreditEconomy in project.godot
 	# (idx 20 vs 22) — direct connection safe (D-3 ordre garanti).
-	GameStateManager.state_changed.connect(_on_state_changed)
+	GameStateManager.state_changed.connect(_handlers._on_state_changed)
 	# LevelSystem autoload is registered AFTER CreditEconomy in project.godot
 	# (idx 24 vs 22) — defer the connection so the global identifier resolves.
 	_connect_level_active.call_deferred()
 	# story-005 : connexion direct car GSM autoload (project.godot ligne 20) est
 	# registered AVANT Credit (ligne 22) — cohérent avec connect state_changed
 	# ci-dessus. Pas de call_deferred necessaire (vs LevelSystem ligne 24).
-	if not GameStateManager.new_run_requested.is_connected(_on_request_new_run):
-		GameStateManager.new_run_requested.connect(_on_request_new_run)
+	if not GameStateManager.new_run_requested.is_connected(_handlers._on_request_new_run):
+		GameStateManager.new_run_requested.connect(_handlers._on_request_new_run)
 
 
 ## Establish the level_active subscription. Called via call_deferred from
 ## _ready() to dodge autoload boot ordering (LevelSystem may not yet be
 ## available when CreditEconomy._ready runs).
 func _connect_level_active() -> void:
-	if LevelSystem.level_active.is_connected(_on_level_active):
+	if LevelSystem.level_active.is_connected(_handlers._on_level_active):
 		return
-	LevelSystem.level_active.connect(_on_level_active)
+	LevelSystem.level_active.connect(_handlers._on_level_active)
 
 
 # ---------------------------------------------------------------------------
@@ -157,150 +189,37 @@ func _physics_process(_delta: float) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Signal handlers — Source KILL (story 002, R-CRD-3 / 5 / 6 / 7)
+# Proxy methods — test seam compatibility (pattern audio_system.gd)
 # ---------------------------------------------------------------------------
 
-## Fires on every Level activation (etage entry, R-Lvl-2). Purges the
-## per-run idempotence set (AC-CRD-49 d/e — first call no-op, second purges)
-## and (re)connects to every node currently in the "enemies" group so kills
-## propagate to credit attribution. Connection establishment is decoupled
-## from `_is_hydrated` (B-7 — story 004 guards the *received* signal, not the
-## connection itself). Resets the pending batch since the previous tick scope
-## is invalid post-transition.
-func _on_level_active(_etage_id: int, _player_start: Vector3) -> void:
-	_credited_this_run.clear()
-	_pending_kill_delta = 0
-	_has_pending_kill = false
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if not enemy.has_signal(&"enemy_killed"):
-			push_warning("CreditEconomy: node in 'enemies' group has no enemy_killed signal: %s" % enemy)
-			continue
-		if not enemy.enemy_killed.is_connected(_on_enemy_killed):
-			enemy.enemy_killed.connect(_on_enemy_killed)
+## Proxy → CreditSignalHandlers._on_level_active.
+## Preserved for direct GdUnit4 test calls (tests/unit/credit_economy/).
+func _on_level_active(etage_id: int, player_start: Vector3) -> void:
+	_handlers._on_level_active(etage_id, player_start)
 
 
-## Fires on every Enemy.die() that emits enemy_killed. Idempotent per
-## instance_id (AC-CRD-09 — defensive against Enemy double-die contournement).
-## Increments `_total_credits` immediately (Rule 7 comptable cohérence) ;
-## the user-facing emit is batched until the end of _physics_process when
-## `BATCH_MULTI_KILL_EMIT == true` (default MVP r2 B-1).
-##
-## Guards (story 004) :
-##   - `_is_hydrated == false` → reject silent (Rule 11 + B-7 race boot AC-CRD-51)
-##   - GSM state != PLAYING → reject silent (Rule 10, AC-CRD-36)
-##
-## Zero-alloc hot path : reuses member variables, no Dictionary literals,
-## no String allocations. May fire 60+ Hz under multi-kill bursts.
-func _on_enemy_killed(enemy: Node, _position: Vector3) -> void:
-	if not _is_hydrated:
-		return  # AC-CRD-51 c : pre-hydration kills rejected silent
-	if GameStateManager.get_current_state() != GameStateManager.State.PLAYING:
-		return  # AC-CRD-36 : non-PLAYING kills (PAUSED, etc.) rejected silent
-	var enemy_id: int = enemy.get_instance_id()
-	if _credited_this_run.has(enemy_id):
-		return  # AC-CRD-09 : silent idempotence guard, no log, no state change.
-	_credited_this_run[enemy_id] = true
-	_total_credits += 1
-	if BATCH_MULTI_KILL_EMIT:
-		_pending_kill_delta += 1
-		_has_pending_kill = true
-	else:
-		# Tier 2+ analytics-granular path — emit each kill separately.
-		credits_changed.emit(_total_credits, +1, SourceKind.KILL)
+## Proxy → CreditSignalHandlers._on_enemy_killed.
+## Preserved for direct GdUnit4 test calls (tests/unit/credit_economy/).
+func _on_enemy_killed(enemy: Node, position: Vector3) -> void:
+	_handlers._on_enemy_killed(enemy, position)
 
 
-# ---------------------------------------------------------------------------
-# Signal handlers — Source SECRET (story 003, R-CRD-9 / F-CRD-2 / EC-CRD-9)
-# ---------------------------------------------------------------------------
-
-## Fires on every SecretSystem `secret_collected(secret_node, tier)` emit.
-## Tier domain : {1, 2, 3} GDD-locked (Secret r1 R-SEC-08). Out-of-domain
-## tiers are ignored silently with a push_warning (EC-CRD-9 defensive).
-##
-## Formula F-CRD-2 : credits = BASE_SECRET_CREDIT × tier (5/10/15 MVP).
-## Émission SYNC immédiate — pas de batching MVP (1 secret = 1 emit ; un
-## joueur ne collecte pas physiquement 2 secrets dans le même tick 16.6 ms).
-##
-## Guards (story 004, symétriques à `_on_enemy_killed`) :
-##   - `_is_hydrated == false` → reject silent (Rule 11 + B-7 race boot)
-##   - GSM state != PLAYING → reject silent (Rule 10)
-##
-## Idempotence : pas de guard côté Credit — Secret System (R-SEC-08) garantit
-## qu'un secret ne peut être collecté qu'une fois (collected_secrets set
-## upstream).
-func _on_secret_collected(_secret_node: Node, tier: int) -> void:
-	if not _is_hydrated:
-		return  # pre-hydration secrets rejected silent (B-7 symmetry)
-	if GameStateManager.get_current_state() != GameStateManager.State.PLAYING:
-		return  # non-PLAYING secrets rejected silent
-	if tier < 1 or tier > 3:
-		# EC-CRD-9 : tier hors domaine → ignore silencieux + warn pour traçabilité.
-		push_warning("Credit Economy: invalid secret tier: %d" % tier)
-		return
-	var credits: int = BASE_SECRET_CREDIT * tier
-	_total_credits += credits
-	credits_changed.emit(_total_credits, credits, SourceKind.SECRET)
+## Proxy → CreditSignalHandlers._on_secret_collected.
+## Preserved for direct GdUnit4 test calls (tests/unit/credit_economy/).
+func _on_secret_collected(secret_node: Node, tier: int) -> void:
+	_handlers._on_secret_collected(secret_node, tier)
 
 
-# ---------------------------------------------------------------------------
-# Signal handlers — Persistence (story 004, R-CRD-10/11/12 + EC-CRD-8/11)
-# ---------------------------------------------------------------------------
-
-## Observer du GameStateManager.state_changed.
-##
-## Rule 11 / AC-CRD-24 : premier `state_changed(PLAYING)` reçu → hydrate UNE
-## SEULE FOIS via `SaveLoadSystem.load_int("total_credits", 0)`. Transitions
-## PLAYING ultérieures (depuis PAUSED, RESPAWNING, etc.) sont no-op (AC-CRD-37/38).
-##
-## Rule 12 / AC-CRD-23 : tout `state_changed(MENU)` → persist via
-## `SaveLoadSystem.save_int("total_credits", _total_credits)` (R-CRD-12, AC-CRD-23).
-##
-## Autres états (PAUSED, RESPAWNING, BOSS_DEFEATED) : no-op explicite —
-## EC-CRD-13 reset/respawn ne touchent pas le compteur (AC-CRD-22/26).
+## Proxy → CreditSignalHandlers._on_state_changed.
+## Preserved for direct GdUnit4 test calls (tests/unit/credit_economy/).
 func _on_state_changed(new_state: int) -> void:
-	match new_state:
-		GameStateManager.State.PLAYING:
-			if not _is_hydrated:
-				_hydrate_from_save()
-				_is_hydrated = true
-			# transitions PLAYING ultérieures = no-op (AC-CRD-37/38)
-		GameStateManager.State.MENU:
-			_persist_to_save()
-		_:
-			# PAUSED, RESPAWNING, BOSS_DEFEATED — no-op explicite.
-			pass
+	_handlers._on_state_changed(new_state)
 
 
-## Hydrate le compteur depuis le savegame. Appelé UNE SEULE FOIS au premier
-## `state_changed(PLAYING)` (guard `_is_hydrated == false` upstream). Émet
-## `credits_changed(loaded, 0, BOOT_HYDRATE)` exactement 1 fois (AC-CRD-24/30).
-##
-## EC-CRD-8 : `SaveLoadSystem.load_int` retourne `default=0` si savegame absent
-## ou clé corrompue → comportement gracieux, pas de crash.
-func _hydrate_from_save() -> void:
-	_total_credits = SaveLoadSystem.load_int("total_credits", 0)
-	credits_changed.emit(_total_credits, 0, SourceKind.BOOT_HYDRATE)
-
-
-## Persiste le compteur courant au savegame. Appelé sur chaque
-## `state_changed(MENU)` (R-CRD-12). Pas d'émission de signal — la
-## persistance est un side-effect silencieux.
-func _persist_to_save() -> void:
-	SaveLoadSystem.save_int("total_credits", _total_credits)
-
-
-## Fires when GameStateManager.request_new_run() completes (BOSS_DEFEATED → MENU).
-## Purges the per-run idempotence set so a fresh run starts cleanly (R-CRD-6,
-## AC-CRD-10). _total_credits is NEVER touched here — credit progression survives
-## runs (Pillar 2, ADR-0007 D-8 spirit). Zero-alloc : Dictionary.clear() is O(1).
-##
-## NB-CRD-4 : ce handler est UNIQUEMENT connecte au signal new_run_requested.
-## NE PAS l'appeler depuis _on_state_changed(RESPAWNING/PLAYING) ou un autre
-## trigger non-canonique — voir story-005 Control Manifest forbidden patterns.
+## Proxy → CreditSignalHandlers._on_request_new_run.
+## Preserved for direct GdUnit4 test calls (tests/unit/credit_economy/).
 func _on_request_new_run() -> void:
-	_credited_this_run.clear()
-	# AC-CRD-10 b : _total_credits intact. Aucune emission credits_changed
-	# (le compteur ne change pas, donc pas de notification UI requise).
+	_handlers._on_request_new_run()
 
 
 # ---------------------------------------------------------------------------

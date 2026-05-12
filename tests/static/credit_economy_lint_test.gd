@@ -19,8 +19,9 @@
 # Framework : GdUnit4 (extends GdUnitTestSuite).
 # ADRs      : ADR-0001 (physics authority 60Hz), ADR-0007 (autoload singleton pattern).
 # Source    : src/core/credit_economy.gd
-# CI        : TODO — integrer job lint-credit-economy dans .github/workflows/tests.yml
-#             (pattern --script, jamais --main-scene, per CLAUDE.md Godot CLI Safety).
+# CI        : intégré .github/workflows/tests.yml job `lint-credit-economy`
+#             (4 grep gates BLOCKING : AC-CRD-20 + 42 + 44 + 45). Pattern parity
+#             avec audio/menu/vfx/hud anti-patterns lints.
 
 extends GdUnitTestSuite
 

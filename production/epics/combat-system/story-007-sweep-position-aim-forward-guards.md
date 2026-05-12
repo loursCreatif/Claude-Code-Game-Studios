@@ -1,7 +1,8 @@
 # Story 007: Sweep position + aim_forward consumption + invalid/NaN guards
 
 > **Epic**: Player Combat System
-> **Status**: Done
+> **Status**: Complete
+> **Completed**: 2026-05-02 (auto-mode, fix is_equal_approx vector tolerance + tests PASS)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-23
@@ -28,12 +29,12 @@
 
 *From GDD AC-CMB-15/16/26/27/48 + Formula 1/2 :*
 
-- [ ] **AC-CMB-15** : `aim_forward` mocké à `(yaw=0, pitch=0)` → forme close `Vector3(-sin(0)*cos(0), -sin(0), -cos(0)*cos(0)) == Vector3(0, 0, -1) ± 0.001`, `length() == 1.0 ± 0.0001`
-- [ ] **AC-CMB-16** : `player.global_position = Vector3(0, 1.8, 0)`, `aim_forward = Vector3(0, 0, -1)` → `ShapeCast3D.global_transform.origin == Vector3(0, 1.8, -0.9)` (centre = position + aim × KATANA_REACH/2)
-- [ ] **AC-CMB-26** : intégration avec CameraSystem réel + `WALL_RUNNING` tilt z=0.3 rad → `aim_forward` lu reste roll-corrigé, `aim_forward.y` non dévié
-- [ ] **AC-CMB-27** : `CameraSystem.aim_forward = Vector3.ZERO` (mock bug) → swing ignoré, `_state` reste Idle, `push_error` debug
-- [ ] **AC-CMB-48** : `aim_forward = Vector3(NaN, 0, NaN)` ou `Vector3(inf, 0, 0)` → swing ignoré, `_state` Idle, `push_error` debug
-- [ ] **Forbidden grep** : aucun match `camera\.basis\.z`, `player\.transform\.basis\.z`, `\.global_transform\.basis\.z` dans `src/gameplay/combat/`
+- [x] **AC-CMB-15** : `aim_forward` mocké à `(yaw=0, pitch=0)` → forme close `Vector3(-sin(0)*cos(0), -sin(0), -cos(0)*cos(0)) == Vector3(0, 0, -1) ± 0.001`, `length() == 1.0 ± 0.0001`
+- [x] **AC-CMB-16** : `player.global_position = Vector3(0, 1.8, 0)`, `aim_forward = Vector3(0, 0, -1)` → `ShapeCast3D.global_transform.origin == Vector3(0, 1.8, -0.9)` (centre = position + aim × KATANA_REACH/2)
+- [x] **AC-CMB-26** : intégration avec CameraSystem réel + `WALL_RUNNING` tilt z=0.3 rad → `aim_forward` lu reste roll-corrigé, `aim_forward.y` non dévié
+- [x] **AC-CMB-27** : `CameraSystem.aim_forward = Vector3.ZERO` (mock bug) → swing ignoré, `_state` reste Idle, `push_error` debug
+- [x] **AC-CMB-48** : `aim_forward = Vector3(NaN, 0, NaN)` ou `Vector3(inf, 0, 0)` → swing ignoré, `_state` Idle, `push_error` debug
+- [x] **Forbidden grep** : aucun match `camera\.basis\.z`, `player\.transform\.basis\.z`, `\.global_transform\.basis\.z` dans `src/gameplay/combat/`
 
 ---
 
@@ -122,7 +123,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/combat/sweep_position_aim_guards_test.gd` — must exist and pass
 
-**Status**: [ ] Not yet created
+**Status**: ✅ Created — 8/8 PASS (`reports/report_264` 2026-05-02 — fix `is_equal_approx(vec, Vector3.ONE * tol)` GdUnit4 vector signature).
 
 ---
 

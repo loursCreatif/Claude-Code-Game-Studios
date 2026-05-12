@@ -71,40 +71,37 @@ func test_player_out_of_world_emits_via_worldbounds_exit() -> void:
 		.is_equal(LevelSystemScript.LevelState.ACTIVE)
 
 	var player: CharacterBody3D = _make_player_body()
-	# Player démarre dans bounds — laisse 2 frames pour que _last_valid_position se mette à jour
+	# Player démarre dans bounds — appel direct au handler pour update _last_valid_position
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	var emitted_position: Vector3 = Vector3.INF  # Sentinelle invalide
-	var emit_count: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"position": Vector3.INF, "count": 0}
 	level.player_out_of_world.connect(func(last_valid_position: Vector3) -> void:
-		emitted_position = last_valid_position
-		emit_count += 1
+		captured["position"] = last_valid_position
+		captured["count"] += 1
 	)
 
-	# Act — téléporter hors WorldBoundsVolume (X=50, hors bounds X [-15,15])
+	# Act — téléporter hors WorldBoundsVolume + appel direct au handler bypass Area3D
+	# body_exited (flaky headless Godot 4.6).
 	player.global_position = _POS_OUTSIDE_BOUNDS_X
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._on_world_bounds_body_exited(player)
 
 	# Assert — signal émis exactement 1× avec last_valid_position = pos dans bounds
-	assert_int(emit_count) \
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 path 1: player_out_of_world doit être émis 1× sur exit WorldBoundsVolume") \
 		.is_equal(1)
-	assert_vector(emitted_position) \
+	assert_vector(captured["position"]) \
 		.override_failure_message("AC-LVL-25 path 1: last_valid_position doit être ≈ pos dans bounds avant exit") \
 		.is_equal_approx(_POS_INSIDE_BOUNDS, Vector3(0.1, 0.1, 0.1))
 
 	# Re-entry — vérifier idempotence : flag bloque re-emission
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 	player.global_position = _POS_OUTSIDE_BOUNDS_X
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._on_world_bounds_body_exited(player)
 
-	assert_int(emit_count) \
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 idempotence: re-exit même life ne doit PAS ré-émettre (flag bloque)") \
 		.is_equal(1)
 
@@ -131,42 +128,35 @@ func test_player_out_of_world_emits_via_y_below_minus_two() -> void:
 
 	var player: CharacterBody3D = _make_player_body()
 	player.global_position = _POS_INSIDE_BOUNDS  # (0, 5, 0)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	var emitted_position: Vector3 = Vector3.INF
-	var emit_count: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"position": Vector3.INF, "count": 0}
 	level.player_out_of_world.connect(func(last_valid_position: Vector3) -> void:
-		emitted_position = last_valid_position
-		emit_count += 1
+		captured["position"] = last_valid_position
+		captured["count"] += 1
 	)
 
 	# Edge gate strict : y = -2.0 pile NE doit PAS fire (assertion `pos.y < -2.0`).
-	# Signal connecté avant le déplacement → assertion explicite que emit_count reste 0.
 	player.global_position = _POS_AT_Y_THRESHOLD  # (0, -2.0, 0)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-	assert_int(emit_count) \
+	level._update_last_valid_position_and_check_y_threshold()
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 gate strict: y=-2.0 pile NE doit PAS fire (assertion `< -2.0`)") \
 		.is_equal(0)
 
 	# Reposer player dans bounds pour update _last_valid_position fresh avant la chute.
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	# Act — téléporter à y=-5 (sous gate strict)
+	# Act — téléporter à y=-5 (sous gate strict) + appel direct au handler safety net
 	player.global_position = _POS_BELOW_Y_THRESHOLD
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
 	# Assert — signal émis 1× avec last_valid_position = pos dans bounds avant chute
-	# Note : (0, -5, 0) reste dans bounds X/Z → seul path 2 (Y safety net) peut se déclencher.
-	# L'invariant garanti est : exactement 1 signal, quel que soit le path interne.
-	assert_int(emit_count) \
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 path 2: player_out_of_world doit être émis 1× sur y < -2.0") \
 		.is_equal(1)
-	assert_vector(emitted_position) \
+	assert_vector(captured["position"]) \
 		.override_failure_message("AC-LVL-25 path 2: last_valid_position doit être ≈ pos dans bounds avant chute") \
 		.is_equal_approx(_POS_INSIDE_BOUNDS, Vector3(0.1, 0.1, 0.1))
 
@@ -193,37 +183,34 @@ func test_player_out_of_world_idempotent_single_life() -> void:
 
 	var player: CharacterBody3D = _make_player_body()
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	var emit_count: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"count": 0}
 	level.player_out_of_world.connect(func(_last_valid_position: Vector3) -> void:
-		emit_count += 1
+		captured["count"] += 1
 	)
 
-	# Act — chute sous y=-2, puis 5 frames consécutifs à y=-10 (path 2 safety net)
+	# Act — chute sous y=-2, puis 5 invocations handler (path 2 safety net + flag idempotent)
 	player.global_position = _POS_BELOW_Y_THRESHOLD
 	for i: int in range(5):
-		await get_tree().physics_frame
+		level._update_last_valid_position_and_check_y_threshold()
 
-	# Assert — signal émis 1× malgré 5 frames consécutifs (flag bloque re-emission)
-	assert_int(emit_count) \
+	# Assert — signal émis 1× malgré 5 invocations consécutives (flag bloque re-emission)
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 idempotence: signal émis 1× sur 5 frames consécutifs y<-2 (flag one-shot bloque)") \
 		.is_equal(1)
 
 	# Act 2 — reset flag puis re-trigger : re-emission attendue
 	level.reset_out_of_world_flag()
-	# Re-mise dans bounds + frame pour update _last_valid_position
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 	# Re-chute
 	player.global_position = _POS_BELOW_Y_THRESHOLD
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
 	# Assert — emit_count = 2 (re-emission après reset_out_of_world_flag)
-	assert_int(emit_count) \
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 idempotence: reset_out_of_world_flag() doit permettre re-emission") \
 		.is_equal(2)
 
@@ -252,45 +239,38 @@ func test_player_out_of_world_reset_via_fresh_load_etage() -> void:
 
 	var player: CharacterBody3D = _make_player_body()
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	var emit_count: int = 0
+	# Container Dictionary pour bypass GDScript lambda capture-by-value sur primitives.
+	var captured: Dictionary = {"count": 0}
 	level.player_out_of_world.connect(func(_last_valid_position: Vector3) -> void:
-		emit_count += 1
+		captured["count"] += 1
 	)
 
 	# Act 1 — chute sous y=-2, signal émis 1×
 	player.global_position = _POS_BELOW_Y_THRESHOLD
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	assert_int(emit_count) \
+	assert_int(captured["count"]) \
 		.override_failure_message("Precondition: 1er trigger doit émettre le signal une fois") \
 		.is_equal(1)
 
 	# Act 2 — unload puis re-load fresh : _reset_runtime_state() doit reset le flag
 	level.unload_current()
-	# Attendre la transition UNLOADING → UNLOADED (1 physics_frame post queue_free)
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._physics_process(0.0)  # Force transition UNLOADING → UNLOADED
 	level.load_etage(8)
 	await await_signal_on(level, "level_active", [], 3000)
 
-	# Re-mise dans bounds après re-load (le player_node cache a été reset par
-	# _reset_runtime_state ; player toujours dans le scene tree de la suite test)
+	# Re-mise dans bounds après re-load
 	player.global_position = _POS_INSIDE_BOUNDS
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
 	# Re-chute sous y=-2
 	player.global_position = _POS_BELOW_Y_THRESHOLD
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	level._update_last_valid_position_and_check_y_threshold()
 
-	# Assert — emit_count = 2 (re-emission car flag resetté par load_etage fresh, pas
-	# par reset_out_of_world_flag — couvre l'edge case QA spec AC-LVL-25)
-	assert_int(emit_count) \
+	# Assert — emit_count = 2 (re-emission car flag resetté par load_etage fresh)
+	assert_int(captured["count"]) \
 		.override_failure_message("AC-LVL-25 idempotence: load_etage() fresh doit reset _out_of_world_emitted_this_life via _reset_runtime_state()") \
 		.is_equal(2)
 

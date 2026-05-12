@@ -88,6 +88,13 @@ func before_test() -> void:
 	_camera_effects.add_child(_camera3d)
 	_camera_arm.add_child(_camera_effects)
 	_mock_player.add_child(_camera_arm)
+	# Set owner BEFORE _mock_player enters tree pour que set_unique_name_in_owner(true)
+	# enregistre %CameraEffects/%Camera3D dans le scope owner=_mock_player (mock scene root).
+	# Sans owner explicite : `Node not found: "%CameraEffects"` log ERROR à _ready
+	# (Mac M4 ignore l'erreur, ubuntu CI la compte comme error → test fails).
+	_camera_arm.owner = _mock_player
+	_camera_effects.owner = _mock_player
+	_camera3d.owner = _mock_player
 	add_child(_mock_player)
 	await get_tree().process_frame
 
@@ -114,6 +121,13 @@ func before_test() -> void:
 
 	# Réactiver _process maintenant que les vars sont injectées.
 	_camera_arm.set_process(true)
+
+	# Reset ring buffer write_idx pour isolation test : avec le fix owner=
+	# (ligne 95-97), _ready() complète son init et un éventuel _process auto-tick
+	# avant set_process(true) peut avoir incrémenté write_idx. Test
+	# `test_ring_buffer_write_index_starts_at_zero` exige état initial déterministe.
+	_camera_system._process_cost_write_idx = 0
+	_camera_system._latency_write_idx = 0
 
 	# Gate mouse_captured : requis pour que _on_mouse_motion dépasse le gate
 	# is_mouse_captured() et écrive dans le ring buffer latence.
@@ -436,7 +450,11 @@ func test_ac_cam_80_process_cost_p50_p99_within_budget() -> void:
 	_camera3d.fov = 90.0
 	_camera_system._shake_offset = Vector3.ZERO
 	_camera_system._is_dashing = false
-	_camera_system._reduce_motion = false
+	# Polish P4 (ADR-0015) : 3 mults remplacent l'ancien _reduce_motion bool.
+	# 1.0 = full intensity (équivalent ancien _reduce_motion = false).
+	_camera_system._tilt_mult = 1.0
+	_camera_system._fov_kick_mult = 1.0
+	_camera_system._shake_mult = 1.0
 	# Réinitialise ring buffer pour mesure propre.
 	_camera_system._process_cost_samples = PackedFloat32Array()
 	_camera_system._process_cost_samples.resize(PROCESS_COST_CAPACITY)

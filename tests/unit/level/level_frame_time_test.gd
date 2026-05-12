@@ -197,18 +197,20 @@ func test_frame_time_p99_under_14ms_500_frames() -> void:
 
 
 ## Vérifie que la gate AC-LVL-34 p99 échoue quand le 99e percentile dépasse 14.0 ms.
-## Simule 500 frames dont 5 spikes à 18 ms qui tirent le p99 au-delà du budget.
+## Simule 500 frames dont 6 spikes à 18 ms qui tirent le p99 au-delà du budget.
 func test_frame_time_p99_exceeds_14ms_fails_gate() -> void:
-	# Arrange — 495 frames à 8.0 ms + 5 frames à 18.0 ms
-	# Avec 500 frames et index p99=494 : 5 frames > budget → p99 > 14.0 ms
+	# Arrange — 494 frames à 8.0 ms + 6 frames à 18.0 ms.
+	# Convention nearest-rank : p99 = sorted[int(499 × 0.99)] = sorted[494].
+	# Sorted ASC : index 0..493 = 8.0, index 494..499 = 18.0 → sorted[494] = 18.0.
+	# 5 spikes ne suffisent pas (sorted[494] resterait 8.0 puisque 495..499 = spikes).
 	var buf: PackedFloat32Array = PackedFloat32Array()
 	buf.resize(FRAMES_INTRA_ROOM)
 	var k: int = 0
 	while k < FRAMES_INTRA_ROOM:
-		if k >= 495:
-			buf[k] = 18.0  # 5 frames spike à 18 ms (> 14 ms gate)
+		if k >= 494:
+			buf[k] = 18.0  # 6 frames spike à 18 ms (> 14 ms gate)
 		else:
-			buf[k] = 8.0   # 495 frames stables à 8 ms
+			buf[k] = 8.0   # 494 frames stables à 8 ms
 		k += 1
 
 	# Act

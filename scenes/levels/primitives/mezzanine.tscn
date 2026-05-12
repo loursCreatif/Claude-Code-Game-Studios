@@ -2,41 +2,128 @@
 ; [node name="Mezzanine_01" instance=ExtResource("mezzanine")]
 ; Le nom de l'instance peut être quelconque — aucun check mandatory sur ce préfixe.
 ; Contenu : 1 platform + 2 walls + 1 ledge = 4 MeshInstance3D / 4 StaticBody3D.
-; Layer collision : LAYER_ENVIRONMENT (layer 2, décimal 2 — sérialisation éditeur OK per ADR-0008).
+; Layer collision : LAYER_ENVIRONMENT (layer 4, décimal 8 — bit 3 set, conforme ADR-0008 D-2).
 ; Shader cible : assets/shaders/chrome_zen_flat.gdshader (story-022).
 ; TODO story-022 : remplacer StandardMaterial3D par ShaderMaterial chrome_zen_flat.
 [gd_scene format=3 uid="uid://primitive_mezzanine"]
 
+; --- Materials MVP ---
+; TODO story-022 : remplacer par SubResource ShaderMaterial chrome_zen_flat
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.35, 0.37, 0.40, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_platform_accent"]
+albedo_color = Color(0.85, 0.85, 0.88, 1)
+emission_enabled = false
+emission_energy_multiplier = 0.0
+
+[sub_resource type="StandardMaterial3D" id="mat_wall_run_guide"]
+albedo_color = Color(0.65, 0.6, 0.7, 1)
+
+; --- Shapes ---
+[sub_resource type="BoxShape3D" id="shape_platform"]
+size = Vector3(4.0, 0.3, 4.0)
+
+[sub_resource type="BoxShape3D" id="shape_wall_lr"]
+size = Vector3(0.3, 3.0, 4.0)
+
+[sub_resource type="BoxShape3D" id="shape_ledge"]
+size = Vector3(4.0, 0.3, 0.5)
+
+; --- Meshes ---
+[sub_resource type="BoxMesh" id="mesh_platform"]
+size = Vector3(4.0, 0.3, 4.0)
+material = SubResource("mat_platform_accent")
+
+[sub_resource type="BoxMesh" id="mesh_wall_lr"]
+size = Vector3(0.3, 3.0, 4.0)
+material = SubResource("mat_wall")
+
+[sub_resource type="BoxMesh" id="mesh_ledge"]
+size = Vector3(4.0, 0.3, 0.5)
+material = SubResource("mat_platform_accent")
+
+; LED strip jaune émissive forte — accent visible à distance (image ref)
+[sub_resource type="StandardMaterial3D" id="mat_led_yellow"]
+albedo_color = Color(1.0, 0.85, 0.2, 1)
+emission_enabled = true
+emission = Color(1.0, 0.8, 0.15, 1)
+emission_energy_multiplier = 1.2
+
+[sub_resource type="BoxMesh" id="mesh_led_strip_long"]
+size = Vector3(4.05, 0.08, 0.08)
+material = SubResource("mat_led_yellow")
+
+[sub_resource type="BoxMesh" id="mesh_led_strip_short"]
+size = Vector3(0.08, 0.08, 4.05)
+material = SubResource("mat_led_yellow")
+
 [node name="Mezzanine" type="Node3D"]
 
+; Platform Y=1.0 local — atteignable au simple saut (jump height 0.875 m proto).
+; Le Player doit grimper (pas de passage dessous : Platform bottom Y=0.85 vs capsule h=1.8).
 [node name="Platform" type="StaticBody3D" parent="."]
-collision_layer = 2
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+collision_layer = 8
+collision_mask = 0
 
 [node name="PlatformMesh" type="MeshInstance3D" parent="Platform"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("mesh_platform")
 
 [node name="PlatformShape" type="CollisionShape3D" parent="Platform"]
+shape = SubResource("shape_platform")
 
+; LED strips jaunes sur les 4 arêtes du top Platform (signal jumpable)
+[node name="LedN" type="MeshInstance3D" parent="Platform"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.19, -2.0)
+mesh = SubResource("mesh_led_strip_long")
+
+[node name="LedS" type="MeshInstance3D" parent="Platform"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.19, 2.0)
+mesh = SubResource("mesh_led_strip_long")
+
+[node name="LedE" type="MeshInstance3D" parent="Platform"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.0, 0.19, 0)
+mesh = SubResource("mesh_led_strip_short")
+
+[node name="LedW" type="MeshInstance3D" parent="Platform"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.0, 0.19, 0)
+mesh = SubResource("mesh_led_strip_short")
+
+; Walls latéraux Y=2.5 (au-dessus de la Platform Y=1.0, supportent la mezzanine).
 [node name="WallLeft" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.9, 1.5, 0)
-collision_layer = 2
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.9, 2.5, 0)
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallLeftMesh" type="MeshInstance3D" parent="WallLeft"]
+mesh = SubResource("mesh_wall_lr")
 
 [node name="WallLeftShape" type="CollisionShape3D" parent="WallLeft"]
+shape = SubResource("shape_wall_lr")
 
 [node name="WallRight" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 1.5, 0)
-collision_layer = 2
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.9, 2.5, 0)
+collision_layer = 8
+collision_mask = 0
 
 [node name="WallRightMesh" type="MeshInstance3D" parent="WallRight"]
+mesh = SubResource("mesh_wall_lr")
 
 [node name="WallRightShape" type="CollisionShape3D" parent="WallRight"]
+shape = SubResource("shape_wall_lr")
 
+; Ledge à l'avant de la Platform (Y=1.1, juste au-dessus Platform top 1.15).
 [node name="Ledge" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, -1.5)
-collision_layer = 2
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, -1.5)
+collision_layer = 8
+collision_mask = 0
 
 [node name="LedgeMesh" type="MeshInstance3D" parent="Ledge"]
+mesh = SubResource("mesh_ledge")
 
 [node name="LedgeShape" type="CollisionShape3D" parent="Ledge"]
+shape = SubResource("shape_ledge")
